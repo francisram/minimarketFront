@@ -1,7 +1,9 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
 import { PosService } from '../../core/services/pos.service';
+import { CajaService } from '../../core/services/caja.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
@@ -15,11 +17,34 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, RouterModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
   template: `
     <div class="pos-wrapper">
       <!-- PANEL IZQUIERDO: CATÁLOGO Y ARMADOR -->
       <div class="pos-main">
+        <!-- ALERTA DE CAJA CERRADA -->
+        @if (!cajaService.cajaAbierta()) {
+          <div class="caja-alerta-banner mb-3">
+            <div class="caja-alerta-content">
+              <div class="caja-alerta-icon">
+                <app-icon name="alert-triangle" [size]="20" />
+              </div>
+              <div class="caja-alerta-text">
+                <strong>Caja Cerrada:</strong> No se pueden procesar cobros de ventas sin una sesión de caja abierta.
+              </div>
+            </div>
+            <div class="caja-alerta-actions">
+              <button type="button" class="btn btn-warning btn-sm" (click)="abrirModalAperturaRapida()">
+                <app-icon name="banknote" [size]="16" />
+                <span>Abrir Caja Ahora</span>
+              </button>
+              <a routerLink="/caja" class="btn btn-secondary btn-sm">
+                <span>Gestionar Turnos</span>
+              </a>
+            </div>
+          </div>
+        }
+
         <!-- BARRA SUPERIOR DE PESTAÑAS -->
         <div class="pos-tabs">
           <button 
@@ -421,6 +446,22 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
         (close)="cerrarModalCheckout()"
       >
         <div body class="checkout-form">
+          @if (!cajaService.cajaAbierta()) {
+            <div class="caja-bloqueo-box mb-3">
+              <div class="d-flex align-center gap-2 mb-2">
+                <app-icon name="alert-triangle" [size]="18" />
+                <strong>Atención: La caja se encuentra cerrada</strong>
+              </div>
+              <p class="m-0 text-sm mb-2">
+                Debes abrir una sesión de caja para poder registrar y cobrar esta venta en el sistema.
+              </p>
+              <button type="button" class="btn btn-warning btn-sm" (click)="abrirModalAperturaRapida()">
+                <app-icon name="banknote" [size]="16" />
+                <span>Abrir Caja Ahora</span>
+              </button>
+            </div>
+          }
+
           <div class="checkout-summary-bar">
             <span>Total del pedido:</span>
             <strong>{{ posService.totalTicket() | appCurrency }}</strong>
@@ -537,10 +578,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             type="button"
             class="btn btn-success btn-lg"
             (click)="confirmarVenta()"
-            [disabled]="posService.guardandoPedido()"
+            [disabled]="posService.guardandoPedido() || !cajaService.cajaAbierta()"
           >
             @if (posService.guardandoPedido()) {
               <span>Registrando venta...</span>
+            } @else if (!cajaService.cajaAbierta()) {
+              <app-icon name="lock" [size]="18" />
+              <span>Caja Cerrada</span>
             } @else {
               <app-icon name="check" [size]="18" />
               <span>Confirmar y Cobrar</span>
@@ -548,9 +592,152 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           </button>
         </div>
       </app-modal>
+
+      <!-- ==================== MODAL DE APERTURA RÁPIDA DE CAJA ==================== -->
+      <app-modal
+        [isOpen]="modalAperturaRapidaAbierto()"
+        title="Apertura Rápida de Caja"
+        size="md"
+        (close)="cerrarModalAperturaRapida()"
+      >
+        <div body class="modal-caja-body">
+          <div class="info-alert mb-3">
+            <app-icon name="banknote" [size]="20" />
+            <span>Ingresa el fondo inicial de cambio en efectivo para habilitar el cobro de ventas en este turno.</span>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label" for="posMontoInicial">Fondo Inicial en Efectivo (Gs.) *</label>
+            <div class="input-currency-wrapper">
+              <span class="currency-prefix">Gs.</span>
+              <input
+                id="posMontoInicial"
+                type="number"
+                min="0"
+                step="5000"
+                class="form-control"
+                placeholder="Ej. 100000"
+                [(ngModel)]="aperturaRapidaMonto"
+              />
+            </div>
+            <div class="quick-amounts">
+              <button type="button" class="btn-chip" (click)="aperturaRapidaMonto = 50000">50.000</button>
+              <button type="button" class="btn-chip" (click)="aperturaRapidaMonto = 100000">100.000</button>
+              <button type="button" class="btn-chip" (click)="aperturaRapidaMonto = 200000">200.000</button>
+              <button type="button" class="btn-chip" (click)="aperturaRapidaMonto = 300000">300.000</button>
+              <button type="button" class="btn-chip" (click)="aperturaRapidaMonto = 500000">500.000</button>
+            </div>
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalAperturaRapida()" [disabled]="cajaService.procesando()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="confirmarAperturaRapida()"
+            [disabled]="cajaService.procesando() || aperturaRapidaMonto < 0"
+          >
+            @if (cajaService.procesando()) {
+              <span>Abriendo caja...</span>
+            } @else {
+              <app-icon name="check" [size]="16" />
+              <span>Abrir Caja y Continuar</span>
+            }
+          </button>
+        </div>
+      </app-modal>
     </div>
   `,
   styles: [`
+    /* ALERTA Y BLOQUEO DE CAJA */
+    .caja-alerta-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fef3c7;
+      border: 1px solid #fde047;
+      border-radius: var(--radius-lg);
+      padding: 0.75rem 1.25rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .caja-alerta-content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #92400e;
+      font-size: 0.9rem;
+    }
+    .caja-alerta-icon {
+      color: #d97706;
+      display: flex;
+      align-items: center;
+    }
+    .caja-alerta-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .caja-bloqueo-box {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+    }
+    .input-currency-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .currency-prefix {
+      position: absolute;
+      left: 1rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .input-currency-wrapper input {
+      padding-left: 3rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .quick-amounts {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .btn-chip {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-chip:hover {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .info-alert {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
     .pos-wrapper {
       display: grid;
       grid-template-columns: 1fr 400px;
@@ -1237,13 +1424,17 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 })
 export class PosComponent implements OnInit {
   public readonly posService = inject(PosService);
+  public readonly cajaService = inject(CajaService);
   private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
 
   public readonly tabActiva = signal<'HELADOS' | 'PRODUCTOS'>('HELADOS');
   public readonly filtroCategoria = signal<string>('TODOS');
   public busquedaProducto: string = '';
 
   public readonly modalCheckoutAbierto = signal<boolean>(false);
+  public readonly modalAperturaRapidaAbierto = signal<boolean>(false);
+  public aperturaRapidaMonto: number = 100000;
 
   public checkoutData: {
     clienteNombre: string;
@@ -1258,6 +1449,7 @@ export class PosComponent implements OnInit {
   };
 
   ngOnInit(): void {
+    this.cajaService.cargarEstado().subscribe();
     this.posService.cargarCatalogos();
   }
 
@@ -1305,11 +1497,48 @@ export class PosComponent implements OnInit {
     return toppings.map(t => t.nombre).join(', ');
   }
 
+  abrirModalAperturaRapida(): void {
+    this.aperturaRapidaMonto = 100000;
+    this.modalAperturaRapidaAbierto.set(true);
+  }
+
+  cerrarModalAperturaRapida(): void {
+    this.modalAperturaRapidaAbierto.set(false);
+  }
+
+  confirmarAperturaRapida(): void {
+    if (this.aperturaRapidaMonto < 0) {
+      this.toast.warning('El monto inicial no puede ser negativo.');
+      return;
+    }
+
+    this.cajaService.abrirCaja({
+      montoInicial: this.aperturaRapidaMonto,
+      observaciones: 'Apertura rápida desde POS'
+    }).subscribe({
+      next: (sesion) => {
+        this.toast.success(`Caja abierta exitosamente (Sesión #${sesion.id}). Ya puedes facturar ventas.`);
+        this.cerrarModalAperturaRapida();
+      },
+      error: (err) => {
+        const msg = err.error?.mensaje || err.error?.error || 'Error al abrir la caja.';
+        this.toast.error(msg, 'Error de Apertura');
+      }
+    });
+  }
+
   abrirModalCheckout(): void {
     if (this.posService.ticketItems().length === 0) {
       this.toast.warning('Agrega productos al ticket antes de finalizar la venta.');
       return;
     }
+
+    if (!this.cajaService.cajaAbierta()) {
+      this.toast.warning('La caja se encuentra cerrada. Debes abrir la caja para registrar cobros.', 'Caja Cerrada');
+      this.abrirModalAperturaRapida();
+      return;
+    }
+
     this.modalCheckoutAbierto.set(true);
   }
 
@@ -1318,6 +1547,12 @@ export class PosComponent implements OnInit {
   }
 
   confirmarVenta(): void {
+    if (!this.cajaService.cajaAbierta()) {
+      this.toast.error('No se pueden registrar ventas: no existe una sesión de caja abierta.', 'Caja Cerrada');
+      this.abrirModalAperturaRapida();
+      return;
+    }
+
     this.posService.registrarPedido({
       clienteNombre: this.checkoutData.clienteNombre,
       tipoEntrega: this.checkoutData.tipoEntrega,
@@ -1326,6 +1561,7 @@ export class PosComponent implements OnInit {
     }).subscribe({
       next: (pedidoCreado) => {
         this.toast.success(`Venta #${pedidoCreado.id} confirmada exitosamente.`);
+        this.cajaService.cargarResumen().subscribe();
         this.cerrarModalCheckout();
         // Reset checkout form
         this.checkoutData = {
@@ -1337,7 +1573,7 @@ export class PosComponent implements OnInit {
       },
       error: (err) => {
         const mensaje = err.error?.mensaje || err.error?.error || 'Error al procesar el pedido.';
-        this.toast.error(mensaje, 'Validación de Stock', 8000);
+        this.toast.error(mensaje, 'Validación de Venta', 8000);
       }
     });
   }

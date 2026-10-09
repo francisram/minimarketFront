@@ -477,6 +477,7 @@ export class RolesComponent implements OnInit {
   public readonly modulosDisponibles: ModuloSistema[] = [
     { clave: 'dashboard', nombre: 'Dashboard General', descripcion: 'Métricas, resumen diario y accesos rápidos', icono: 'layout-dashboard' },
     { clave: 'pedidos', nombre: 'Punto de Venta / POS', descripcion: 'Venta de helados, productos y comandas', icono: 'shopping-cart' },
+    { clave: 'caja', nombre: 'Control de Caja', descripcion: 'Turnos, apertura, arqueo de ventas y cierres de caja', icono: 'banknote' },
     { clave: 'sabores', nombre: 'Catálogo de Sabores', descripcion: 'Gestión y disponibilidad de sabores en bacha', icono: 'sparkles' },
     { clave: 'presentaciones', nombre: 'Envases y Cucuruchos', descripcion: 'Potes térmicos, vasitos y conos', icono: 'package' },
     { clave: 'toppings', nombre: 'Toppings y Agregados', descripcion: 'Salsas, confites y adicionales', icono: 'cup-soda' },

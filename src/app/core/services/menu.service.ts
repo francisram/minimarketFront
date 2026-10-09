@@ -28,6 +28,7 @@ export class MenuService {
   // Mapeo canónico de módulos del sistema
   private readonly catalogoBase: MenuItem[] = [
     { clave: 'dashboard', nombre: 'Dashboard', ruta: '/dashboard', icono: 'layout-dashboard' },
+    { clave: 'caja', nombre: 'Control de Caja', ruta: '/caja', icono: 'banknote' },
     { clave: 'pedidos', nombre: 'Punto de Venta (POS)', ruta: '/pos', icono: 'shopping-cart' },
     { clave: 'monitor-pedidos', nombre: 'Monitor de Pedidos', ruta: '/pedidos', icono: 'clipboard-list' },
     { clave: 'stock', nombre: 'Control de Stock', ruta: '/stock', icono: 'warehouse', adminOnly: true },
@@ -63,7 +64,7 @@ export class MenuService {
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
       // Control de Stock, Impresoras, Institución y Dashboard SIEMPRE deben estar disponibles para administradores,
       // garantizando que aparezcan aunque la tabla 'paginas' del backend no los tenga en su semilla inicial.
-      if (isAdminOrOwner && ['stock', 'impresoras', 'institucion', 'dashboard'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'impresoras', 'institucion', 'dashboard', 'caja'].includes(item.clave)) {
         return true;
       }
 

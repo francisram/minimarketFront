@@ -5,6 +5,7 @@ import { AuthService } from '../core/services/auth.service';
 import { MenuService } from '../core/services/menu.service';
 import { InstitucionService } from '../core/services/institucion.service';
 import { StockService } from '../core/services/stock.service';
+import { CajaService } from '../core/services/caja.service';
 import { AppIconComponent } from '../shared/components/icon/icon.component';
 import { ToastComponent } from '../shared/components/toast/toast.component';
 
@@ -104,6 +105,18 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
           </div>
 
           <div class="topbar-right">
+            <!-- PILL ESTADO DE CAJA -->
+            <a 
+              routerLink="/caja" 
+              class="topbar-caja-pill" 
+              [class.caja-open]="cajaService.cajaAbierta()"
+              [class.caja-closed]="!cajaService.cajaAbierta()"
+              title="Estado del turno de caja (Clic para gestionar)"
+            >
+              <span class="caja-dot"></span>
+              <span class="caja-pill-text">{{ cajaService.cajaAbierta() ? 'Caja Abierta' : 'Caja Cerrada' }}</span>
+            </a>
+
             @if (authService.isAdminOrOwner()) {
               <a 
                 routerLink="/stock" 
@@ -396,6 +409,44 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
       gap: 0.75rem;
     }
 
+    .topbar-caja-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .topbar-caja-pill.caja-open {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    .topbar-caja-pill.caja-closed {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+    }
+    .topbar-caja-pill:hover {
+      text-decoration: none;
+      filter: brightness(0.96);
+    }
+    .caja-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .caja-open .caja-dot {
+      background: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+    }
+    .caja-closed .caja-dot {
+      background: #94a3b8;
+    }
+
     .stock-alert-bell {
       position: relative;
       display: flex;
@@ -489,6 +540,7 @@ export class AppLayoutComponent implements OnInit {
   public readonly menuService = inject(MenuService);
   public readonly institucionService = inject(InstitucionService);
   public readonly stockService = inject(StockService);
+  public readonly cajaService = inject(CajaService);
   private readonly router = inject(Router);
 
   public readonly sidebarAbierto = signal<boolean>(false);
@@ -497,6 +549,7 @@ export class AppLayoutComponent implements OnInit {
     this.menuService.cargarPaginasDisponibles();
     this.institucionService.cargarInstitucion();
     this.stockService.cargarAlertas();
+    this.cajaService.cargarEstado().subscribe();
   }
 
   toggleSidebar(): void {

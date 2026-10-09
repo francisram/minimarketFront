@@ -6,6 +6,7 @@ import { PedidosService } from '../../core/services/pedidos.service';
 import { PosService } from '../../core/services/pos.service';
 import { ImpresorasService } from '../../core/services/impresoras.service';
 import { StockService } from '../../core/services/stock.service';
+import { CajaService } from '../../core/services/caja.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
@@ -92,6 +93,11 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
               <strong>Punto de Venta</strong>
               <span>Armado táctil de helados y ticket en vivo</span>
             </a>
+            <a routerLink="/caja" class="quick-link-box">
+              <app-icon name="banknote" [size]="28" />
+              <strong>Control de Caja</strong>
+              <span>Turnos, apertura, arqueo de ventas y cierres</span>
+            </a>
             <a routerLink="/pedidos" class="quick-link-box">
               <app-icon name="clipboard-list" [size]="28" />
               <strong>Monitor de Cocina</strong>
@@ -136,6 +142,14 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
               <div class="status-item">
                 <span class="status-name">Usuario Conectado:</span>
                 <strong>{{ authService.username() }} ({{ authService.role() }})</strong>
+              </div>
+              <div class="status-item">
+                <span class="status-name">Estado de Caja:</span>
+                @if (cajaService.cajaAbierta()) {
+                  <span class="badge badge-listo">Abierta (Sesión #{{ cajaService.estadoCaja()?.sesionId }})</span>
+                } @else {
+                  <span class="badge badge-cancelado">Cerrada</span>
+                }
               </div>
               <div class="status-item">
                 <span class="status-name">Punto de Venta:</span>
@@ -310,11 +324,13 @@ export class DashboardComponent implements OnInit {
   public readonly posService = inject(PosService);
   public readonly impresorasService = inject(ImpresorasService);
   public readonly stockService = inject(StockService);
+  public readonly cajaService = inject(CajaService);
 
   ngOnInit(): void {
     this.pedidosService.cargarPedidos();
     this.posService.cargarCatalogos();
     this.impresorasService.cargarImpresoras();
     this.stockService.cargarAlertas();
+    this.cajaService.cargarEstado().subscribe();
   }
 }

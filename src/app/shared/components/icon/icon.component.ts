@@ -21,6 +21,11 @@ import { Component, input } from '@angular/core';
           <path d="m7 11 5 11 5-11Z"/>
           <path d="M12 2a5 5 0 0 0-5 5v4h10V7a5 5 0 0 0-5-5Z"/>
         }
+        @case ('banknote') {
+          <rect width="20" height="12" x="2" y="6" rx="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M6 12h.01M18 12h.01"/>
+        }
         @case ('shopping-cart') {
           <circle cx="8" cy="21" r="1"/>
           <circle cx="19" cy="21" r="1"/>
