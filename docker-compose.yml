@@ -1,0 +1,11 @@
+services:
+  heladeria-front:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: heladeria-front
+    ports:
+      - "8086:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
