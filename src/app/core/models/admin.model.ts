@@ -29,3 +29,13 @@ export interface PlanLicencia {
   nombre: string;
   paginas: string[];
 }
+
+export interface Pagina {
+  id: number;
+  clave: string;
+  nombre: string;
+  url: string;
+  idPadre?: number | null;
+  icono?: string;
+  orden?: number;
+}
