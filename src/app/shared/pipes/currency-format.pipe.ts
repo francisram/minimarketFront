@@ -7,13 +7,14 @@ import { Pipe, PipeTransform } from '@angular/core';
 export class AppCurrencyPipe implements PipeTransform {
   transform(value: number | string | null | undefined): string {
     if (value === null || value === undefined || isNaN(Number(value))) {
-      return '$ 0,00';
+      return 'Gs. 0';
     }
-    const num = Number(value);
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 2
-    }).format(num);
+    const num = Math.round(Number(value));
+    const formatted = new Intl.NumberFormat('es-PY', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.abs(num));
+
+    return num < 0 ? `-Gs. ${formatted}` : `Gs. ${formatted}`;
   }
 }
