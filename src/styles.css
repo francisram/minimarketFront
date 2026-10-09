@@ -261,9 +261,16 @@ a:hover {
   color: #475569;
 }
 
-.badge-cancelado {
+.badge-cancelado, .badge-danger {
   background-color: #fee2e2;
   color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.badge-warning {
+  background-color: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
 }
 
 /* ==========================================================================

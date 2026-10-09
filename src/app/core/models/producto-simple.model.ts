@@ -3,5 +3,6 @@ export interface ProductoSimple {
   nombre: string;
   precio: number;
   stock: number;
+  stockMinimo?: number;
   activo: boolean;
 }

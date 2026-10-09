@@ -61,6 +61,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                   <div
                     class="presentacion-card"
                     [class.selected]="posService.selectedPresentacion()?.id === pres.id"
+                    [class.out-of-stock]="pres.stock !== undefined && pres.stock <= 0"
                     (click)="posService.seleccionarPresentacion(pres)"
                   >
                     <div class="pres-icon">
@@ -72,6 +73,15 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                         <span class="feature-tag">Hasta {{ pres.maxSabores }} sabores</span>
                         @if (pres.pesoGramosAprox) {
                           <span class="feature-tag">~{{ pres.pesoGramosAprox }}g</span>
+                        }
+                        @if (pres.stock !== undefined) {
+                          @if (pres.stock <= 0) {
+                            <span class="badge badge-cancelado">Sin envases</span>
+                          } @else if (pres.stockMinimo !== undefined && pres.stock <= pres.stockMinimo) {
+                            <span class="badge badge-warning" title="Pocos envases en stock">Pocos envases ({{ pres.stock }})</span>
+                          } @else {
+                            <span class="feature-tag">{{ pres.stock }} disp.</span>
+                          }
                         }
                       </div>
                     </div>
@@ -158,7 +168,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                   <div
                     class="sabor-card"
                     [class.selected]="esSaborSeleccionado(sabor)"
-                    [class.unavailable]="!sabor.disponible"
+                    [class.unavailable]="!sabor.disponible || (sabor.stockKilos !== undefined && sabor.stockKilos <= 0)"
                     (click)="onSaborClick(sabor)"
                   >
                     <div class="sabor-top">
@@ -170,7 +180,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                       }
                     </div>
 
-                    <!-- CHIPS DIETARIOS -->
+                    <!-- CHIPS DIETARIOS Y ALERTA DE STOCK DE HELADO -->
                     <div class="diet-badges">
                       @if (sabor.aptoCeliaco) {
                         <span class="badge badge-celiaco" title="Apto para Celíacos (Sin TACC)">Sin TACC</span>
@@ -181,8 +191,10 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                       @if (sabor.sinAzucar) {
                         <span class="badge badge-sinazucar" title="Sin Azúcar Agregada">Sin Azúcar</span>
                       }
-                      @if (!sabor.disponible) {
+                      @if (!sabor.disponible || (sabor.stockKilos !== undefined && sabor.stockKilos <= 0)) {
                         <span class="badge badge-danger">Agotado</span>
+                      } @else if (sabor.stockKilos !== undefined && sabor.stockMinimoKilos !== undefined && sabor.stockKilos <= sabor.stockMinimoKilos) {
+                        <span class="badge badge-warning" title="Poco helado en bacha">Quedan {{ sabor.stockKilos }} kg</span>
                       }
                     </div>
                   </div>
@@ -1325,7 +1337,7 @@ export class PosComponent implements OnInit {
       },
       error: (err) => {
         const mensaje = err.error?.mensaje || err.error?.error || 'Error al procesar el pedido.';
-        this.toast.error(mensaje, 'Error al registrar pedido');
+        this.toast.error(mensaje, 'Validación de Stock', 8000);
       }
     });
   }

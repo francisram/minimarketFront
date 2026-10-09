@@ -8,4 +8,6 @@ export interface Sabor {
   aptoCeliaco: boolean;
   esVegano: boolean;
   sinAzucar: boolean;
+  stockKilos?: number;
+  stockMinimoKilos?: number;
 }

@@ -39,6 +39,11 @@ export const routes: Routes = [
         canActivate: [adminGuard]
       },
       {
+        path: 'stock',
+        loadComponent: () => import('./features/stock/stock.component').then(m => m.StockComponent),
+        canActivate: [adminGuard]
+      },
+      {
         path: 'institucion',
         loadComponent: () => import('./features/institucion/institucion.component').then(m => m.InstitucionComponent),
         canActivate: [adminGuard]

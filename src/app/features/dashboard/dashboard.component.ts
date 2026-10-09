@@ -5,6 +5,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { PedidosService } from '../../core/services/pedidos.service';
 import { PosService } from '../../core/services/pos.service';
 import { ImpresorasService } from '../../core/services/impresoras.service';
+import { StockService } from '../../core/services/stock.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
@@ -58,6 +59,16 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
           </div>
         </div>
 
+        <div class="kpi-card" [class.kpi-alert]="stockService.totalAlertas() > 0">
+          <div class="kpi-icon kpi-stock">
+            <app-icon name="warehouse" [size]="24" />
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Alertas de Stock</span>
+            <span class="kpi-val">{{ stockService.totalAlertas() }}</span>
+          </div>
+        </div>
+
         <div class="kpi-card">
           <div class="kpi-icon kpi-printers">
             <app-icon name="printer" [size]="24" />
@@ -85,6 +96,11 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
               <app-icon name="clipboard-list" [size]="28" />
               <strong>Monitor de Cocina</strong>
               <span>Kanban de órdenes pendientes y en preparación</span>
+            </a>
+            <a routerLink="/stock" class="quick-link-box">
+              <app-icon name="warehouse" [size]="28" />
+              <strong>Control de Stock</strong>
+              <span>Bachas por kg, envases y cucuruchos</span>
             </a>
             <a routerLink="/impresoras" class="quick-link-box">
               <app-icon name="printer" [size]="28" />
@@ -184,6 +200,12 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
     .kpi-flavors { background: #dcfce7; color: #15803d; }
     .kpi-containers { background: #e0e7ff; color: #4338ca; }
     .kpi-printers { background: #fae8ff; color: #a21caf; }
+    .kpi-stock { background: #fee2e2; color: #dc2626; }
+
+    .kpi-card.kpi-alert {
+      border-color: #fca5a5;
+      background: #fff5f5;
+    }
 
     .kpi-info {
       display: flex;
@@ -275,10 +297,12 @@ export class DashboardComponent implements OnInit {
   public readonly pedidosService = inject(PedidosService);
   public readonly posService = inject(PosService);
   public readonly impresorasService = inject(ImpresorasService);
+  public readonly stockService = inject(StockService);
 
   ngOnInit(): void {
     this.pedidosService.cargarPedidos();
     this.posService.cargarCatalogos();
     this.impresorasService.cargarImpresoras();
+    this.stockService.cargarAlertas();
   }
 }

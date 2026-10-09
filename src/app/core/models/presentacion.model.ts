@@ -5,4 +5,6 @@ export interface Presentacion {
   maxSabores: number;
   pesoGramosAprox?: number;
   activo: boolean;
+  stock?: number;
+  stockMinimo?: number;
 }

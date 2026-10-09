@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
 import { MenuService } from '../core/services/menu.service';
 import { InstitucionService } from '../core/services/institucion.service';
+import { StockService } from '../core/services/stock.service';
 import { AppIconComponent } from '../shared/components/icon/icon.component';
 import { ToastComponent } from '../shared/components/toast/toast.component';
 
@@ -103,6 +104,13 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
           </div>
 
           <div class="topbar-right">
+            @if (authService.isAdminOrOwner() && stockService.totalAlertas() > 0) {
+              <a routerLink="/stock" class="stock-alert-bell" title="Ver Alertas de Stock">
+                <app-icon name="bell" [size]="18" />
+                <span class="bell-badge">{{ stockService.totalAlertas() }}</span>
+              </a>
+            }
+
             <a routerLink="/pos" class="btn btn-primary btn-sm btn-quick-pos">
               <app-icon name="shopping-cart" [size]="16" />
               <span>Abrir POS</span>
@@ -381,6 +389,42 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
       gap: 0.75rem;
     }
 
+    .stock-alert-bell {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .stock-alert-bell:hover {
+      background: #fee2e2;
+    }
+
+    .bell-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #dc2626;
+      color: #ffffff;
+      font-size: 0.6875rem;
+      font-weight: 800;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #ffffff;
+    }
+
     .btn-quick-pos {
       box-shadow: 0 2px 4px rgba(217, 119, 6, 0.2);
     }
@@ -426,6 +470,7 @@ export class AppLayoutComponent implements OnInit {
   public readonly authService = inject(AuthService);
   public readonly menuService = inject(MenuService);
   public readonly institucionService = inject(InstitucionService);
+  public readonly stockService = inject(StockService);
   private readonly router = inject(Router);
 
   public readonly sidebarAbierto = signal<boolean>(false);
@@ -433,6 +478,7 @@ export class AppLayoutComponent implements OnInit {
   ngOnInit(): void {
     this.menuService.cargarPaginasDisponibles();
     this.institucionService.cargarInstitucion();
+    this.stockService.cargarAlertas();
   }
 
   toggleSidebar(): void {

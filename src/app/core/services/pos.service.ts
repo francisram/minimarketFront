@@ -96,6 +96,10 @@ export class PosService {
 
   // --- Lógica de Armado de Helado ---
   seleccionarPresentacion(p: Presentacion): void {
+    if (p.stock !== undefined && p.stock <= 0) {
+      this.toast.warning(`No hay envases o cucuruchos disponibles para "${p.nombre}".`);
+      return;
+    }
     this.selectedPresentacion.set(p);
     // Si ya había seleccionado más sabores que los permitidos por la nueva presentación, recortar
     const saboresActuales = this.selectedSabores();
@@ -105,8 +109,8 @@ export class PosService {
   }
 
   toggleSabor(sabor: Sabor): void {
-    if (!sabor.disponible) {
-      this.toast.warning(`El sabor "${sabor.nombre}" no está disponible actualmente.`);
+    if (!sabor.disponible || (sabor.stockKilos !== undefined && sabor.stockKilos <= 0)) {
+      this.toast.warning(`El sabor "${sabor.nombre}" no tiene stock disponible.`);
       return;
     }
 
