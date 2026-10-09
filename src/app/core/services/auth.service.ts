@@ -21,10 +21,13 @@ export class AuthService {
   public readonly username = computed(() => this._session()?.username ?? '');
   public readonly role = computed(() => this._session()?.rol ?? '');
   public readonly isAdminOrOwner = computed(() => {
-    const r = this.role();
-    return r === 'ADMIN' || r === 'OWNER';
+    const r = (this.role() || '').toUpperCase();
+    return r === 'ADMIN' || r === 'OWNER' || r === 'ROLE_ADMIN' || r === 'ROLE_OWNER';
   });
-  public readonly isCajero = computed(() => this.role() === 'CAJERO');
+  public readonly isCajero = computed(() => {
+    const r = (this.role() || '').toUpperCase();
+    return r === 'CAJERO' || r === 'ROLE_CAJERO';
+  });
 
   private loadSessionFromStorage(): UserSession | null {
     try {

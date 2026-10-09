@@ -44,6 +44,21 @@ export const routes: Routes = [
         canActivate: [adminGuard]
       },
       {
+        path: 'usuarios',
+        loadComponent: () => import('./features/admin/usuarios/usuarios.component').then(m => m.UsuariosComponent),
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'roles',
+        loadComponent: () => import('./features/admin/roles/roles.component').then(m => m.RolesComponent),
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'licencia',
+        loadComponent: () => import('./features/admin/licencia/licencia.component').then(m => m.LicenciaComponent),
+        canActivate: [adminGuard]
+      },
+      {
         path: 'institucion',
         loadComponent: () => import('./features/institucion/institucion.component').then(m => m.InstitucionComponent),
         canActivate: [adminGuard]
@@ -55,6 +70,22 @@ export const routes: Routes = [
       {
         path: 'catalogos/:seccion',
         loadComponent: () => import('./features/catalogos/catalogos.component').then(m => m.CatalogosComponent)
+      },
+      {
+        path: 'sabores',
+        redirectTo: 'catalogos/sabores'
+      },
+      {
+        path: 'presentaciones',
+        redirectTo: 'catalogos/presentaciones'
+      },
+      {
+        path: 'toppings',
+        redirectTo: 'catalogos/toppings'
+      },
+      {
+        path: 'productos',
+        redirectTo: 'catalogos/productos'
       }
     ]
   },

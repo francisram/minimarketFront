@@ -30,12 +30,15 @@ export class MenuService {
     { clave: 'dashboard', nombre: 'Dashboard', ruta: '/dashboard', icono: 'layout-dashboard' },
     { clave: 'pedidos', nombre: 'Punto de Venta (POS)', ruta: '/pos', icono: 'shopping-cart' },
     { clave: 'monitor-pedidos', nombre: 'Monitor de Pedidos', ruta: '/pedidos', icono: 'clipboard-list' },
+    { clave: 'stock', nombre: 'Control de Stock', ruta: '/stock', icono: 'warehouse', adminOnly: true },
     { clave: 'sabores', nombre: 'Sabores', ruta: '/catalogos/sabores', icono: 'ice-cream' },
     { clave: 'presentaciones', nombre: 'Presentaciones', ruta: '/catalogos/presentaciones', icono: 'cup-soda' },
     { clave: 'toppings', nombre: 'Toppings', ruta: '/catalogos/toppings', icono: 'sparkles' },
     { clave: 'productos', nombre: 'Bebidas y Cafetería', ruta: '/catalogos/productos', icono: 'coffee' },
     { clave: 'impresoras', nombre: 'Impresoras ESC/POS', ruta: '/impresoras', icono: 'printer', adminOnly: true },
-    { clave: 'stock', nombre: 'Control de Stock', ruta: '/stock', icono: 'warehouse', adminOnly: true },
+    { clave: 'usuarios', nombre: 'Usuarios', ruta: '/usuarios', icono: 'user', adminOnly: true },
+    { clave: 'roles', nombre: 'Roles y Permisos', ruta: '/roles', icono: 'shield', adminOnly: true },
+    { clave: 'licencia', nombre: 'Licencia', ruta: '/licencia', icono: 'verified', adminOnly: true },
     { clave: 'institucion', nombre: 'Datos del Negocio', ruta: '/institucion', icono: 'building', adminOnly: true }
   ];
 
@@ -52,16 +55,24 @@ export class MenuService {
     const clavesDisponibles = new Set(paginas.map(p => p.clave?.toLowerCase()));
 
     return this.catalogoBase.filter(item => {
+      // 1. Si el módulo requiere ADMIN u OWNER y el usuario no lo es, nunca mostrar
       if (item.adminOnly && !isAdminOrOwner) {
         return false;
       }
-      // Si la clave base está en la licencia o es un submódulo clave (ej. monitor-pedidos se asocia a pedidos)
-      if (item.clave === 'monitor-pedidos' && clavesDisponibles.has('pedidos')) {
+
+      // 2. Módulos esenciales de administración para ADMIN / OWNER:
+      // Control de Stock, Impresoras, Institución y Dashboard SIEMPRE deben estar disponibles para administradores,
+      // garantizando que aparezcan aunque la tabla 'paginas' del backend no los tenga en su semilla inicial.
+      if (isAdminOrOwner && ['stock', 'impresoras', 'institucion', 'dashboard'].includes(item.clave)) {
         return true;
       }
-      if (item.clave === 'institucion' && (clavesDisponibles.has('licencia') || isAdminOrOwner)) {
-        return true;
+
+      // 3. Submódulo de monitor de pedidos vinculado a la clave 'pedidos'
+      if (item.clave === 'monitor-pedidos') {
+        return clavesDisponibles.has('pedidos');
       }
+
+      // 4. Módulos licenciados estándar (dashboard, sabores, presentaciones, toppings, productos, usuarios, roles, licencia)
       return clavesDisponibles.has(item.clave.toLowerCase());
     });
   });

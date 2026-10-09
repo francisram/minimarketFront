@@ -112,6 +112,18 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
               <strong>Datos de Marca</strong>
               <span>Nombre y logotipo para tickets</span>
             </a>
+            @if (authService.isAdminOrOwner()) {
+              <a routerLink="/usuarios" class="quick-link-box">
+                <app-icon name="user" [size]="28" />
+                <strong>Usuarios y Personal</strong>
+                <span>Cuentas de cajeros y administradores</span>
+              </a>
+              <a routerLink="/licencia" class="quick-link-box">
+                <app-icon name="verified" [size]="28" />
+                <strong>Licenciamiento</strong>
+                <span>Plan activo y módulos habilitados</span>
+              </a>
+            }
           </div>
         </div>
 

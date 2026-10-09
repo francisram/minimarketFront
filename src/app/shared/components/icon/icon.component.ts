@@ -144,6 +144,13 @@ import { Component, input } from '@angular/core';
           <polyline points="3.29 7 12 12 20.71 7"/>
           <line x1="12" y1="22" x2="12" y2="12"/>
         }
+        @case ('shield') {
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        }
+        @case ('verified') {
+          <path d="m9 12 2 2 4-4"/>
+          <path d="M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9z"/>
+        }
         @default {
           <circle cx="12" cy="12" r="10"/>
         }

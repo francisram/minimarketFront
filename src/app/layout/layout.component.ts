@@ -104,10 +104,17 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
           </div>
 
           <div class="topbar-right">
-            @if (authService.isAdminOrOwner() && stockService.totalAlertas() > 0) {
-              <a routerLink="/stock" class="stock-alert-bell" title="Ver Alertas de Stock">
+            @if (authService.isAdminOrOwner()) {
+              <a 
+                routerLink="/stock" 
+                class="stock-alert-bell" 
+                [class.has-alerts]="stockService.totalAlertas() > 0"
+                title="Control de Stock y Alertas de Inventario"
+              >
                 <app-icon name="bell" [size]="18" />
-                <span class="bell-badge">{{ stockService.totalAlertas() }}</span>
+                @if (stockService.totalAlertas() > 0) {
+                  <span class="bell-badge">{{ stockService.totalAlertas() }}</span>
+                }
               </a>
             }
 
@@ -397,14 +404,25 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
       width: 36px;
       height: 36px;
       border-radius: var(--radius-md);
-      background: #fef2f2;
-      color: #dc2626;
-      border: 1px solid #fca5a5;
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
       text-decoration: none;
       transition: all 0.15s;
     }
 
     .stock-alert-bell:hover {
+      background: var(--bg-subtle);
+      color: var(--text-main);
+    }
+
+    .stock-alert-bell.has-alerts {
+      background: #fef2f2;
+      color: #dc2626;
+      border-color: #fca5a5;
+    }
+
+    .stock-alert-bell.has-alerts:hover {
       background: #fee2e2;
     }
 
