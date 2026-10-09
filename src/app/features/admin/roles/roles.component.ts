@@ -152,12 +152,14 @@ export interface ModuloSistema {
                 <div
                   class="module-selector-card"
                   [class.selected]="estaSeleccionado(mod.clave)"
+                  [class.disabled]="!estaHabilitadoEnLicencia(mod.clave)"
                   (click)="toggleModulo(mod.clave)"
                 >
                   <div class="checkbox-container">
                     <input
                       type="checkbox"
                       [checked]="estaSeleccionado(mod.clave)"
+                      [disabled]="!estaHabilitadoEnLicencia(mod.clave)"
                       (change)="toggleModulo(mod.clave)"
                       (click)="$event.stopPropagation()"
                     />
@@ -166,7 +168,12 @@ export interface ModuloSistema {
                     <app-icon [name]="mod.icono" [size]="18" />
                   </div>
                   <div class="module-info">
-                    <strong class="module-title">{{ mod.nombre }}</strong>
+                    <div class="d-flex align-center gap-2">
+                      <strong class="module-title">{{ mod.nombre }}</strong>
+                      @if (!estaHabilitadoEnLicencia(mod.clave)) {
+                        <span class="badge-pending" title="Pendiente de incorporación en la tabla de licencias del backend">Backend pend.</span>
+                      }
+                    </div>
                     <span class="module-desc">{{ mod.descripcion }}</span>
                   </div>
                 </div>
@@ -394,6 +401,21 @@ export interface ModuloSistema {
       border-color: var(--primary);
       background: #fffbeb;
     }
+    .module-selector-card.disabled {
+      opacity: 0.65;
+      background: var(--bg-subtle);
+      cursor: not-allowed;
+    }
+    .badge-pending {
+      font-size: 0.65rem;
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px dashed #cbd5e1;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
     .checkbox-container {
       margin-top: 2px;
     }
@@ -532,7 +554,17 @@ export class RolesComponent implements OnInit {
     return this.paginasSeleccionadas.has(clave.toLowerCase());
   }
 
+  estaHabilitadoEnLicencia(clave: string): boolean {
+    const pags = this.adminService.paginasDisponibles();
+    if (!pags || pags.length === 0) return true;
+    return pags.some(p => p.clave.toLowerCase() === clave.toLowerCase());
+  }
+
   toggleModulo(clave: string): void {
+    if (!this.estaHabilitadoEnLicencia(clave)) {
+      this.toast.info(`El módulo "${this.formatearNombreModulo(clave)}" requiere ser incorporado en el plan de licencia del backend.`);
+      return;
+    }
     const k = clave.toLowerCase();
     if (this.paginasSeleccionadas.has(k)) {
       this.paginasSeleccionadas.delete(k);
@@ -542,7 +574,9 @@ export class RolesComponent implements OnInit {
   }
 
   seleccionarTodos(): void {
-    this.modulosDisponibles.forEach(m => this.paginasSeleccionadas.add(m.clave.toLowerCase()));
+    this.modulosDisponibles
+      .filter(m => this.estaHabilitadoEnLicencia(m.clave))
+      .forEach(m => this.paginasSeleccionadas.add(m.clave.toLowerCase()));
   }
 
   deseleccionarTodos(): void {
