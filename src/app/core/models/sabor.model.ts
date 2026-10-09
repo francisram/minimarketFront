@@ -4,6 +4,7 @@ export interface Sabor {
   id: number;
   nombre: string;
   categoria: CategoriaSabor;
+  descripcion?: string;
   disponible: boolean;
   aptoCeliaco: boolean;
   esVegano: boolean;

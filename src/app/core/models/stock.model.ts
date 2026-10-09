@@ -1,5 +1,5 @@
 export type TipoItemStock = 'PRODUCTO' | 'SABOR' | 'ENVASE';
-export type EstadoAlertaStock = 'BAJO' | 'AGOTADO';
+export type EstadoAlertaStock = 'BAJO' | 'AGOTADO' | 'BAJO_STOCK';
 
 export interface ItemAlertaStock {
   id: number;
