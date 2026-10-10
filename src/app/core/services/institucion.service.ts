@@ -20,28 +20,28 @@ export class InstitucionService {
   public readonly cargando = signal<boolean>(false);
 
   cargarInstitucion(): void {
+    this.obtenerInstitucion().subscribe();
+  }
+
+  obtenerInstitucion(): Observable<Institucion> {
     this.cargando.set(true);
-    this.http.get<Institucion>(`${this.apiUrl}/institucion`).pipe(
+    return this.http.get<Institucion>(`${this.apiUrl}/institucion`).pipe(
       catchError(() => {
         // Fallback a /api/institucion
         return this.http.get<Institucion>(`${this.apiUrl}/api/institucion`).pipe(
           catchError(() => of({ nombre: 'Heladería Artesanal', logoBase64: '' }))
         );
-      })
-    ).subscribe({
-      next: (data) => {
+      }),
+      tap(data => {
         if (data) {
           this.institucion.set(data);
         }
         this.cargando.set(false);
-      },
-      error: () => {
-        this.cargando.set(false);
-      }
-    });
+      })
+    );
   }
 
-  actualizar(datos: { nombre: string; logoBase64?: string }): Observable<Institucion> {
+  actualizar(datos: Institucion): Observable<Institucion> {
     // Asegurar que logoBase64 no incluya el prefijo "data:image/...;base64,"
     let cleanLogo = datos.logoBase64 || '';
     if (cleanLogo.includes('base64,')) {
@@ -50,13 +50,22 @@ export class InstitucionService {
 
     const payload: Institucion = {
       nombre: datos.nombre.trim(),
-      logoBase64: cleanLogo
+      logoBase64: cleanLogo,
+      ruc: datos.ruc?.trim() || undefined,
+      timbrado: datos.timbrado?.trim() || undefined,
+      timbradoVencimiento: datos.timbradoVencimiento || undefined,
+      establecimiento: datos.establecimiento?.trim() || '001',
+      puntoEmision: datos.puntoEmision?.trim() || '001',
+      ultimoNumeroFactura: datos.ultimoNumeroFactura,
+      direccion: datos.direccion?.trim() || undefined,
+      telefono: datos.telefono?.trim() || undefined,
+      ciudad: datos.ciudad?.trim() || 'Asunción'
     };
 
     return this.http.put<Institucion>(`${this.apiUrl}/institucion`, payload).pipe(
       tap(actualizado => {
         this.institucion.set(actualizado || payload);
-        this.toast.success('Datos del negocio actualizados correctamente.');
+        this.toast.success('Datos del negocio y facturación actualizados correctamente.');
       })
     );
   }

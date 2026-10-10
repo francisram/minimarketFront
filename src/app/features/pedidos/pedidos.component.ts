@@ -7,11 +7,12 @@ import { Pedido, EstadoPedido } from '../../core/models/pedido.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
+import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
 
 @Component({
   selector: 'app-pedidos',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe, ComprobanteModalComponent],
   template: `
     <div class="pedidos-container">
       <!-- ENCABEZADO Y FILTROS -->
@@ -72,7 +73,12 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <div class="order-card card-pendiente">
                 <div class="order-top">
                   <span class="order-id">#{{ p.id }}</span>
-                  <span class="badge badge-pendiente">{{ p.tipoEntrega }}</span>
+                  <div class="order-top-badges">
+                    @if (p.tipoComprobante === 'FACTURA') {
+                      <span class="badge badge-factura" title="Factura: {{ p.numeroFactura || 'Emitida' }}">FACTURA</span>
+                    }
+                    <span class="badge badge-pendiente">{{ p.tipoEntrega }}</span>
+                  </div>
                 </div>
 
                 <div class="order-client">
@@ -102,6 +108,14 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <div class="order-bottom">
                   <span class="order-total">{{ p.total | appCurrency }}</span>
                   <div class="card-actions">
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline btn-icon-only" 
+                      (click)="verComprobante(p)"
+                      title="Ver / Imprimir Comprobante"
+                    >
+                      <app-icon name="file-text" [size]="14" />
+                    </button>
                     <button 
                       type="button" 
                       class="btn btn-sm btn-primary" 
@@ -141,7 +155,12 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <div class="order-card card-preparando">
                 <div class="order-top">
                   <span class="order-id">#{{ p.id }}</span>
-                  <span class="badge badge-preparando">{{ p.tipoEntrega }}</span>
+                  <div class="order-top-badges">
+                    @if (p.tipoComprobante === 'FACTURA') {
+                      <span class="badge badge-factura" title="Factura: {{ p.numeroFactura || 'Emitida' }}">FACTURA</span>
+                    }
+                    <span class="badge badge-preparando">{{ p.tipoEntrega }}</span>
+                  </div>
                 </div>
 
                 <div class="order-client">
@@ -171,6 +190,14 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <div class="order-bottom">
                   <span class="order-total">{{ p.total | appCurrency }}</span>
                   <div class="card-actions">
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline btn-icon-only" 
+                      (click)="verComprobante(p)"
+                      title="Ver / Imprimir Comprobante"
+                    >
+                      <app-icon name="file-text" [size]="14" />
+                    </button>
                     <button 
                       type="button" 
                       class="btn btn-sm btn-success" 
@@ -210,7 +237,12 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <div class="order-card card-listo">
                 <div class="order-top">
                   <span class="order-id">#{{ p.id }}</span>
-                  <span class="badge badge-listo">{{ p.tipoEntrega }}</span>
+                  <div class="order-top-badges">
+                    @if (p.tipoComprobante === 'FACTURA') {
+                      <span class="badge badge-factura" title="Factura: {{ p.numeroFactura || 'Emitida' }}">FACTURA</span>
+                    }
+                    <span class="badge badge-listo">{{ p.tipoEntrega }}</span>
+                  </div>
                 </div>
 
                 <div class="order-client">
@@ -232,14 +264,24 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 
                 <div class="order-bottom">
                   <span class="order-total">{{ p.total | appCurrency }}</span>
-                  <button 
-                    type="button" 
-                    class="btn btn-sm btn-primary" 
-                    (click)="avanzarEstado(p, 'ENTREGADO')"
-                  >
-                    <span>Entregar</span>
-                    <app-icon name="check" [size]="14" />
-                  </button>
+                  <div class="card-actions">
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline btn-icon-only" 
+                      (click)="verComprobante(p)"
+                      title="Ver / Imprimir Comprobante"
+                    >
+                      <app-icon name="file-text" [size]="14" />
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-primary" 
+                      (click)="avanzarEstado(p, 'ENTREGADO')"
+                    >
+                      <span>Entregar</span>
+                      <app-icon name="check" [size]="14" />
+                    </button>
+                  </div>
                 </div>
               </div>
             }
@@ -261,14 +303,29 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <div class="order-card card-entregado">
                 <div class="order-top">
                   <span class="order-id">#{{ p.id }}</span>
-                  <span class="badge badge-entregado">Entregado</span>
+                  <div class="order-top-badges">
+                    @if (p.tipoComprobante === 'FACTURA') {
+                      <span class="badge badge-factura" title="Factura: {{ p.numeroFactura || 'Emitida' }}">FACTURA</span>
+                    }
+                    <span class="badge badge-entregado">Entregado</span>
+                  </div>
                 </div>
                 <div class="order-client">
                   <strong>Cliente:</strong> {{ p.clienteNombre || 'Consumidor Final' }}
                 </div>
                 <div class="order-bottom">
                   <span class="order-total">{{ p.total | appCurrency }}</span>
-                  <span class="order-method">{{ p.metodoPago }}</span>
+                  <div class="card-actions">
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline btn-icon-only" 
+                      (click)="verComprobante(p)"
+                      title="Ver / Reimprimir Comprobante"
+                    >
+                      <app-icon name="file-text" [size]="14" />
+                    </button>
+                    <span class="order-method">{{ p.metodoPago }}</span>
+                  </div>
                 </div>
               </div>
             }
@@ -300,6 +357,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           </button>
         </div>
       </app-modal>
+
+      <!-- MODAL VER/IMPRIMIR COMPROBANTE -->
+      <app-comprobante-modal
+        [isOpen]="modalComprobanteAbierto()"
+        [pedido]="pedidoSeleccionado()"
+        (close)="cerrarComprobante()"
+      />
     </div>
   `,
   styles: [`
@@ -514,6 +578,22 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       color: var(--text-muted);
     }
 
+    .badge-factura {
+      background-color: #ede9fe;
+      color: #6d28d9;
+      border: 1px solid #ddd6fe;
+      font-weight: 700;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .order-top-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
     @media (max-width: 1200px) {
       .kanban-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -533,6 +613,9 @@ export class PedidosComponent implements OnInit {
 
   public readonly modalCancelarAbierto = signal<boolean>(false);
   public readonly pedidoACancelar = signal<Pedido | null>(null);
+
+  public readonly modalComprobanteAbierto = signal<boolean>(false);
+  public readonly pedidoSeleccionado = signal<Pedido | null>(null);
 
   ngOnInit(): void {
     this.pedidosService.cargarPedidos();
@@ -571,6 +654,16 @@ export class PedidosComponent implements OnInit {
   confirmarCancelacion(pedido: Pedido): void {
     this.pedidoACancelar.set(pedido);
     this.modalCancelarAbierto.set(true);
+  }
+
+  verComprobante(pedido: Pedido): void {
+    this.pedidoSeleccionado.set(pedido);
+    this.modalComprobanteAbierto.set(true);
+  }
+
+  cerrarComprobante(): void {
+    this.modalComprobanteAbierto.set(false);
+    this.pedidoSeleccionado.set(null);
   }
 
   ejecutarCancelacion(): void {

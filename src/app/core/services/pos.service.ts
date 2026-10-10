@@ -6,7 +6,7 @@ import { Sabor } from '../models/sabor.model';
 import { Presentacion } from '../models/presentacion.model';
 import { Topping } from '../models/topping.model';
 import { ProductoSimple } from '../models/producto-simple.model';
-import { CrearPedidoRequest, ItemPedidoRequest, ItemTicketLocal, Pedido, TipoEntrega, MetodoPago } from '../models/pedido.model';
+import { CrearPedidoRequest, ItemPedidoRequest, ItemTicketLocal, Pedido, TipoEntrega, MetodoPago, TipoComprobante, CondicionVenta } from '../models/pedido.model';
 import { ToastService } from './toast.service';
 
 @Injectable({
@@ -262,6 +262,11 @@ export class PosService {
     tipoEntrega: TipoEntrega;
     metodoPago: MetodoPago;
     notas?: string;
+    tipoComprobante?: TipoComprobante;
+    condicionVenta?: CondicionVenta;
+    clienteRuc?: string;
+    clienteDireccion?: string;
+    impresoraId?: number;
   }): Observable<Pedido> {
     const items = this.ticketItems();
     if (items.length === 0) {
@@ -291,7 +296,12 @@ export class PosService {
       tipoEntrega: datosVenta.tipoEntrega,
       metodoPago: datosVenta.metodoPago,
       notas: datosVenta.notas?.trim() || undefined,
-      items: payloadItems
+      items: payloadItems,
+      tipoComprobante: datosVenta.tipoComprobante,
+      condicionVenta: datosVenta.condicionVenta,
+      clienteRuc: datosVenta.clienteRuc?.trim() || undefined,
+      clienteDireccion: datosVenta.clienteDireccion?.trim() || undefined,
+      impresoraId: datosVenta.impresoraId
     };
 
     this.guardandoPedido.set(true);

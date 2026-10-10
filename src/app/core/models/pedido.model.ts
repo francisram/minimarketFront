@@ -7,6 +7,8 @@ export type TipoEntrega = 'MOSTRADOR' | 'TAKE_AWAY' | 'DELIVERY';
 export type MetodoPago = 'EFECTIVO' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'TRANSFERENCIA_QR';
 export type EstadoPedido = 'PENDIENTE' | 'PREPARANDO' | 'LISTO' | 'ENTREGADO' | 'CANCELADO';
 export type TipoItem = 'HELADO' | 'PRODUCTO_SIMPLE';
+export type TipoComprobante = 'TICKET' | 'FACTURA';
+export type CondicionVenta = 'CONTADO' | 'CREDITO';
 
 export interface ItemPedidoRequest {
   tipoItem: TipoItem;
@@ -23,6 +25,11 @@ export interface CrearPedidoRequest {
   metodoPago: MetodoPago;
   notas?: string;
   items: ItemPedidoRequest[];
+  tipoComprobante?: TipoComprobante;
+  condicionVenta?: CondicionVenta;
+  clienteRuc?: string;
+  clienteDireccion?: string;
+  impresoraId?: number;
 }
 
 export interface DetallePedido {
@@ -33,6 +40,8 @@ export interface DetallePedido {
   toppings?: Topping[];
   productoSimple?: ProductoSimple;
   cantidad: number;
+  precioUnitario?: number;
+  precio?: number;
   subtotal?: number;
 }
 
@@ -45,9 +54,16 @@ export interface Pedido {
   notas?: string;
   total: number;
   fecha?: string;
+  fechaCreacion?: string;
   items?: DetallePedido[];
   detalles?: DetallePedido[];
   createdAt?: string;
+  tipoComprobante?: TipoComprobante;
+  condicionVenta?: CondicionVenta;
+  clienteRuc?: string;
+  clienteDireccion?: string;
+  numeroFactura?: string;
+  sesionCajaId?: number;
 }
 
 export interface ItemTicketLocal {

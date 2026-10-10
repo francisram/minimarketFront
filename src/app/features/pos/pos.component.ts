@@ -9,15 +9,16 @@ import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
 import { Topping } from '../../core/models/topping.model';
 import { ProductoSimple } from '../../core/models/producto-simple.model';
-import { TipoEntrega, MetodoPago } from '../../core/models/pedido.model';
+import { TipoEntrega, MetodoPago, TipoComprobante, CondicionVenta, Pedido } from '../../core/models/pedido.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
+import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
 
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, RouterModule, AppIconComponent, AppModalComponent, AppCurrencyPipe, ComprobanteModalComponent],
   template: `
     <div class="pos-wrapper">
       <!-- PANEL IZQUIERDO: CATÁLOGO Y ARMADOR -->
@@ -467,17 +468,109 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             <strong>{{ posService.totalTicket() | appCurrency }}</strong>
           </div>
 
-          <!-- CLIENTE -->
-          <div class="form-group">
-            <label class="form-label" for="clienteNombre">Nombre del Cliente</label>
-            <input
-              id="clienteNombre"
-              type="text"
-              class="form-control"
-              placeholder="Ej. Consumidor Final o Nombre"
-              [(ngModel)]="checkoutData.clienteNombre"
-            />
+          <!-- TIPO DE COMPROBANTE -->
+          <div class="form-group mb-3">
+            <label class="form-label">Tipo de Comprobante *</label>
+            <div class="comprobante-options">
+              <button
+                type="button"
+                class="option-tile"
+                [class.active]="checkoutData.tipoComprobante === 'TICKET'"
+                (click)="onSeleccionarTipoComprobante('TICKET')"
+              >
+                <app-icon name="printer" [size]="20" />
+                <span>Ticket de Venta</span>
+              </button>
+              <button
+                type="button"
+                class="option-tile"
+                [class.active]="checkoutData.tipoComprobante === 'FACTURA'"
+                (click)="onSeleccionarTipoComprobante('FACTURA')"
+              >
+                <app-icon name="file-text" [size]="20" />
+                <span>Factura Legal</span>
+              </button>
+            </div>
           </div>
+
+          <!-- DATOS DEL CLIENTE (FACTURA vs TICKET) -->
+          @if (checkoutData.tipoComprobante === 'FACTURA') {
+            <div class="fiscal-inputs-box mb-3">
+              <div class="fiscal-inputs-header">
+                <app-icon name="file-text" [size]="16" />
+                <span>Datos Fiscales del Cliente (Obligatorios)</span>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label" for="clienteRuc">R.U.C. o C.I. *</label>
+                  <input
+                    id="clienteRuc"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ej. 1234567-8"
+                    [(ngModel)]="checkoutData.clienteRuc"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="clienteNombreFactura">Razón Social / Nombre *</label>
+                  <input
+                    id="clienteNombreFactura"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ej. Juan Pérez / Empresa S.A."
+                    [(ngModel)]="checkoutData.clienteNombre"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="form-group mt-2">
+                <label class="form-label" for="clienteDireccion">Dirección Fiscal</label>
+                <input
+                  id="clienteDireccion"
+                  type="text"
+                  class="form-control"
+                  placeholder="Ej. Avda. España 456"
+                  [(ngModel)]="checkoutData.clienteDireccion"
+                />
+              </div>
+
+              <div class="form-group mt-2">
+                <label class="form-label">Condición de Venta</label>
+                <div class="condicion-options">
+                  <button
+                    type="button"
+                    class="option-tile-sm"
+                    [class.active]="checkoutData.condicionVenta === 'CONTADO'"
+                    (click)="checkoutData.condicionVenta = 'CONTADO'"
+                  >
+                    <span>Contado</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="option-tile-sm"
+                    [class.active]="checkoutData.condicionVenta === 'CREDITO'"
+                    (click)="checkoutData.condicionVenta = 'CREDITO'"
+                  >
+                    <span>Crédito</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <!-- CLIENTE TICKET -->
+            <div class="form-group">
+              <label class="form-label" for="clienteNombre">Nombre del Cliente (Opcional)</label>
+              <input
+                id="clienteNombre"
+                type="text"
+                class="form-control"
+                placeholder="Ej. Consumidor Final o Nombre"
+                [(ngModel)]="checkoutData.clienteNombre"
+              />
+            </div>
+          }
 
           <!-- TIPO DE ENTREGA -->
           <div class="form-group">
@@ -649,6 +742,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           </button>
         </div>
       </app-modal>
+
+      <!-- ==================== MODAL COMPROBANTE EMITIDO ==================== -->
+      <app-comprobante-modal
+        [isOpen]="modalComprobanteAbierto()"
+        [pedido]="ultimoPedidoEmitido()"
+        (close)="cerrarModalComprobante()"
+      />
     </div>
   `,
   styles: [`
@@ -1409,6 +1509,59 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       border-color: #0f172a;
     }
 
+    .comprobante-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .fiscal-inputs-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.85rem;
+    }
+
+    .fiscal-inputs-header {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 0.75rem;
+    }
+
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .condicion-options {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .option-tile-sm {
+      flex: 1;
+      padding: 0.45rem 0.5rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .option-tile-sm.active {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+
     /* RESPONSIVE */
     @media (max-width: 1100px) {
       .pos-wrapper {
@@ -1434,6 +1587,8 @@ export class PosComponent implements OnInit {
 
   public readonly modalCheckoutAbierto = signal<boolean>(false);
   public readonly modalAperturaRapidaAbierto = signal<boolean>(false);
+  public readonly modalComprobanteAbierto = signal<boolean>(false);
+  public readonly ultimoPedidoEmitido = signal<Pedido | null>(null);
   public aperturaRapidaMonto: number = 100000;
 
   public checkoutData: {
@@ -1441,11 +1596,19 @@ export class PosComponent implements OnInit {
     tipoEntrega: TipoEntrega;
     metodoPago: MetodoPago;
     notas: string;
+    tipoComprobante: TipoComprobante;
+    condicionVenta: CondicionVenta;
+    clienteRuc: string;
+    clienteDireccion: string;
   } = {
     clienteNombre: '',
     tipoEntrega: 'MOSTRADOR',
     metodoPago: 'EFECTIVO',
-    notas: ''
+    notas: '',
+    tipoComprobante: 'TICKET',
+    condicionVenta: 'CONTADO',
+    clienteRuc: '',
+    clienteDireccion: ''
   };
 
   ngOnInit(): void {
@@ -1546,6 +1709,17 @@ export class PosComponent implements OnInit {
     this.modalCheckoutAbierto.set(false);
   }
 
+  onSeleccionarTipoComprobante(tipo: TipoComprobante): void {
+    this.checkoutData.tipoComprobante = tipo;
+    if (tipo === 'FACTURA' && this.checkoutData.clienteNombre === 'Consumidor Final') {
+      this.checkoutData.clienteNombre = '';
+    }
+  }
+
+  cerrarModalComprobante(): void {
+    this.modalComprobanteAbierto.set(false);
+  }
+
   confirmarVenta(): void {
     if (!this.cajaService.cajaAbierta()) {
       this.toast.error('No se pueden registrar ventas: no existe una sesión de caja abierta.', 'Caja Cerrada');
@@ -1553,22 +1727,53 @@ export class PosComponent implements OnInit {
       return;
     }
 
+    if (this.checkoutData.tipoComprobante === 'FACTURA') {
+      if (!this.checkoutData.clienteRuc?.trim()) {
+        this.toast.warning('Para emitir Factura Legal, el RUC o C.I. del cliente es obligatorio.', 'Datos Incompletos');
+        return;
+      }
+      if (!this.checkoutData.clienteNombre?.trim()) {
+        this.toast.warning('Para emitir Factura Legal, la Razón Social o Nombre del cliente es obligatorio.', 'Datos Incompletos');
+        return;
+      }
+    }
+
+    const clienteFinal = this.checkoutData.clienteNombre?.trim() 
+      || (this.checkoutData.tipoComprobante === 'FACTURA' ? 'Sin Nombre' : 'Consumidor Final');
+
     this.posService.registrarPedido({
-      clienteNombre: this.checkoutData.clienteNombre,
+      clienteNombre: clienteFinal,
       tipoEntrega: this.checkoutData.tipoEntrega,
       metodoPago: this.checkoutData.metodoPago,
-      notas: this.checkoutData.notas
+      notas: this.checkoutData.notas,
+      tipoComprobante: this.checkoutData.tipoComprobante,
+      condicionVenta: this.checkoutData.condicionVenta,
+      clienteRuc: this.checkoutData.clienteRuc?.trim() || undefined,
+      clienteDireccion: this.checkoutData.clienteDireccion?.trim() || undefined
     }).subscribe({
       next: (pedidoCreado) => {
-        this.toast.success(`Venta #${pedidoCreado.id} confirmada exitosamente.`);
+        const msg = pedidoCreado.tipoComprobante === 'FACTURA'
+          ? `Factura ${pedidoCreado.numeroFactura || '#' + pedidoCreado.id} emitida exitosamente.`
+          : `Venta #${pedidoCreado.id} confirmada exitosamente.`;
+        this.toast.success(msg);
+
         this.cajaService.cargarResumen().subscribe();
         this.cerrarModalCheckout();
+
+        // Mostrar vista previa del comprobante emitido
+        this.ultimoPedidoEmitido.set(pedidoCreado);
+        this.modalComprobanteAbierto.set(true);
+
         // Reset checkout form
         this.checkoutData = {
           clienteNombre: '',
           tipoEntrega: 'MOSTRADOR',
           metodoPago: 'EFECTIVO',
-          notas: ''
+          notas: '',
+          tipoComprobante: 'TICKET',
+          condicionVenta: 'CONTADO',
+          clienteRuc: '',
+          clienteDireccion: ''
         };
       },
       error: (err) => {

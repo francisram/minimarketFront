@@ -71,4 +71,20 @@ export class PedidosService {
       })
     );
   }
+
+  obtenerPorId(pedidoId: number): Observable<Pedido> {
+    return this.http.get<Pedido>(`${this.apiUrl}/api/pedidos/${pedidoId}`);
+  }
+
+  imprimirTicket(pedidoId: number, impresoraId?: number): Observable<void> {
+    let params = new HttpParams();
+    if (impresoraId) {
+      params = params.set('impresoraId', impresoraId);
+    }
+    return this.http.post<void>(`${this.apiUrl}/api/pedidos/${pedidoId}/imprimir`, {}, { params }).pipe(
+      tap(() => {
+        this.toast.success(`Comprobante del pedido #${pedidoId} enviado a la impresora.`);
+      })
+    );
+  }
 }
