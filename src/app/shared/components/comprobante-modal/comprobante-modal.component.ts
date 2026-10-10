@@ -451,15 +451,20 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 14px;
-      font-weight: 800;
+      font-size: 11px;
+      font-weight: 700;
       padding: 0.35rem 0;
       border-top: 1px dashed #333;
       border-bottom: 1px dashed #333;
     }
 
+    .total-label {
+      font-weight: 700;
+    }
+
     .total-val {
-      font-size: 15px;
+      font-size: 11px;
+      font-weight: 700;
     }
 
     .iva-box {
