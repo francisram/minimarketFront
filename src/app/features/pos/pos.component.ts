@@ -361,6 +361,11 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                       } @else {
                         {{ item.productoSimple?.nombre }}
                       }
+                      @if (item.tipoIva === 'IVA_5') {
+                        <span class="badge badge-warning" style="font-size: 0.68rem; padding: 0.1rem 0.35rem; margin-left: 0.3rem;">5%</span>
+                      } @else if (item.tipoIva === 'EXENTA') {
+                        <span class="badge badge-secondary" style="font-size: 0.68rem; padding: 0.1rem 0.35rem; margin-left: 0.3rem;">Ex</span>
+                      }
                     </span>
                     <span class="item-subtotal">{{ item.subtotal | appCurrency }}</span>
                   </div>

@@ -133,7 +133,10 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
                     <td class="col-cant">{{ item.cantidad }}x</td>
                     <td class="col-desc">
                       @if (item.tipoItem === 'HELADO') {
-                        <div class="item-title">{{ item.presentacion?.nombre || 'Helado Artesanal' }}</div>
+                        <div class="item-title">
+                          {{ item.presentacion?.nombre || 'Helado Artesanal' }}
+                          <span class="iva-tag" [class.iva-tag-5]="obtenerIndicadorIva(item) === '5%'" [class.iva-tag-ex]="obtenerIndicadorIva(item) === 'Ex'">[{{ obtenerIndicadorIva(item) }}]</span>
+                        </div>
                         @if (item.sabores && item.sabores.length > 0) {
                           <div class="item-subinfo">Sabores: {{ obtenerNombresSabores(item.sabores) }}</div>
                         }
@@ -141,7 +144,10 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
                           <div class="item-subinfo">Toppings: {{ obtenerNombresToppings(item.toppings) }}</div>
                         }
                       } @else {
-                        <div class="item-title">{{ item.productoSimple?.nombre || 'Producto' }}</div>
+                        <div class="item-title">
+                          {{ item.productoSimple?.nombre || 'Producto' }}
+                          <span class="iva-tag" [class.iva-tag-5]="obtenerIndicadorIva(item) === '5%'" [class.iva-tag-ex]="obtenerIndicadorIva(item) === 'Ex'">[{{ obtenerIndicadorIva(item) }}]</span>
+                        </div>
                       }
                       <div class="item-unit-price">{{ obtenerPrecioUnitario(item) | appCurrency }} c/u</div>
                     </td>
@@ -160,21 +166,39 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
                 <span class="total-val">{{ total() | appCurrency }}</span>
               </div>
 
-              <!-- LIQUIDACIÓN DEL IVA (PARAGUAY 10%) -->
+              <!-- LIQUIDACIÓN DEL IVA (PARAGUAY) -->
               @if (esFactura()) {
                 <div class="iva-box">
-                  <div class="iva-title">LIQUIDACIÓN DEL IVA (10%)</div>
+                  <div class="iva-title">LIQUIDACIÓN DEL IVA</div>
                   <div class="iva-row">
                     <span>Gravadas (10%):</span>
                     <span>{{ gravada10() | appCurrency }}</span>
                   </div>
+                  @if (gravada5() > 0 || iva5() > 0) {
+                    <div class="iva-row">
+                      <span>Gravadas (5%):</span>
+                      <span>{{ gravada5() | appCurrency }}</span>
+                    </div>
+                  }
+                  @if (totalExentas() > 0) {
+                    <div class="iva-row">
+                      <span>Exentas:</span>
+                      <span>{{ totalExentas() | appCurrency }}</span>
+                    </div>
+                  }
                   <div class="iva-row">
                     <span>Liquidación IVA (10%):</span>
                     <span>{{ iva10() | appCurrency }}</span>
                   </div>
+                  @if (iva5() > 0 || gravada5() > 0) {
+                    <div class="iva-row">
+                      <span>Liquidación IVA (5%):</span>
+                      <span>{{ iva5() | appCurrency }}</span>
+                    </div>
+                  }
                   <div class="iva-row iva-total">
                     <span>TOTAL IVA:</span>
-                    <span>{{ iva10() | appCurrency }}</span>
+                    <span>{{ totalIva() | appCurrency }}</span>
                   </div>
                 </div>
               }
@@ -498,6 +522,21 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
       color: #000;
     }
 
+    .iva-tag {
+      font-size: 8.5px;
+      font-weight: 600;
+      color: #64748b;
+      margin-left: 0.25rem;
+    }
+
+    .iva-tag-5 {
+      color: #b45309;
+    }
+
+    .iva-tag-ex {
+      color: #475569;
+    }
+
     .ticket-notas {
       font-size: 10.5px;
       color: #333;
@@ -642,13 +681,83 @@ export class ComprobanteModalComponent implements OnInit {
     return this.pedido()?.total || 0;
   });
 
+  totalExentas = computed(() => {
+    const p = this.pedido();
+    if (p?.totalExentas !== undefined && p.totalExentas !== null) {
+      return p.totalExentas;
+    }
+    return this.detalles()
+      .filter(d => (d.tipoIva || d.productoSimple?.tipoIva || d.presentacion?.tipoIva) === 'EXENTA')
+      .reduce((acc, d) => acc + (d.subtotal || 0), 0);
+  });
+
+  totalMonto5 = computed(() => {
+    return this.detalles()
+      .filter(d => (d.tipoIva || d.productoSimple?.tipoIva || d.presentacion?.tipoIva) === 'IVA_5')
+      .reduce((acc, d) => acc + (d.subtotal || 0), 0);
+  });
+
+  iva5 = computed(() => {
+    const p = this.pedido();
+    if (p?.totalIva5 !== undefined && p.totalIva5 !== null) {
+      return p.totalIva5;
+    }
+    return Math.round(this.totalMonto5() / 21);
+  });
+
+  gravada5 = computed(() => {
+    const p = this.pedido();
+    if (p?.totalGravada5 !== undefined && p.totalGravada5 !== null) {
+      return p.totalGravada5;
+    }
+    return this.totalMonto5() - this.iva5();
+  });
+
+  totalMonto10 = computed(() => {
+    return this.detalles()
+      .filter(d => {
+        const tipo = d.tipoIva || d.productoSimple?.tipoIva || d.presentacion?.tipoIva;
+        return !tipo || tipo === 'IVA_10';
+      })
+      .reduce((acc, d) => acc + (d.subtotal || 0), 0);
+  });
+
   iva10 = computed(() => {
-    return Math.round(this.total() / 11);
+    const p = this.pedido();
+    if (p?.totalIva10 !== undefined && p.totalIva10 !== null) {
+      return p.totalIva10;
+    }
+    if (this.totalMonto5() === 0 && this.totalExentas() === 0) {
+      return Math.round(this.total() / 11);
+    }
+    return Math.round(this.totalMonto10() / 11);
   });
 
   gravada10 = computed(() => {
-    return this.total() - this.iva10();
+    const p = this.pedido();
+    if (p?.totalGravada10 !== undefined && p.totalGravada10 !== null) {
+      return p.totalGravada10;
+    }
+    if (this.totalMonto5() === 0 && this.totalExentas() === 0) {
+      return this.total() - this.iva10();
+    }
+    return this.totalMonto10() - this.iva10();
   });
+
+  totalIva = computed(() => {
+    const p = this.pedido();
+    if (p?.totalIva !== undefined && p.totalIva !== null) {
+      return p.totalIva;
+    }
+    return this.iva5() + this.iva10();
+  });
+
+  obtenerIndicadorIva(item: DetallePedido): string {
+    const tipo = item.tipoIva || item.productoSimple?.tipoIva || item.presentacion?.tipoIva;
+    if (tipo === 'IVA_5') return '5%';
+    if (tipo === 'EXENTA') return 'Ex';
+    return '10%';
+  }
 
   fechaFormateada = computed(() => {
     const p = this.pedido();

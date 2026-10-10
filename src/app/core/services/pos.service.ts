@@ -178,7 +178,8 @@ export class PosService {
       toppings: [...top],
       cantidad: 1,
       precioUnitario,
-      subtotal: precioUnitario
+      subtotal: precioUnitario,
+      tipoIva: pres.tipoIva || 'IVA_10'
     };
 
     this.ticketItems.update(items => [...items, item]);
@@ -216,7 +217,8 @@ export class PosService {
         toppings: [],
         cantidad: 1,
         precioUnitario: producto.precio,
-        subtotal: producto.precio
+        subtotal: producto.precio,
+        tipoIva: producto.tipoIva || 'IVA_10'
       };
       this.ticketItems.update(list => [...list, nuevoItem]);
       this.toast.success(`Agregado: ${producto.nombre}`);
@@ -280,13 +282,15 @@ export class PosService {
           presentacionId: item.presentacion?.id,
           saborIds: item.sabores.map(s => s.id),
           toppingIds: item.toppings.map(t => t.id),
-          cantidad: item.cantidad
+          cantidad: item.cantidad,
+          tipoIva: item.tipoIva || 'IVA_10'
         };
       } else {
         return {
           tipoItem: 'PRODUCTO_SIMPLE',
           productoSimpleId: item.productoSimple?.id,
-          cantidad: item.cantidad
+          cantidad: item.cantidad,
+          tipoIva: item.tipoIva || 'IVA_10'
         };
       }
     });

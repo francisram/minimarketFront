@@ -8,6 +8,7 @@ import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
 import { Topping } from '../../core/models/topping.model';
 import { ProductoSimple } from '../../core/models/producto-simple.model';
+import { TipoIva, OPCIONES_TIPO_IVA } from '../../core/models/tipo-iva.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
@@ -191,6 +192,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                   <th>Stock Físico</th>
                   <th>Máx. Sabores</th>
                   <th>Peso Aprox.</th>
+                  <th>IVA</th>
                   <th>Estado</th>
                   <th class="text-right">Acciones</th>
                 </tr>
@@ -207,6 +209,11 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                     </td>
                     <td>Hasta {{ pres.maxSabores }} sabores</td>
                     <td>{{ pres.pesoGramosAprox ? pres.pesoGramosAprox + 'g' : '-' }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="obtenerClaseBadgeIva(pres.tipoIva)">
+                        {{ obtenerTextoIva(pres.tipoIva) }}
+                      </span>
+                    </td>
                     <td>
                       <span class="badge" [ngClass]="pres.activo ? 'badge-listo' : 'badge-cancelado'">
                         {{ pres.activo ? 'Activo' : 'Inactivo' }}
@@ -321,6 +328,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                   <th>Precio</th>
                   <th>Stock Actual</th>
                   <th>Stock Mínimo</th>
+                  <th>IVA</th>
                   <th>Estado</th>
                   <th class="text-right">Acciones</th>
                 </tr>
@@ -337,6 +345,11 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                       </span>
                     </td>
                     <td>{{ prod.stockMinimo ?? 5 }} unid.</td>
+                    <td>
+                      <span class="badge" [ngClass]="obtenerClaseBadgeIva(prod.tipoIva)">
+                        {{ obtenerTextoIva(prod.tipoIva) }}
+                      </span>
+                    </td>
                     <td>
                       <span class="badge" [ngClass]="prod.activo ? 'badge-listo' : 'badge-cancelado'">
                         {{ prod.activo ? 'Activo' : 'Inactivo' }}
@@ -505,12 +518,21 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <label class="form-label" for="catPresMin">Stock Mínimo *</label>
               <input id="catPresMin" type="number" class="form-control" [(ngModel)]="presentacionForm.stockMinimo" />
             </div>
-            <div class="form-group d-flex align-center">
-              <label class="checkbox-label mt-4">
-                <input type="checkbox" [(ngModel)]="presentacionForm.activo" />
-                <span>✅ Activo</span>
-              </label>
+            <div class="form-group">
+              <label class="form-label" for="catPresIva">Tasa de Impuesto (IVA) *</label>
+              <select id="catPresIva" class="form-control" [(ngModel)]="presentacionForm.tipoIva">
+                @for (opc of opcionesIva; track opc.valor) {
+                  <option [value]="opc.valor">{{ opc.label }}</option>
+                }
+              </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="presentacionForm.activo" />
+              <span>✅ Activo</span>
+            </label>
           </div>
         </div>
 
@@ -586,11 +608,21 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <input id="catProdMin" type="number" class="form-control" [(ngModel)]="productoForm.stockMinimo" />
             </div>
           </div>
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="productoForm.activo" />
-              <span>✅ Activo</span>
-            </label>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="catProdIva">Tasa de Impuesto (IVA) *</label>
+              <select id="catProdIva" class="form-control" [(ngModel)]="productoForm.tipoIva">
+                @for (opc of opcionesIva; track opc.valor) {
+                  <option [value]="opc.valor">{{ opc.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group d-flex align-center">
+              <label class="checkbox-label mt-4">
+                <input type="checkbox" [(ngModel)]="productoForm.activo" />
+                <span>✅ Activo</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -715,12 +747,17 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     .gap-1 { gap: 0.25rem; }
     .flex-wrap { flex-wrap: wrap; }
     .mt-4 { margin-top: 1rem; }
+    .badge-iva-10 { background: #e0f2fe; color: #0369a1; font-weight: 600; }
+    .badge-iva-5 { background: #fef9c3; color: #854d0e; font-weight: 600; }
+    .badge-iva-exenta { background: #f1f5f9; color: #475569; font-weight: 600; }
   `]
 })
 export class CatalogosComponent implements OnInit {
   public readonly catalogosService = inject(CatalogosService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
+
+  public readonly opcionesIva = OPCIONES_TIPO_IVA;
 
   public readonly tabActiva = signal<'sabores' | 'presentaciones' | 'toppings' | 'productos'>('sabores');
   public readonly guardandoItem = signal<boolean>(false);
@@ -827,14 +864,18 @@ export class CatalogosComponent implements OnInit {
       pesoGramosAprox: 200,
       stock: 50,
       stockMinimo: 10,
-      activo: true
+      activo: true,
+      tipoIva: 'IVA_10'
     };
   }
 
   abrirModalPresentacion(pres?: Presentacion): void {
     if (pres) {
       this.presentacionEditando = pres;
-      this.presentacionForm = { ...pres };
+      this.presentacionForm = {
+        ...pres,
+        tipoIva: pres.tipoIva || 'IVA_10'
+      };
     } else {
       this.presentacionEditando = null;
       this.presentacionForm = this.getPresentacionFormInicial();
@@ -933,14 +974,18 @@ export class CatalogosComponent implements OnInit {
       categoria: 'BEBIDAS',
       stock: 30,
       stockMinimo: 5,
-      activo: true
+      activo: true,
+      tipoIva: 'IVA_10'
     };
   }
 
   abrirModalProducto(prod?: ProductoSimple): void {
     if (prod) {
       this.productoEditando = prod;
-      this.productoForm = { ...prod };
+      this.productoForm = {
+        ...prod,
+        tipoIva: prod.tipoIva || 'IVA_10'
+      };
     } else {
       this.productoEditando = null;
       this.productoForm = this.getProductoFormInicial();
@@ -976,4 +1021,24 @@ export class CatalogosComponent implements OnInit {
       this.catalogosService.eliminarProductoSimple(prod.id).subscribe();
     }
   }
+
+  // Helpers de IVA
+  obtenerTextoIva(tipo?: TipoIva): string {
+    switch (tipo) {
+      case 'IVA_5': return 'IVA 5%';
+      case 'EXENTA': return 'Exenta';
+      case 'IVA_10':
+      default: return 'IVA 10%';
+    }
+  }
+
+  obtenerClaseBadgeIva(tipo?: TipoIva): string {
+    switch (tipo) {
+      case 'IVA_5': return 'badge-iva-5';
+      case 'EXENTA': return 'badge-iva-exenta';
+      case 'IVA_10':
+      default: return 'badge-iva-10';
+    }
+  }
 }
+

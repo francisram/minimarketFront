@@ -1,3 +1,5 @@
+import { TipoIva } from './tipo-iva.model';
+
 export interface Presentacion {
   id: number;
   nombre: string;
@@ -7,4 +9,6 @@ export interface Presentacion {
   activo: boolean;
   stock?: number;
   stockMinimo?: number;
+  tipoIva?: TipoIva;
 }
+

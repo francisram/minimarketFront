@@ -2,6 +2,7 @@ import { Presentacion } from './presentacion.model';
 import { Sabor } from './sabor.model';
 import { Topping } from './topping.model';
 import { ProductoSimple } from './producto-simple.model';
+import { TipoIva } from './tipo-iva.model';
 
 export type TipoEntrega = 'MOSTRADOR' | 'TAKE_AWAY' | 'DELIVERY';
 export type MetodoPago = 'EFECTIVO' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'TRANSFERENCIA_QR';
@@ -17,6 +18,7 @@ export interface ItemPedidoRequest {
   toppingIds?: number[];
   productoSimpleId?: number;
   cantidad: number;
+  tipoIva?: TipoIva;
 }
 
 export interface CrearPedidoRequest {
@@ -43,6 +45,7 @@ export interface DetallePedido {
   precioUnitario?: number;
   precio?: number;
   subtotal?: number;
+  tipoIva?: TipoIva;
 }
 
 export interface Pedido {
@@ -64,6 +67,12 @@ export interface Pedido {
   clienteDireccion?: string;
   numeroFactura?: string;
   sesionCajaId?: number;
+  totalExentas?: number;
+  totalGravada5?: number;
+  totalGravada10?: number;
+  totalIva5?: number;
+  totalIva10?: number;
+  totalIva?: number;
 }
 
 export interface ItemTicketLocal {
@@ -76,4 +85,6 @@ export interface ItemTicketLocal {
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
+  tipoIva?: TipoIva;
 }
+
