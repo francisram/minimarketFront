@@ -1,7 +1,9 @@
-import { Component, inject, input, output, computed, signal } from '@angular/core';
+import { Component, inject, input, output, computed, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { InstitucionService } from '../../../core/services/institucion.service';
 import { PedidosService } from '../../../core/services/pedidos.service';
+import { ImpresorasService } from '../../../core/services/impresoras.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Pedido, DetallePedido } from '../../../core/models/pedido.model';
 import { AppIconComponent } from '../icon/icon.component';
@@ -11,7 +13,7 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
 @Component({
   selector: 'app-comprobante-modal',
   standalone: true,
-  imports: [CommonModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
   template: `
     <app-modal
       [isOpen]="isOpen()"
@@ -199,35 +201,59 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         }
       </div>
 
-      <div footer class="no-print">
-        <button
-          type="button"
-          class="btn btn-secondary"
-          (click)="close.emit()"
-        >
-          Cerrar
-        </button>
+      <div footer class="no-print footer-wrapper">
+        <div class="footer-left">
+          <label class="printer-label" for="selectPrinterModal">
+            <app-icon name="printer" [size]="14" />
+            <span>Ticketera:</span>
+          </label>
+          <select
+            id="selectPrinterModal"
+            class="form-control select-printer"
+            [(ngModel)]="impresoraSeleccionadaId"
+            (ngModelChange)="onCambiarImpresora($event)"
+          >
+            @if (impresorasService.impresoras().length === 0) {
+              <option [ngValue]="null">Sin impresoras</option>
+            }
+            @for (imp of impresorasService.impresoras(); track imp.id) {
+              <option [ngValue]="imp.id">
+                🖨️ {{ imp.nombre }} ({{ imp.tipoConexion }})
+              </option>
+            }
+          </select>
+        </div>
 
-        <button
-          type="button"
-          class="btn btn-outline"
-          (click)="imprimirTicketera()"
-          [disabled]="imprimiendoTicketera() || !pedido()"
-          title="Enviar directamente a la impresora térmica POS ESC/POS configurada"
-        >
-          <app-icon name="printer" [size]="16" />
-          <span>{{ imprimiendoTicketera() ? 'Enviando...' : 'Ticketera ESC/POS' }}</span>
-        </button>
+        <div class="footer-actions">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="close.emit()"
+          >
+            Cerrar
+          </button>
 
-        <button
-          type="button"
-          class="btn btn-primary"
-          (click)="imprimirNavegador()"
-          title="Imprimir desde el navegador o guardar en PDF"
-        >
-          <app-icon name="printer" [size]="16" />
-          <span>Imprimir / PDF</span>
-        </button>
+          <button
+            type="button"
+            class="btn btn-outline"
+            (click)="imprimirTicketera()"
+            [disabled]="imprimiendoTicketera() || !pedido() || impresorasService.impresoras().length === 0"
+            title="Enviar a la ticketera térmica seleccionada"
+          >
+            <app-icon name="printer" [size]="16" />
+            <span>{{ imprimiendoTicketera() ? 'Enviando...' : 'Ticketera ESC/POS' }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="imprimirNavegador()"
+            title="Imprimir desde el navegador o guardar en PDF"
+          >
+            <app-icon name="printer" [size]="16" />
+            <span>Imprimir / PDF</span>
+          </button>
+        </div>
       </div>
     </app-modal>
   `,
@@ -518,10 +544,60 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         margin: 0 !important;
       }
     }
+
+    .footer-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .printer-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted, #64748b);
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin: 0;
+    }
+
+    .select-printer {
+      font-size: 0.8125rem;
+      padding: 0.3rem 0.6rem;
+      height: 2.25rem;
+      min-width: 170px;
+    }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 680px) {
+      .footer-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .footer-left, .footer-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
   `]
 })
-export class ComprobanteModalComponent {
+export class ComprobanteModalComponent implements OnInit {
   public readonly institucionService = inject(InstitucionService);
+  public readonly impresorasService = inject(ImpresorasService);
   private readonly pedidosService = inject(PedidosService);
   private readonly toast = inject(ToastService);
 
@@ -530,6 +606,7 @@ export class ComprobanteModalComponent {
   close = output<void>();
 
   imprimiendoTicketera = signal<boolean>(false);
+  impresoraSeleccionadaId: number | null = null;
 
   esFactura = computed(() => {
     return this.pedido()?.tipoComprobante === 'FACTURA';
@@ -602,6 +679,27 @@ export class ComprobanteModalComponent {
     return 0;
   }
 
+  ngOnInit(): void {
+    this.impresorasService.cargarImpresoras();
+    const saved = localStorage.getItem('pos_impresora_id');
+    if (saved) {
+      this.impresoraSeleccionadaId = Number(saved);
+    } else {
+      const imps = this.impresorasService.impresoras();
+      if (imps.length > 0 && imps[0].id) {
+        this.impresoraSeleccionadaId = imps[0].id;
+      }
+    }
+  }
+
+  onCambiarImpresora(id: number | null): void {
+    if (id !== null && id !== undefined) {
+      localStorage.setItem('pos_impresora_id', id.toString());
+    } else {
+      localStorage.removeItem('pos_impresora_id');
+    }
+  }
+
   imprimirNavegador(): void {
     window.print();
   }
@@ -610,8 +708,9 @@ export class ComprobanteModalComponent {
     const p = this.pedido();
     if (!p) return;
 
+    const idImp = this.impresoraSeleccionadaId ? Number(this.impresoraSeleccionadaId) : undefined;
     this.imprimiendoTicketera.set(true);
-    this.pedidosService.imprimirTicket(p.id).subscribe({
+    this.pedidosService.imprimirTicket(p.id, idImp).subscribe({
       next: () => {
         this.imprimiendoTicketera.set(false);
       },

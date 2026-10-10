@@ -14,6 +14,7 @@ import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
+import { ImpresorasService } from '../../core/services/impresoras.service';
 
 @Component({
   selector: 'app-pos',
@@ -643,6 +644,34 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
                 <span>📱 QR / Transf.</span>
               </button>
             </div>
+          </div>
+
+          <!-- IMPRESORA DE TICKET / FACTURA -->
+          <div class="form-group">
+            <label class="form-label" for="impresoraSelect">
+              <span class="d-flex align-center gap-1">
+                <app-icon name="printer" [size]="16" />
+                <span>Impresora Térmica (Ticket / Factura)</span>
+              </span>
+            </label>
+            <select
+              id="impresoraSelect"
+              class="form-control"
+              [(ngModel)]="checkoutData.impresoraId"
+              (ngModelChange)="onCambiarImpresora($event)"
+            >
+              <option [ngValue]="null">🚫 No imprimir automáticamente (Solo en pantalla)</option>
+              @for (imp of impresorasService.impresoras(); track imp.id) {
+                <option [ngValue]="imp.id">
+                  🖨️ {{ imp.nombre }} ({{ imp.tipoConexion }}{{ imp.ip ? ' - ' + imp.ip : '' }})
+                </option>
+              }
+            </select>
+            @if (impresorasService.impresoras().length === 0) {
+              <small class="text-muted" style="font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                No hay impresoras térmicas registradas. Puedes configurarlas en Ajustes > Impresoras.
+              </small>
+            }
           </div>
 
           <!-- NOTAS -->
@@ -1578,6 +1607,7 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
 export class PosComponent implements OnInit {
   public readonly posService = inject(PosService);
   public readonly cajaService = inject(CajaService);
+  public readonly impresorasService = inject(ImpresorasService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
 
@@ -1600,6 +1630,7 @@ export class PosComponent implements OnInit {
     condicionVenta: CondicionVenta;
     clienteRuc: string;
     clienteDireccion: string;
+    impresoraId: number | null;
   } = {
     clienteNombre: '',
     tipoEntrega: 'MOSTRADOR',
@@ -1608,12 +1639,19 @@ export class PosComponent implements OnInit {
     tipoComprobante: 'TICKET',
     condicionVenta: 'CONTADO',
     clienteRuc: '',
-    clienteDireccion: ''
+    clienteDireccion: '',
+    impresoraId: null
   };
 
   ngOnInit(): void {
     this.cajaService.cargarEstado().subscribe();
     this.posService.cargarCatalogos();
+    this.impresorasService.cargarImpresoras();
+
+    const savedPrinter = localStorage.getItem('pos_impresora_id');
+    if (savedPrinter) {
+      this.checkoutData.impresoraId = Number(savedPrinter);
+    }
   }
 
   // Filtrado reactivo de sabores
@@ -1716,6 +1754,14 @@ export class PosComponent implements OnInit {
     }
   }
 
+  onCambiarImpresora(id: number | null): void {
+    if (id !== null && id !== undefined) {
+      localStorage.setItem('pos_impresora_id', id.toString());
+    } else {
+      localStorage.removeItem('pos_impresora_id');
+    }
+  }
+
   cerrarModalComprobante(): void {
     this.modalComprobanteAbierto.set(false);
   }
@@ -1741,6 +1787,10 @@ export class PosComponent implements OnInit {
     const clienteFinal = this.checkoutData.clienteNombre?.trim() 
       || (this.checkoutData.tipoComprobante === 'FACTURA' ? 'Sin Nombre' : 'Consumidor Final');
 
+    const impresoraIdSeleccionada = this.checkoutData.impresoraId 
+      ? Number(this.checkoutData.impresoraId) 
+      : undefined;
+
     this.posService.registrarPedido({
       clienteNombre: clienteFinal,
       tipoEntrega: this.checkoutData.tipoEntrega,
@@ -1749,12 +1799,19 @@ export class PosComponent implements OnInit {
       tipoComprobante: this.checkoutData.tipoComprobante,
       condicionVenta: this.checkoutData.condicionVenta,
       clienteRuc: this.checkoutData.clienteRuc?.trim() || undefined,
-      clienteDireccion: this.checkoutData.clienteDireccion?.trim() || undefined
+      clienteDireccion: this.checkoutData.clienteDireccion?.trim() || undefined,
+      impresoraId: impresoraIdSeleccionada
     }).subscribe({
       next: (pedidoCreado) => {
-        const msg = pedidoCreado.tipoComprobante === 'FACTURA'
-          ? `Factura ${pedidoCreado.numeroFactura || '#' + pedidoCreado.id} emitida exitosamente.`
-          : `Venta #${pedidoCreado.id} confirmada exitosamente.`;
+        let msg = pedidoCreado.tipoComprobante === 'FACTURA'
+          ? `Factura ${pedidoCreado.numeroFactura || '#' + pedidoCreado.id} emitida.`
+          : `Venta #${pedidoCreado.id} confirmada.`;
+
+        if (impresoraIdSeleccionada) {
+          const impEncontrada = this.impresorasService.impresoras().find(i => i.id === impresoraIdSeleccionada);
+          msg += impEncontrada ? ` Enviando ticket a ${impEncontrada.nombre}...` : ' Enviando ticket a la impresora...';
+        }
+
         this.toast.success(msg);
 
         this.cajaService.cargarResumen().subscribe();
@@ -1764,7 +1821,8 @@ export class PosComponent implements OnInit {
         this.ultimoPedidoEmitido.set(pedidoCreado);
         this.modalComprobanteAbierto.set(true);
 
-        // Reset checkout form
+        // Reset checkout form conservando la impresora predeterminada
+        const savedImp = localStorage.getItem('pos_impresora_id');
         this.checkoutData = {
           clienteNombre: '',
           tipoEntrega: 'MOSTRADOR',
@@ -1773,7 +1831,8 @@ export class PosComponent implements OnInit {
           tipoComprobante: 'TICKET',
           condicionVenta: 'CONTADO',
           clienteRuc: '',
-          clienteDireccion: ''
+          clienteDireccion: '',
+          impresoraId: savedImp ? Number(savedImp) : null
         };
       },
       error: (err) => {
