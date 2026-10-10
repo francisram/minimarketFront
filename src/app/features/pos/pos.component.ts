@@ -712,6 +712,29 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
             </div>
           </div>
 
+          <!-- CAMPO NRO DE VOUCHER (TARJETA DÉBITO O CRÉDITO) -->
+          @if (checkoutData.metodoPago === 'TARJETA_DEBITO' || checkoutData.metodoPago === 'TARJETA_CREDITO') {
+            <div class="voucher-box mb-3">
+              <div class="voucher-header">
+                <app-icon name="banknote" [size]="16" />
+                <label class="form-label m-0" for="voucherInput">
+                  <strong>N° de Boleta / Voucher POS</strong>
+                </label>
+              </div>
+              <input
+                id="voucherInput"
+                type="text"
+                class="form-control input-voucher"
+                placeholder="Ej. 123456 o Nro. de Transacción..."
+                [(ngModel)]="checkoutData.numeroVoucher"
+                autocomplete="off"
+              />
+              <span class="form-hint">
+                Registra el número del comprobante impreso por el dispositivo POS (Bancard, Dinelco, etc.)
+              </span>
+            </div>
+          }
+
           <!-- IMPRESORA DE TICKET / FACTURA -->
           <div class="form-group">
             <label class="form-label" for="impresoraSelect">
@@ -1640,6 +1663,27 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       border-color: #0f172a;
     }
 
+    .voucher-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+    }
+
+    .voucher-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #1e40af;
+      margin-bottom: 0.35rem;
+    }
+
+    .input-voucher {
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: #ffffff;
+    }
+
     .comprobante-options {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -1838,6 +1882,7 @@ export class PosComponent implements OnInit {
     clienteNombre: string;
     tipoEntrega: TipoEntrega;
     metodoPago: MetodoPago;
+    numeroVoucher: string;
     notas: string;
     tipoComprobante: TipoComprobante;
     condicionVenta: CondicionVenta;
@@ -1848,6 +1893,7 @@ export class PosComponent implements OnInit {
     clienteNombre: '',
     tipoEntrega: 'MOSTRADOR',
     metodoPago: 'EFECTIVO',
+    numeroVoucher: '',
     notas: '',
     tipoComprobante: 'TICKET',
     condicionVenta: 'CONTADO',
@@ -2073,6 +2119,9 @@ export class PosComponent implements OnInit {
       clienteNombre: clienteFinal,
       tipoEntrega: this.checkoutData.tipoEntrega,
       metodoPago: this.checkoutData.metodoPago,
+      numeroVoucher: (this.checkoutData.metodoPago === 'TARJETA_DEBITO' || this.checkoutData.metodoPago === 'TARJETA_CREDITO')
+        ? (this.checkoutData.numeroVoucher?.trim() || undefined)
+        : undefined,
       notas: this.checkoutData.notas,
       tipoComprobante: this.checkoutData.tipoComprobante,
       condicionVenta: this.checkoutData.condicionVenta,
@@ -2105,6 +2154,7 @@ export class PosComponent implements OnInit {
           clienteNombre: '',
           tipoEntrega: 'MOSTRADOR',
           metodoPago: 'EFECTIVO',
+          numeroVoucher: '',
           notas: '',
           tipoComprobante: 'TICKET',
           condicionVenta: 'CONTADO',

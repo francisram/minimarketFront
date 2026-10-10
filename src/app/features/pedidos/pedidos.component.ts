@@ -324,7 +324,12 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
                     >
                       <app-icon name="file-text" [size]="14" />
                     </button>
-                    <span class="order-method">{{ p.metodoPago }}</span>
+                    <span class="order-method">
+                      {{ p.metodoPago }}
+                      @if (p.numeroVoucher) {
+                        <small title="Voucher de POS"> (#{{ p.numeroVoucher }})</small>
+                      }
+                    </span>
                   </div>
                 </div>
               </div>

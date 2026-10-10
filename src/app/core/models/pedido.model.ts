@@ -25,6 +25,7 @@ export interface CrearPedidoRequest {
   clienteNombre?: string;
   tipoEntrega: TipoEntrega;
   metodoPago: MetodoPago;
+  numeroVoucher?: string;
   notas?: string;
   items: ItemPedidoRequest[];
   tipoComprobante?: TipoComprobante;
@@ -53,6 +54,7 @@ export interface Pedido {
   clienteNombre?: string;
   tipoEntrega: TipoEntrega;
   metodoPago: MetodoPago;
+  numeroVoucher?: string;
   estado: EstadoPedido;
   notas?: string;
   total: number;

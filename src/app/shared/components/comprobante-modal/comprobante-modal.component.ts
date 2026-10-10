@@ -92,6 +92,12 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
                 <span>Medio Pago:</span>
                 <span>{{ pedido()?.metodoPago }}</span>
               </div>
+              @if (pedido()?.numeroVoucher) {
+                <div class="meta-row">
+                  <span>Voucher POS:</span>
+                  <strong>#{{ pedido()?.numeroVoucher }}</strong>
+                </div>
+              }
             </div>
 
             <div class="ticket-divider">--------------------------------</div>

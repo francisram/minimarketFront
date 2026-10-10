@@ -263,6 +263,7 @@ export class PosService {
     clienteNombre?: string;
     tipoEntrega: TipoEntrega;
     metodoPago: MetodoPago;
+    numeroVoucher?: string;
     notas?: string;
     tipoComprobante?: TipoComprobante;
     condicionVenta?: CondicionVenta;
@@ -299,6 +300,7 @@ export class PosService {
       clienteNombre: datosVenta.clienteNombre?.trim() || undefined,
       tipoEntrega: datosVenta.tipoEntrega,
       metodoPago: datosVenta.metodoPago,
+      numeroVoucher: datosVenta.numeroVoucher?.trim() || undefined,
       notas: datosVenta.notas?.trim() || undefined,
       items: payloadItems,
       tipoComprobante: datosVenta.tipoComprobante,
