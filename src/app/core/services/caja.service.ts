@@ -28,6 +28,9 @@ export class CajaService {
   private readonly _historial = signal<SesionCaja[]>([]);
   public readonly historial = this._historial.asReadonly();
 
+  private readonly _cajasAbiertas = signal<SesionCaja[]>([]);
+  public readonly cajasAbiertas = this._cajasAbiertas.asReadonly();
+
   public readonly cargando = signal<boolean>(false);
   public readonly procesando = signal<boolean>(false);
 
@@ -61,22 +64,39 @@ export class CajaService {
         } else {
           this._resumenCaja.set(null);
         }
+        this.cargarCajasAbiertas().subscribe();
       }),
       catchError(err => {
         console.warn('Error al verificar estado de caja:', err);
+        this.cargarCajasAbiertas().subscribe();
         return of({ abierta: false, sesionId: null, cajeroApertura: null, fechaApertura: null, montoInicial: null });
       })
     );
   }
 
-  cargarResumen(): Observable<ResumenCaja> {
-    return this.http.get<ResumenCaja>(`${this.apiUrl}/api/caja/resumen`).pipe(
+  cargarResumen(sesionId?: number): Observable<ResumenCaja> {
+    const url = sesionId ? `${this.apiUrl}/api/caja/resumen?sesionId=${sesionId}` : `${this.apiUrl}/api/caja/resumen`;
+    return this.http.get<ResumenCaja>(url).pipe(
       tap(resumen => {
         this._resumenCaja.set(resumen);
       }),
       catchError(err => {
         console.warn('Error al cargar resumen de caja:', err);
         return of({} as ResumenCaja);
+      })
+    );
+  }
+
+  cargarCajasAbiertas(): Observable<SesionCaja[]> {
+    return this.http.get<SesionCaja[]>(`${this.apiUrl}/api/caja/abiertas`).pipe(
+      tap(cajas => {
+        this._cajasAbiertas.set(cajas || []);
+      }),
+      catchError(() => {
+        // Fallback: extraer las sesiones abiertas del historial si el endpoint específico no está listo
+        const abiertas = this._historial().filter(s => s.estado === 'ABIERTA');
+        this._cajasAbiertas.set(abiertas);
+        return of(abiertas);
       })
     );
   }
@@ -94,6 +114,7 @@ export class CajaService {
           montoInicial: sesion.montoInicial
         });
         this.cargarResumen().subscribe();
+        this.cargarCajasAbiertas().subscribe();
         this.cargarHistorial().subscribe();
       }),
       catchError(err => {
@@ -108,14 +129,20 @@ export class CajaService {
     return this.http.post<SesionCaja>(`${this.apiUrl}/api/caja/cerrar`, request).pipe(
       tap(sesion => {
         this.procesando.set(false);
-        this._estadoCaja.set({
-          abierta: false,
-          sesionId: null,
-          cajeroApertura: null,
-          fechaApertura: null,
-          montoInicial: null
-        });
-        this._resumenCaja.set(null);
+        // Si el usuario cerró su propia caja o no especificó ID, limpiar estado local
+        if (!request.sesionId || request.sesionId === this.sesionActivaId()) {
+          this._estadoCaja.set({
+            abierta: false,
+            sesionId: null,
+            cajeroApertura: null,
+            fechaApertura: null,
+            montoInicial: null
+          });
+          this._resumenCaja.set(null);
+        }
+        // Refrescar estado global del usuario, historial y lista de cajas abiertas
+        this.cargarEstado().subscribe();
+        this.cargarCajasAbiertas().subscribe();
         this.cargarHistorial().subscribe();
       }),
       catchError(err => {

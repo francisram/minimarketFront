@@ -18,8 +18,8 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       <!-- HEADER -->
       <div class="page-header">
         <div>
-          <h1 class="page-title">Control de Caja y Turnos</h1>
-          <p class="page-subtitle">Apertura de turno, arqueo de ventas por método de pago y cierres consolidados</p>
+          <h1 class="page-title">Control de Cajas y Turnos</h1>
+          <p class="page-subtitle">Apertura de turno por cajero, arqueo de ventas por método de pago y monitor multi-caja</p>
         </div>
         <div class="header-actions">
           <button type="button" class="btn btn-secondary" (click)="refrescar()">
@@ -30,7 +30,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             @if (puedeCerrarCaja()) {
               <button type="button" class="btn btn-danger" (click)="abrirModalCierre()">
                 <app-icon name="lock" [size]="16" />
-                <span>Cerrar Caja / Arqueo</span>
+                <span>Cerrar Mi Caja / Arqueo</span>
               </button>
             } @else {
               <button
@@ -46,11 +46,102 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           } @else {
             <button type="button" class="btn btn-primary" (click)="abrirModalApertura()">
               <app-icon name="plus" [size]="16" />
-              <span>Abrir Nueva Caja</span>
+              <span>Abrir Mi Turno</span>
             </button>
           }
         </div>
       </div>
+
+      <!-- MONITOR MULTI-CAJA (SUPERVISIÓN DE CAJAS ACTIVAS) -->
+      @if (authService.isAdminOrOwner() || cajaService.cajasAbiertas().length > 1) {
+        <div class="card multi-caja-card mb-4">
+          <div class="card-header space-between">
+            <div class="d-flex align-center gap-2">
+              <app-icon name="users" [size]="20" />
+              <h3 class="card-title">Cajas Activas en Simultáneo (Multi-Caja)</h3>
+            </div>
+            <div class="d-flex align-center gap-2">
+              <span class="badge" [ngClass]="cajaService.cajasAbiertas().length > 0 ? 'badge-en-curso' : 'badge-cerrada'">
+                {{ cajaService.cajasAbiertas().length }} {{ cajaService.cajasAbiertas().length === 1 ? 'caja activa' : 'cajas activas' }}
+              </span>
+              <button type="button" class="btn btn-sm btn-secondary" (click)="cajaService.cargarCajasAbiertas().subscribe()" title="Actualizar cajas abiertas">
+                <app-icon name="refresh" [size]="14" />
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            @if (cajaService.cajasAbiertas().length === 0) {
+              <div class="text-center py-3 text-muted">
+                <p class="m-0">No hay cajeros con turnos de caja abiertos en este momento.</p>
+              </div>
+            } @else {
+              <div class="cajas-grid">
+                @for (caja of cajaService.cajasAbiertas(); track caja.id) {
+                  <div class="caja-live-card" [class.es-mi-caja]="caja.usuarioApertura === authService.username()">
+                    <div class="caja-live-header">
+                      <div class="caja-cajero-info">
+                        <div class="avatar-circle">
+                          {{ (caja.usuarioApertura || 'U').substring(0, 2).toUpperCase() }}
+                        </div>
+                        <div>
+                          <h4 class="m-0 font-bold">{{ caja.usuarioApertura }}</h4>
+                          <span class="text-muted small">Sesión #{{ caja.id }}</span>
+                        </div>
+                      </div>
+                      <div class="d-flex align-center gap-1">
+                        @if (caja.usuarioApertura === authService.username()) {
+                          <span class="badge badge-info">Mi Turno</span>
+                        }
+                        <span class="status-dot"></span>
+                      </div>
+                    </div>
+
+                    <div class="caja-live-body">
+                      <div class="caja-live-row">
+                        <span class="text-muted">Apertura:</span>
+                        <span>{{ caja.fechaApertura | date:'dd/MM/yyyy HH:mm' }}</span>
+                      </div>
+                      <div class="caja-live-row">
+                        <span class="text-muted">Fondo Inicial:</span>
+                        <span class="font-medium">{{ caja.montoInicial | appCurrency }}</span>
+                      </div>
+                      @if (caja.totalVentasGeneral !== null && caja.totalVentasGeneral !== undefined) {
+                        <div class="caja-live-row">
+                          <span class="text-muted">Ventas acum.:</span>
+                          <span class="font-bold text-green">{{ caja.totalVentasGeneral | appCurrency }}</span>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="caja-live-footer">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-secondary flex-1"
+                        (click)="verDetalleSesion(caja)"
+                        title="Ver detalle del arqueo en vivo"
+                      >
+                        <app-icon name="clipboard-list" [size]="14" />
+                        <span>Arqueo</span>
+                      </button>
+                      @if (puedeCerrarSesion(caja)) {
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-danger flex-1"
+                          (click)="abrirModalCierre(caja)"
+                          title="Cerrar turno y efectuar arqueo"
+                        >
+                          <app-icon name="lock" [size]="14" />
+                          <span>Cerrar</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
 
       <!-- ESTADO ACTUAL DEL TURNO -->
       @if (cajaService.cajaAbierta()) {
@@ -59,7 +150,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           <div class="turno-header">
             <div class="turno-status-badge">
               <span class="status-dot"></span>
-              <strong>TURNO ACTIVO - CAJA ABIERTA</strong>
+              <strong>MI TURNO ACTIVO - CAJA ABIERTA</strong>
             </div>
             <div class="turno-meta">
               <span><strong>Sesión:</strong> #{{ cajaService.estadoCaja()?.sesionId }}</span>
@@ -253,14 +344,26 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                       }
                     </td>
                     <td class="text-center">
-                      <button
-                        type="button"
-                        class="btn-icon"
-                        (click)="verDetalleSesion(sesion)"
-                        title="Ver detalle de arqueo"
-                      >
-                        <app-icon name="clipboard-list" [size]="16" />
-                      </button>
+                      <div class="d-flex align-center justify-center gap-1">
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          (click)="verDetalleSesion(sesion)"
+                          title="Ver detalle de arqueo"
+                        >
+                          <app-icon name="clipboard-list" [size]="16" />
+                        </button>
+                        @if (sesion.estado === 'ABIERTA' && puedeCerrarSesion(sesion)) {
+                          <button
+                            type="button"
+                            class="btn-icon text-red"
+                            (click)="abrirModalCierre(sesion)"
+                            title="Cerrar y arquear esta caja"
+                          >
+                            <app-icon name="lock" [size]="16" />
+                          </button>
+                        }
+                      </div>
                     </td>
                   </tr>
                 }
@@ -336,43 +439,55 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       <!-- ==================== MODAL DE CIERRE Y ARQUEO ==================== -->
       <app-modal
         [isOpen]="modalCierreAbierto()"
-        title="Cierre de Caja y Arqueo de Dinero"
+        [title]="'Cierre de Caja y Arqueo' + (cajaCierreTarget() ? ' - ' + cajaCierreTarget()?.usuarioApertura + ' (#' + cajaCierreTarget()?.id + ')' : '')"
         size="lg"
         (close)="cerrarModalCierre()"
       >
         <div body class="modal-caja-body">
+          @if (cajaCierreTarget()) {
+            <div class="caja-aviso-cierre-supervisor mb-3">
+              <app-icon name="shield" [size]="18" />
+              <span>Estás realizando el cierre de la caja de <strong>{{ cajaCierreTarget()?.usuarioApertura }}</strong> (Sesión #{{ cajaCierreTarget()?.id }}).</span>
+            </div>
+          }
+
           <!-- RESUMEN AUTOMÁTICO DE LO ESPERADO -->
           <div class="arqueo-summary-box mb-3">
-            <h4 class="summary-box-title">Resumen de Ventas del Turno</h4>
+            <h4 class="summary-box-title">
+              Resumen de Ventas del Turno
+              @if (cajaCierreTarget()) {
+                <span class="badge badge-info ml-2">Cajero: {{ cajaCierreTarget()?.usuarioApertura }}</span>
+              }
+            </h4>
             <div class="summary-rows">
               <div class="summary-row">
                 <span>Fondo Inicial de Cambio:</span>
-                <strong>{{ (cajaService.resumenCaja()?.montoInicial ?? 0) | appCurrency }}</strong>
+                <strong>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.montoInicial ?? 0) | appCurrency }}</strong>
               </div>
               <div class="summary-row">
                 <span>(+) Total Cobrado en Efectivo:</span>
-                <strong class="text-green">{{ (cajaService.resumenCaja()?.totalEfectivo ?? 0) | appCurrency }}</strong>
+                <strong class="text-green">{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEfectivo ?? 0) | appCurrency }}</strong>
               </div>
               <div class="summary-row total-expected-row">
                 <span>(=) EFECTIVO ESPERADO EN GAVETA:</span>
-                <strong class="text-emerald">{{ (cajaService.resumenCaja()?.totalEsperadoEfectivo ?? 0) | appCurrency }}</strong>
+                <strong class="text-emerald">{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEsperadoEfectivo ?? 0) | appCurrency }}</strong>
               </div>
               <div class="summary-divider"></div>
               <div class="summary-row text-muted small">
                 <span>Ventas Tarjeta Débito:</span>
-                <span>{{ (cajaService.resumenCaja()?.totalTarjetaDebito ?? 0) | appCurrency }}</span>
+                <span>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaDebito ?? 0) | appCurrency }}</span>
               </div>
               <div class="summary-row text-muted small">
                 <span>Ventas Tarjeta Crédito:</span>
-                <span>{{ (cajaService.resumenCaja()?.totalTarjetaCredito ?? 0) | appCurrency }}</span>
+                <span>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaCredito ?? 0) | appCurrency }}</span>
               </div>
               <div class="summary-row text-muted small">
                 <span>Ventas Transferencia / QR:</span>
-                <span>{{ (cajaService.resumenCaja()?.totalTransferenciaQr ?? 0) | appCurrency }}</span>
+                <span>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTransferenciaQr ?? 0) | appCurrency }}</span>
               </div>
               <div class="summary-row summary-grand-total">
                 <span>TOTAL VENTAS GENERAL:</span>
-                <strong>{{ (cajaService.resumenCaja()?.totalVentas ?? 0) | appCurrency }}</strong>
+                <strong>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalVentas ?? 0) | appCurrency }}</strong>
               </div>
             </div>
           </div>
@@ -961,6 +1076,97 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       align-items: center;
       gap: 0.5rem;
     }
+
+    /* MONITOR MULTI-CAJA */
+    .multi-caja-card {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+    }
+    .cajas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .caja-live-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: all 0.2s ease;
+    }
+    .caja-live-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .caja-live-card.es-mi-caja {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+    .caja-live-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .caja-cajero-info {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .avatar-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--primary, #0284c7);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .caja-live-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 0.825rem;
+    }
+    .caja-live-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .caja-live-footer {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: auto;
+      padding-top: 0.5rem;
+      border-top: 1px dashed #e2e8f0;
+    }
+    .flex-1 {
+      flex: 1;
+    }
+    .justify-center {
+      justify-content: center;
+    }
+    .ml-2 {
+      margin-left: 0.5rem;
+    }
+    .caja-aviso-cierre-supervisor {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 0.6rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
   `]
 })
 export class CajaComponent implements OnInit {
@@ -987,6 +1193,10 @@ export class CajaComponent implements OnInit {
   public sesionSeleccionada: SesionCaja | null = null;
   public diferenciaCalculada = signal<number>(0);
 
+  // Target específico de cierre (para cuando un supervisor cierra otra caja)
+  public readonly cajaCierreTarget = signal<SesionCaja | null>(null);
+  public readonly resumenCierreTarget = signal<any>(null);
+
   public readonly totalTarjetas = computed(() => {
     const res = this.cajaService.resumenCaja();
     if (!res) return 0;
@@ -1001,6 +1211,13 @@ export class CajaComponent implements OnInit {
     return !!cajeroApertura && cajeroApertura === usuarioActual;
   });
 
+  puedeCerrarSesion(sesion: SesionCaja): boolean {
+    if (this.authService.isAdminOrOwner()) return true;
+    const cajeroApertura = (sesion.usuarioApertura || '').trim().toLowerCase();
+    const usuarioActual = (this.authService.username() || '').trim().toLowerCase();
+    return !!cajeroApertura && cajeroApertura === usuarioActual;
+  }
+
   ngOnInit(): void {
     this.refrescar();
   }
@@ -1008,6 +1225,7 @@ export class CajaComponent implements OnInit {
   refrescar(): void {
     this.cajaService.cargarEstado().subscribe();
     this.cajaService.cargarHistorial().subscribe();
+    this.cajaService.cargarCajasAbiertas().subscribe();
   }
 
   // --- APERTURA ---
@@ -1040,6 +1258,7 @@ export class CajaComponent implements OnInit {
       next: (sesion) => {
         this.toast.success(`Caja abierta exitosamente (Sesión #${sesion.id}).`);
         this.cerrarModalApertura();
+        this.refrescar();
       },
       error: (err) => {
         const msg = err.error?.mensaje || err.error?.error || 'Error al abrir la caja.';
@@ -1049,29 +1268,52 @@ export class CajaComponent implements OnInit {
   }
 
   // --- CIERRE Y ARQUEO ---
-  abrirModalCierre(): void {
-    if (!this.puedeCerrarCaja()) {
-      this.mostrarAdvertenciaPermisoCierre();
-      return;
-    }
-
-    this.cajaService.cargarResumen().subscribe({
-      next: (resumen) => {
-        this.cierreData = {
-          montoRealEfectivo: null,
-          observaciones: ''
-        };
-        this.diferenciaCalculada.set(0);
-        this.modalCierreAbierto.set(true);
-      },
-      error: () => {
-        this.toast.error('No se pudo cargar el resumen de la caja.');
+  abrirModalCierre(sesion?: SesionCaja): void {
+    if (sesion) {
+      if (!this.puedeCerrarSesion(sesion)) {
+        this.mostrarAdvertenciaPermisoCierre(sesion.usuarioApertura);
+        return;
       }
-    });
+      this.cajaCierreTarget.set(sesion);
+      this.cajaService.cargarResumen(sesion.id).subscribe({
+        next: (resumen) => {
+          this.resumenCierreTarget.set(resumen);
+          this.cierreData = {
+            montoRealEfectivo: null,
+            observaciones: ''
+          };
+          this.diferenciaCalculada.set(0);
+          this.modalCierreAbierto.set(true);
+        },
+        error: () => {
+          this.toast.error('No se pudo cargar el resumen de la caja seleccionada.');
+        }
+      });
+    } else {
+      if (!this.puedeCerrarCaja()) {
+        this.mostrarAdvertenciaPermisoCierre();
+        return;
+      }
+      this.cajaCierreTarget.set(null);
+      this.cajaService.cargarResumen().subscribe({
+        next: (resumen) => {
+          this.resumenCierreTarget.set(resumen);
+          this.cierreData = {
+            montoRealEfectivo: null,
+            observaciones: ''
+          };
+          this.diferenciaCalculada.set(0);
+          this.modalCierreAbierto.set(true);
+        },
+        error: () => {
+          this.toast.error('No se pudo cargar el resumen de la caja.');
+        }
+      });
+    }
   }
 
-  mostrarAdvertenciaPermisoCierre(): void {
-    const cajero = this.cajaService.cajeroActivo() || 'el cajero titular';
+  mostrarAdvertenciaPermisoCierre(cajeroNombre?: string): void {
+    const cajero = cajeroNombre || this.cajaService.cajeroActivo() || 'el cajero titular';
     this.toast.warning(
       `Esta caja fue abierta por "${cajero}". Solo dicho usuario o un Administrador/Supervisor pueden realizar el arqueo y cierre.`,
       'Acción no permitida'
@@ -1080,10 +1322,13 @@ export class CajaComponent implements OnInit {
 
   cerrarModalCierre(): void {
     this.modalCierreAbierto.set(false);
+    this.cajaCierreTarget.set(null);
+    this.resumenCierreTarget.set(null);
   }
 
   calcularDiferencia(): void {
-    const esperado = this.cajaService.resumenCaja()?.totalEsperadoEfectivo ?? 0;
+    const resumen = this.resumenCierreTarget() || this.cajaService.resumenCaja();
+    const esperado = resumen?.totalEsperadoEfectivo ?? 0;
     const real = this.cierreData.montoRealEfectivo ?? 0;
     this.diferenciaCalculada.set(real - esperado);
   }
@@ -1116,9 +1361,17 @@ export class CajaComponent implements OnInit {
   }
 
   confirmarCierre(): void {
-    if (!this.puedeCerrarCaja()) {
-      this.mostrarAdvertenciaPermisoCierre();
-      return;
+    const target = this.cajaCierreTarget();
+    if (target) {
+      if (!this.puedeCerrarSesion(target)) {
+        this.mostrarAdvertenciaPermisoCierre(target.usuarioApertura);
+        return;
+      }
+    } else {
+      if (!this.puedeCerrarCaja()) {
+        this.mostrarAdvertenciaPermisoCierre();
+        return;
+      }
     }
 
     if (this.cierreData.montoRealEfectivo === null || this.cierreData.montoRealEfectivo < 0) {
@@ -1126,13 +1379,18 @@ export class CajaComponent implements OnInit {
       return;
     }
 
+    const targetId = target ? target.id : (this.cajaService.sesionActivaId() ?? undefined);
+
     this.cajaService.cerrarCaja({
       montoRealEfectivo: this.cierreData.montoRealEfectivo,
-      observaciones: this.cierreData.observaciones
+      observaciones: this.cierreData.observaciones,
+      sesionId: targetId
     }).subscribe({
       next: (sesion) => {
-        this.toast.success(`Caja cerrada exitosamente. Arqueo completado.`);
+        const usuarioMsg = target ? ` de ${target.usuarioApertura}` : '';
+        this.toast.success(`Caja${usuarioMsg} cerrada exitosamente (Sesión #${sesion.id}). Arqueo completado.`);
         this.cerrarModalCierre();
+        this.refrescar();
       },
       error: (err) => {
         const msg = err.error?.mensaje || err.error?.error || 'Error al cerrar la caja.';
@@ -1143,8 +1401,30 @@ export class CajaComponent implements OnInit {
 
   // --- DETALLE ---
   verDetalleSesion(sesion: SesionCaja): void {
-    this.sesionSeleccionada = sesion;
-    this.modalDetalleAbierto.set(true);
+    if (sesion.estado === 'ABIERTA') {
+      this.cajaService.cargarResumen(sesion.id).subscribe({
+        next: (resumen) => {
+          this.sesionSeleccionada = {
+            ...sesion,
+            totalVentasGeneral: resumen.totalVentas,
+            totalVentasEfectivo: resumen.totalEfectivo,
+            totalVentasTarjetaDebito: resumen.totalTarjetaDebito,
+            totalVentasTarjetaCredito: resumen.totalTarjetaCredito,
+            totalVentasTransferenciaQr: resumen.totalTransferenciaQr,
+            montoEsperadoEfectivo: resumen.totalEsperadoEfectivo,
+            cantidadPedidos: resumen.totalPedidos
+          };
+          this.modalDetalleAbierto.set(true);
+        },
+        error: () => {
+          this.sesionSeleccionada = sesion;
+          this.modalDetalleAbierto.set(true);
+        }
+      });
+    } else {
+      this.sesionSeleccionada = sesion;
+      this.modalDetalleAbierto.set(true);
+    }
   }
 
   cerrarModalDetalle(): void {

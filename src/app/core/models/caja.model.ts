@@ -52,4 +52,6 @@ export interface AbrirCajaRequest {
 export interface CerrarCajaRequest {
   montoRealEfectivo: number;
   observaciones?: string;
+  sesionId?: number;
 }
+

@@ -28,7 +28,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
     <div class="pos-wrapper">
       <!-- PANEL IZQUIERDO: CATÁLOGO Y ARMADOR -->
       <div class="pos-main">
-        <!-- ALERTA DE CAJA CERRADA -->
+        <!-- ALERTA DE CAJA CERRADA / INDICADOR DE TURNO ACTIVO -->
         @if (!cajaService.cajaAbierta()) {
           <div class="caja-alerta-banner mb-3">
             <div class="caja-alerta-content">
@@ -36,17 +36,30 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                 <app-icon name="alert-triangle" [size]="20" />
               </div>
               <div class="caja-alerta-text">
-                <strong>Caja Cerrada:</strong> No se pueden procesar cobros de ventas sin una sesión de caja abierta.
+                <strong>Caja Cerrada:</strong> Debes abrir tu turno de caja para registrar y procesar cobros de ventas.
               </div>
             </div>
             <div class="caja-alerta-actions">
               <button type="button" class="btn btn-warning btn-sm" (click)="abrirModalAperturaRapida()">
                 <app-icon name="banknote" [size]="16" />
-                <span>Abrir Caja Ahora</span>
+                <span>Abrir Mi Turno</span>
               </button>
               <a routerLink="/caja" class="btn btn-secondary btn-sm">
-                <span>Gestionar Turnos</span>
+                <span>Gestionar Cajas</span>
               </a>
+            </div>
+          </div>
+        } @else {
+          <div class="caja-activa-banner mb-3">
+            <div class="d-flex align-center gap-2">
+              <span class="status-dot-pulse"></span>
+              <span class="caja-activa-label">
+                <strong>Turno Activo:</strong> {{ cajaService.cajeroActivo() }} (Sesión #{{ cajaService.sesionActivaId() }})
+              </span>
+            </div>
+            <div class="caja-activa-actions">
+              <span class="text-muted small">Apertura: {{ cajaService.fechaAperturaActiva() | date:'HH:mm' }}</span>
+              <a routerLink="/caja" class="caja-link-turnos">Ver Mi Arqueo</a>
             </div>
           </div>
         }
@@ -835,6 +848,42 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
   `,
   styles: [`
     /* ALERTA Y BLOQUEO DE CAJA */
+    .caja-activa-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: var(--radius-lg);
+      padding: 0.6rem 1.25rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .status-dot-pulse {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+    }
+    .caja-activa-label {
+      color: #166534;
+      font-size: 0.875rem;
+    }
+    .caja-activa-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+    .caja-link-turnos {
+      color: #15803d;
+      font-weight: 600;
+      font-size: 0.8125rem;
+      text-decoration: underline;
+    }
+    .caja-link-turnos:hover {
+      color: #166534;
+    }
     .caja-alerta-banner {
       display: flex;
       justify-content: space-between;
