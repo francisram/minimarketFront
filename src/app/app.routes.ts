@@ -38,6 +38,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/pedidos/pedidos.component').then(m => m.PedidosComponent)
       },
       {
+        path: 'clientes',
+        loadComponent: () => import('./features/clientes/clientes.component').then(m => m.ClientesComponent)
+      },
+      {
         path: 'impresoras',
         loadComponent: () => import('./features/impresoras/impresoras.component').then(m => m.ImpresorasComponent),
         canActivate: [adminGuard]

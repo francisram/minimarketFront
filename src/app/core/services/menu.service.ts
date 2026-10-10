@@ -31,6 +31,7 @@ export class MenuService {
     { clave: 'caja', nombre: 'Control de Caja', ruta: '/caja', icono: 'banknote' },
     { clave: 'pedidos', nombre: 'Punto de Venta (POS)', ruta: '/pos', icono: 'shopping-cart' },
     { clave: 'monitor-pedidos', nombre: 'Monitor de Pedidos', ruta: '/pedidos', icono: 'clipboard-list' },
+    { clave: 'clientes', nombre: 'Clientes', ruta: '/clientes', icono: 'users' },
     { clave: 'stock', nombre: 'Control de Stock', ruta: '/stock', icono: 'warehouse', adminOnly: true },
     { clave: 'sabores', nombre: 'Sabores', ruta: '/catalogos/sabores', icono: 'ice-cream' },
     { clave: 'presentaciones', nombre: 'Presentaciones', ruta: '/catalogos/presentaciones', icono: 'cup-soda' },
@@ -64,13 +65,18 @@ export class MenuService {
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
       // Control de Stock, Impresoras, Institución y Dashboard SIEMPRE deben estar disponibles para administradores,
       // garantizando que aparezcan aunque la tabla 'paginas' del backend no los tenga en su semilla inicial.
-      if (isAdminOrOwner && ['stock', 'impresoras', 'institucion', 'dashboard', 'caja'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes'].includes(item.clave)) {
         return true;
       }
 
       // 3. Submódulo de monitor de pedidos vinculado a la clave 'pedidos'
       if (item.clave === 'monitor-pedidos') {
         return clavesDisponibles.has('pedidos');
+      }
+
+      // 4. Módulo de clientes disponible para cajeros vinculados a pedidos o con permiso explícito
+      if (item.clave === 'clientes') {
+        return clavesDisponibles.has('clientes') || clavesDisponibles.has('pedidos');
       }
 
       // 4. Módulos licenciados estándar (dashboard, sabores, presentaciones, toppings, productos, usuarios, roles, licencia)

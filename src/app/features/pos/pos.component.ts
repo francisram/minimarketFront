@@ -15,6 +15,10 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
 import { ImpresorasService } from '../../core/services/impresoras.service';
+import { ClientesService } from '../../core/services/clientes.service';
+import { Cliente } from '../../core/models/cliente.model';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-pos',
@@ -502,16 +506,60 @@ import { ImpresorasService } from '../../core/services/impresoras.service';
                 <span>Datos Fiscales del Cliente (Obligatorios)</span>
               </div>
               <div class="form-grid-2">
-                <div class="form-group">
-                  <label class="form-label" for="clienteRuc">R.U.C. o C.I. *</label>
-                  <input
-                    id="clienteRuc"
-                    type="text"
-                    class="form-control"
-                    placeholder="Ej. 1234567-8"
-                    [(ngModel)]="checkoutData.clienteRuc"
-                    required
-                  />
+                <div class="form-group autocomplete-group">
+                  <div class="field-header-row">
+                    <label class="form-label" for="clienteRuc">R.U.C. o C.I. *</label>
+                    @if (buscandoCliente()) {
+                      <span class="searching-badge">
+                        <app-icon name="refresh" [size]="12" extraClass="spin-icon" />
+                        <span>Buscando...</span>
+                      </span>
+                    } @else if (clienteExistente()) {
+                      <span class="existing-badge" title="Cliente registrado en el sistema">
+                        <app-icon name="check" [size]="12" />
+                        <span>Registrado</span>
+                      </span>
+                    } @else if (checkoutData.clienteRuc && checkoutData.clienteRuc.trim().length >= 3) {
+                      <span class="new-client-badge" title="Se guardará automáticamente al emitir la factura">
+                        <app-icon name="plus" [size]="12" />
+                        <span>Nuevo</span>
+                      </span>
+                    }
+                  </div>
+                  <div class="input-with-icon">
+                    <input
+                      id="clienteRuc"
+                      type="text"
+                      class="form-control"
+                      placeholder="Ej. 1234567-8 o 4567890"
+                      [ngModel]="checkoutData.clienteRuc"
+                      (ngModelChange)="onInputRuc($event)"
+                      (focus)="onFocusRuc()"
+                      (blur)="ocultarSugerenciasConDelay()"
+                      autocomplete="off"
+                      required
+                    />
+                  </div>
+
+                  <!-- DROPDOWN DE SUGERENCIAS -->
+                  @if (mostrarSugerenciasClientes() && clientesSugeridos().length > 0) {
+                    <div class="autocomplete-dropdown">
+                      @for (sug of clientesSugeridos(); track sug.id) {
+                        <div
+                          class="autocomplete-item"
+                          (mousedown)="seleccionarClienteSugerido(sug)"
+                        >
+                          <div class="autocomplete-ruc-row">
+                            <span class="autocomplete-ruc">{{ sug.ruc }}</span>
+                            <span class="autocomplete-name">{{ sug.razonSocial }}</span>
+                          </div>
+                          @if (sug.direccion) {
+                            <div class="autocomplete-address">{{ sug.direccion }}</div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
                 </div>
                 <div class="form-group">
                   <label class="form-label" for="clienteNombreFactura">Razón Social / Nombre *</label>
@@ -1591,6 +1639,109 @@ import { ImpresorasService } from '../../core/services/impresoras.service';
       border-color: #0f172a;
     }
 
+    /* AUTOCOMPLETE CLIENTES */
+    .autocomplete-group {
+      position: relative;
+    }
+
+    .field-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+
+    .searching-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+      color: var(--primary, #0284c7);
+      font-weight: 600;
+    }
+
+    .existing-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+      color: #15803d;
+      background: #dcfce7;
+      padding: 0.1rem 0.4rem;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+
+    .new-client-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 0.1rem 0.4rem;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border: 1px solid var(--border-color, #cbd5e1);
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+      z-index: 50;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 0.25rem;
+    }
+
+    .autocomplete-item {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+
+    .autocomplete-item:hover {
+      background: #f8fafc;
+    }
+
+    .autocomplete-ruc-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .autocomplete-ruc {
+      font-family: monospace;
+      font-weight: 700;
+      color: #0369a1;
+      font-size: 0.8125rem;
+      background: #e0f2fe;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.25rem;
+    }
+
+    .autocomplete-name {
+      font-weight: 600;
+      font-size: 0.8125rem;
+      color: #0f172a;
+    }
+
+    .autocomplete-address {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.15rem;
+    }
+
     /* RESPONSIVE */
     @media (max-width: 1100px) {
       .pos-wrapper {
@@ -1608,6 +1759,7 @@ export class PosComponent implements OnInit {
   public readonly posService = inject(PosService);
   public readonly cajaService = inject(CajaService);
   public readonly impresorasService = inject(ImpresorasService);
+  public readonly clientesService = inject(ClientesService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
 
@@ -1620,6 +1772,13 @@ export class PosComponent implements OnInit {
   public readonly modalComprobanteAbierto = signal<boolean>(false);
   public readonly ultimoPedidoEmitido = signal<Pedido | null>(null);
   public aperturaRapidaMonto: number = 100000;
+
+  // Autocompletado reactivo de clientes
+  public readonly clientesSugeridos = signal<Cliente[]>([]);
+  public readonly buscandoCliente = signal<boolean>(false);
+  public readonly clienteExistente = signal<Cliente | null>(null);
+  public readonly mostrarSugerenciasClientes = signal<boolean>(false);
+  private readonly busquedaRucSubject = new Subject<string>();
 
   public checkoutData: {
     clienteNombre: string;
@@ -1652,6 +1811,37 @@ export class PosComponent implements OnInit {
     if (savedPrinter) {
       this.checkoutData.impresoraId = Number(savedPrinter);
     }
+
+    // Suscripción reactiva para autocompletar clientes con debounce
+    this.busquedaRucSubject.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap((termino) => {
+        if (!termino || termino.trim().length < 2) {
+          this.clientesSugeridos.set([]);
+          this.buscandoCliente.set(false);
+          this.mostrarSugerenciasClientes.set(false);
+          this.clienteExistente.set(null);
+          return of([]);
+        }
+        this.buscandoCliente.set(true);
+        return this.clientesService.listar(termino.trim()).pipe(
+          catchError(() => of([]))
+        );
+      })
+    ).subscribe((resultados) => {
+      this.buscandoCliente.set(false);
+      this.clientesSugeridos.set(resultados || []);
+      this.mostrarSugerenciasClientes.set((resultados || []).length > 0);
+
+      const rucLimpio = this.checkoutData.clienteRuc.trim().toLowerCase();
+      const exacto = (resultados || []).find(c => c.ruc.trim().toLowerCase() === rucLimpio);
+      if (exacto) {
+        this.clienteExistente.set(exacto);
+      } else {
+        this.clienteExistente.set(null);
+      }
+    });
   }
 
   // Filtrado reactivo de sabores
@@ -1740,11 +1930,45 @@ export class PosComponent implements OnInit {
       return;
     }
 
+    // Limpiar estado de autocompletado
+    this.clienteExistente.set(null);
+    this.clientesSugeridos.set([]);
+    this.mostrarSugerenciasClientes.set(false);
+
     this.modalCheckoutAbierto.set(true);
   }
 
   cerrarModalCheckout(): void {
     this.modalCheckoutAbierto.set(false);
+    this.mostrarSugerenciasClientes.set(false);
+  }
+
+  onInputRuc(valor: string): void {
+    this.checkoutData.clienteRuc = valor;
+    this.busquedaRucSubject.next(valor);
+  }
+
+  onFocusRuc(): void {
+    if (this.clientesSugeridos().length > 0) {
+      this.mostrarSugerenciasClientes.set(true);
+    }
+  }
+
+  seleccionarClienteSugerido(cliente: Cliente): void {
+    this.checkoutData.clienteRuc = cliente.ruc;
+    this.checkoutData.clienteNombre = cliente.razonSocial;
+    if (cliente.direccion) {
+      this.checkoutData.clienteDireccion = cliente.direccion;
+    }
+    this.clienteExistente.set(cliente);
+    this.mostrarSugerenciasClientes.set(false);
+    this.clientesSugeridos.set([]);
+  }
+
+  ocultarSugerenciasConDelay(): void {
+    setTimeout(() => {
+      this.mostrarSugerenciasClientes.set(false);
+    }, 200);
   }
 
   onSeleccionarTipoComprobante(tipo: TipoComprobante): void {
@@ -1834,6 +2058,9 @@ export class PosComponent implements OnInit {
           clienteDireccion: '',
           impresoraId: savedImp ? Number(savedImp) : null
         };
+        this.clienteExistente.set(null);
+        this.clientesSugeridos.set([]);
+        this.mostrarSugerenciasClientes.set(false);
       },
       error: (err) => {
         const mensaje = err.error?.mensaje || err.error?.error || 'Error al procesar el pedido.';
