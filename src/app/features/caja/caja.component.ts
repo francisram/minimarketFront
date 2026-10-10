@@ -27,10 +27,22 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             <span>Refrescar</span>
           </button>
           @if (cajaService.cajaAbierta()) {
-            <button type="button" class="btn btn-danger" (click)="abrirModalCierre()">
-              <app-icon name="lock" [size]="16" />
-              <span>Cerrar Caja / Arqueo</span>
-            </button>
+            @if (puedeCerrarCaja()) {
+              <button type="button" class="btn btn-danger" (click)="abrirModalCierre()">
+                <app-icon name="lock" [size]="16" />
+                <span>Cerrar Caja / Arqueo</span>
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="btn btn-secondary btn-disabled-lock"
+                (click)="mostrarAdvertenciaPermisoCierre()"
+                [title]="'Turno abierto por ' + cajaService.cajeroActivo() + '. Solo ese cajero o un Administrador pueden cerrarlo.'"
+              >
+                <app-icon name="lock" [size]="16" />
+                <span>Cierre Bloqueado ({{ cajaService.cajeroActivo() }})</span>
+              </button>
+            }
           } @else {
             <button type="button" class="btn btn-primary" (click)="abrirModalApertura()">
               <app-icon name="plus" [size]="16" />
@@ -57,6 +69,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <span><strong>Apertura:</strong> {{ cajaService.estadoCaja()?.fechaApertura | date:'dd/MM/yyyy HH:mm' }}</span>
             </div>
           </div>
+
+          @if (!puedeCerrarCaja()) {
+            <div class="caja-aviso-titular">
+              <app-icon name="info" [size]="15" />
+              <span>Esta caja fue abierta por <strong>{{ cajaService.cajeroActivo() }}</strong>. Solo el cajero titular o un Administrador/Supervisor pueden realizar el arqueo y cierre.</span>
+            </div>
+          }
 
           <!-- RESUMEN DE VENTAS EN TIEMPO REAL -->
           <div class="kpi-grid">
@@ -923,6 +942,25 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     .m-0 { margin: 0; }
     .small { font-size: 0.75rem; }
     .table-responsive { overflow-x: auto; }
+    .btn-disabled-lock {
+      opacity: 0.85;
+      cursor: not-allowed !important;
+      border: 1px dashed var(--border-color, #cbd5e1);
+      background: var(--bg-subtle, #f1f5f9) !important;
+      color: var(--text-muted, #64748b) !important;
+    }
+    .caja-aviso-titular {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.85rem;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      border-radius: 6px;
+      font-size: 0.8125rem;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
   `]
 })
 export class CajaComponent implements OnInit {
@@ -953,6 +991,14 @@ export class CajaComponent implements OnInit {
     const res = this.cajaService.resumenCaja();
     if (!res) return 0;
     return (res.totalTarjetaDebito || 0) + (res.totalTarjetaCredito || 0);
+  });
+
+  public readonly puedeCerrarCaja = computed(() => {
+    if (!this.cajaService.cajaAbierta()) return false;
+    if (this.authService.isAdminOrOwner()) return true;
+    const cajeroApertura = (this.cajaService.cajeroActivo() || '').trim().toLowerCase();
+    const usuarioActual = (this.authService.username() || '').trim().toLowerCase();
+    return !!cajeroApertura && cajeroApertura === usuarioActual;
   });
 
   ngOnInit(): void {
@@ -1004,6 +1050,11 @@ export class CajaComponent implements OnInit {
 
   // --- CIERRE Y ARQUEO ---
   abrirModalCierre(): void {
+    if (!this.puedeCerrarCaja()) {
+      this.mostrarAdvertenciaPermisoCierre();
+      return;
+    }
+
     this.cajaService.cargarResumen().subscribe({
       next: (resumen) => {
         this.cierreData = {
@@ -1017,6 +1068,14 @@ export class CajaComponent implements OnInit {
         this.toast.error('No se pudo cargar el resumen de la caja.');
       }
     });
+  }
+
+  mostrarAdvertenciaPermisoCierre(): void {
+    const cajero = this.cajaService.cajeroActivo() || 'el cajero titular';
+    this.toast.warning(
+      `Esta caja fue abierta por "${cajero}". Solo dicho usuario o un Administrador/Supervisor pueden realizar el arqueo y cierre.`,
+      'Acción no permitida'
+    );
   }
 
   cerrarModalCierre(): void {
@@ -1057,6 +1116,11 @@ export class CajaComponent implements OnInit {
   }
 
   confirmarCierre(): void {
+    if (!this.puedeCerrarCaja()) {
+      this.mostrarAdvertenciaPermisoCierre();
+      return;
+    }
+
     if (this.cierreData.montoRealEfectivo === null || this.cierreData.montoRealEfectivo < 0) {
       this.toast.warning('Ingresa el monto de efectivo físico contado.');
       return;
