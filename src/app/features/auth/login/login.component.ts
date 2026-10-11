@@ -54,13 +54,31 @@ import { ToastComponent } from '../../../shared/components/toast/toast.component
               </div>
               <input
                 id="password"
-                type="password"
+                [type]="mostrarPassword() ? 'text' : 'password'"
                 formControlName="password"
-                class="form-control"
+                class="form-control has-toggle"
                 placeholder="••••••••"
                 [class.is-invalid]="esCampoInvalido('password')"
                 autocomplete="current-password"
               />
+              <button
+                type="button"
+                class="password-toggle-btn"
+                (mousedown)="mostrarPassword.set(true)"
+                (mouseup)="mostrarPassword.set(false)"
+                (mouseleave)="mostrarPassword.set(false)"
+                (touchstart)="onPasswordTouchStart($event)"
+                (touchend)="mostrarPassword.set(false)"
+                (touchcancel)="mostrarPassword.set(false)"
+                (keydown.space)="mostrarPassword.set(true); $event.preventDefault()"
+                (keyup.space)="mostrarPassword.set(false)"
+                (click)="$event.preventDefault()"
+                tabindex="-1"
+                [attr.aria-label]="mostrarPassword() ? 'Ocultar contraseña' : 'Ver contraseña mientras esté presionado'"
+                title="Mantén presionado para ver la contraseña"
+              >
+                <app-icon [name]="mostrarPassword() ? 'eye' : 'eye-off'" [size]="18" />
+              </button>
             </div>
             @if (esCampoInvalido('password')) {
               <div class="form-error">La contraseña es requerida.</div>
@@ -155,6 +173,36 @@ import { ToastComponent } from '../../../shared/components/toast/toast.component
       padding-left: 2.5rem;
     }
 
+    .input-with-icon .form-control.has-toggle {
+      padding-right: 2.75rem;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      padding: 0.35rem;
+      border-radius: 0.375rem;
+      color: var(--text-muted, #64748b);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: color 0.15s ease, transform 0.1s ease;
+    }
+
+    .password-toggle-btn:hover {
+      color: var(--primary, #d97706);
+    }
+
+    .password-toggle-btn:active {
+      transform: scale(0.92);
+      color: var(--primary, #d97706);
+    }
+
     .w-100 {
       width: 100%;
     }
@@ -181,11 +229,17 @@ export class LoginComponent {
   private readonly toast = inject(ToastService);
 
   public readonly cargando = signal<boolean>(false);
+  public readonly mostrarPassword = signal<boolean>(false);
 
   public readonly loginForm = this.fb.group({
     username: ['', [Validators.required]],
     password: ['', [Validators.required]]
   });
+
+  onPasswordTouchStart(event: TouchEvent): void {
+    event.preventDefault();
+    this.mostrarPassword.set(true);
+  }
 
   esCampoInvalido(campo: string): boolean {
     const c = this.loginForm.get(campo);
