@@ -9,6 +9,8 @@ import { PedidosService } from '../../core/services/pedidos.service';
 import { ImpresorasService } from '../../core/services/impresoras.service';
 import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
 import { Pedido } from '../../core/models/pedido.model';
+import { InstitucionService } from '../../core/services/institucion.service';
+import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import {
   DashboardReporteDTO,
   ReporteVentasDTO,
@@ -22,7 +24,7 @@ import {
   PedidoResumenReporteDTO
 } from '../../core/models/reporte.model';
 
-type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones';
+type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones' | 'talonarios';
 
 interface DonutSegment {
   label: string;
@@ -36,7 +38,7 @@ interface DonutSegment {
 @Component({
   selector: 'app-reportes',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, AppIconComponent, AppCurrencyPipe, ComprobanteModalComponent],
+  imports: [CommonModule, FormsModule, DatePipe, AppIconComponent, AppCurrencyPipe, ComprobanteModalComponent, AppModalComponent],
   template: `
     <div class="reportes-page">
       <!-- HEADER PRINCIPAL -->
@@ -194,6 +196,15 @@ interface DonutSegment {
         >
           <app-icon name="printer" [size]="18" />
           <span>Reimpresiones</span>
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="tabActiva() === 'talonarios'"
+          (click)="cambiarTab('talonarios')"
+        >
+          <app-icon name="file-text" [size]="18" />
+          <span>Talonarios & Timbrado SET</span>
         </button>
       </nav>
 
@@ -1235,6 +1246,290 @@ interface DonutSegment {
             </div>
           </div>
         }
+        <!-- ============================================================= -->
+        <!-- PESTAÑA 7: TALONARIOS Y TIMBRADO FISCAL SET / DNIT -->
+        <!-- ============================================================= -->
+        @if (tabActiva() === 'talonarios') {
+          <div class="tab-content talonarios-content">
+            <!-- BANNER DE DIAGNÓSTICO Y ACCIÓN -->
+            <div class="card p-4">
+              <div class="talonario-hero">
+                <div class="talonario-header-info">
+                  <div class="d-flex align-items-center gap-2 flex-wrap">
+                    @if (estadoTalonario() === 'VIGENTE') {
+                      <span class="badge-status badge-success">
+                        <app-icon name="check" [size]="14" />
+                        <span>Timbrado Vigente & Talonario Activo</span>
+                      </span>
+                    } @else if (estadoTalonario() === 'POR_VENCER') {
+                      <span class="badge-status badge-warning">
+                        <app-icon name="alert-triangle" [size]="14" />
+                        <span>Próximo a Vencer ({{ diasRestantesTimbrado() }} días restantes)</span>
+                      </span>
+                    } @else if (estadoTalonario() === 'POR_AGOTARSE') {
+                      <span class="badge-status badge-warning">
+                        <app-icon name="alert-triangle" [size]="14" />
+                        <span>Talonario al Límite ({{ facturasRestantes() }} facturas restantes)</span>
+                      </span>
+                    } @else if (estadoTalonario() === 'VENCIDO') {
+                      <span class="badge-status badge-danger">
+                        <app-icon name="x" [size]="14" />
+                        <span>Timbrado Vencido (Expiró el {{ fiscalTimbradoVencimiento | date:'dd/MM/yyyy' }})</span>
+                      </span>
+                    } @else if (estadoTalonario() === 'AGOTADO') {
+                      <span class="badge-status badge-danger">
+                        <app-icon name="x" [size]="14" />
+                        <span>Talonario Agotado (Límite {{ fiscalNumeroFin }} alcanzado)</span>
+                      </span>
+                    }
+                  </div>
+
+                  <h2 class="hero-title mt-2">Control de Timbrado y Talonarios de Facturación Legal</h2>
+                  <p class="hero-desc">
+                    Parámetros tributarios de facturación preimpresa y autoimpresor según normativas SET / DNIT (Ley 6380). Controla los números correlativos, rangos habilitados y renueva talonarios al alcanzar el límite.
+                  </p>
+                </div>
+
+                <div class="talonario-hero-actions">
+                  <button type="button" class="btn btn-primary" (click)="abrirModalNuevoTalonario()">
+                    <app-icon name="plus" [size]="16" />
+                    <span>Habilitar Nuevo Talonario / Renovar Timbrado</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 4 TARJETAS KPI FISCALES -->
+              <div class="kpi-grid mt-4">
+                <!-- 1. TIMBRADO -->
+                <div class="kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">Timbrado Oficial SET</span>
+                    <app-icon name="file-text" [size]="20" class="text-primary" />
+                  </div>
+                  <div class="kpi-value font-mono">{{ fiscalTimbrado || 'Sin Timbrado' }}</div>
+                  <div class="kpi-footer">
+                    @if (fiscalTimbradoVencimiento) {
+                      <span>Vence: <strong>{{ fiscalTimbradoVencimiento | date:'dd/MM/yyyy' }}</strong></span>
+                      <span [class.text-danger]="diasRestantesTimbrado() <= 15" [class.text-warning]="diasRestantesTimbrado() <= 30 && diasRestantesTimbrado() > 15">
+                        ({{ diasRestantesTimbrado() }} días)
+                      </span>
+                    } @else {
+                      <span class="text-muted">Sin fecha configurada</span>
+                    }
+                  </div>
+                </div>
+
+                <!-- 2. PUNTO EXPEDICIÓN -->
+                <div class="kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">Punto de Expedición</span>
+                    <app-icon name="building" [size]="20" class="text-blue" />
+                  </div>
+                  <div class="kpi-value font-mono">{{ fiscalEstablecimiento || '001' }}-{{ fiscalPuntoEmision || '001' }}</div>
+                  <div class="kpi-footer">
+                    <span>RUC: <strong>{{ fiscalRuc || 'No registrado' }}</strong></span>
+                  </div>
+                </div>
+
+                <!-- 3. RANGO AUTORIZADO -->
+                <div class="kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">Rango Autorizado</span>
+                    <app-icon name="clipboard-list" [size]="20" class="text-purple" />
+                  </div>
+                  <div class="kpi-value font-mono">
+                    {{ (fiscalNumeroInicio || 1).toString().padStart(7, '0') }} al {{ (fiscalNumeroFin || 1000).toString().padStart(7, '0') }}
+                  </div>
+                  <div class="kpi-footer">
+                    <span>Total folios: <strong>{{ ((fiscalNumeroFin || 1000) - (fiscalNumeroInicio || 1) + 1) | number }}</strong></span>
+                  </div>
+                </div>
+
+                <!-- 4. PRÓXIMA FACTURA Y USO -->
+                <div class="kpi-card">
+                  <div class="kpi-header">
+                    <span class="kpi-title">Próxima Factura a Emitir</span>
+                    <app-icon name="printer" [size]="20" class="text-green" />
+                  </div>
+                  <div class="kpi-value font-mono text-success">{{ proximaFacturaPreview() }}</div>
+                  <div class="kpi-footer">
+                    <span>Quedan: <strong>{{ facturasRestantes() | number }}</strong> facturas</span>
+                    <span class="text-muted">({{ porcentajeTalonarioUsado() }}% emitido)</span>
+                  </div>
+                  <div class="talonario-progress-bar mt-2">
+                    <div
+                      class="progress-fill"
+                      [style.width.%]="porcentajeTalonarioUsado()"
+                      [class.bg-green]="porcentajeTalonarioUsado() < 75"
+                      [class.bg-yellow]="porcentajeTalonarioUsado() >= 75 && porcentajeTalonarioUsado() < 90"
+                      [class.bg-red]="porcentajeTalonarioUsado() >= 90"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL DE CONFIGURACIÓN Y MODIFICACIÓN DEL TALONARIO -->
+            <div class="card p-4">
+              <div class="card-header space-between border-0 p-0 mb-4">
+                <div>
+                  <h3 class="card-title">Ajuste y Sincronización del Talonario Actual</h3>
+                  <p class="card-subtitle">
+                    Modifica los datos del timbrado vigente, actualiza la fecha de vencimiento o sincroniza el número correlativo si has emitido comprobantes manuales.
+                  </p>
+                </div>
+              </div>
+
+              <div class="fiscal-form-layout">
+                <!-- FORMULARIO DE EDICIÓN -->
+                <div class="fiscal-form-fields">
+                  <div class="form-grid-3">
+                    <div class="form-group">
+                      <label class="form-label" for="fiscRuc">R.U.C. del Emisor *</label>
+                      <input
+                        id="fiscRuc"
+                        type="text"
+                        class="form-control"
+                        placeholder="Ej. 80099887-1"
+                        [(ngModel)]="fiscalRuc"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscTimbrado">N° de Timbrado Vigente *</label>
+                      <input
+                        id="fiscTimbrado"
+                        type="text"
+                        class="form-control font-mono"
+                        placeholder="Ej. 17894561"
+                        [(ngModel)]="fiscalTimbrado"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscInicio">Inicio de Vigencia</label>
+                      <input
+                        id="fiscInicio"
+                        type="date"
+                        class="form-control"
+                        [(ngModel)]="fiscalTimbradoInicio"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscVencimiento">Vencimiento del Timbrado *</label>
+                      <input
+                        id="fiscVencimiento"
+                        type="date"
+                        class="form-control"
+                        [(ngModel)]="fiscalTimbradoVencimiento"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscEstab">Establecimiento (3 dígitos) *</label>
+                      <input
+                        id="fiscEstab"
+                        type="text"
+                        class="form-control font-mono"
+                        placeholder="001"
+                        maxlength="3"
+                        [(ngModel)]="fiscalEstablecimiento"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscPunto">Punto de Emisión (3 dígitos) *</label>
+                      <input
+                        id="fiscPunto"
+                        type="text"
+                        class="form-control font-mono"
+                        placeholder="001"
+                        maxlength="3"
+                        [(ngModel)]="fiscalPuntoEmision"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscNumInicio">Talonario - Desde *</label>
+                      <input
+                        id="fiscNumInicio"
+                        type="number"
+                        min="1"
+                        class="form-control font-mono"
+                        placeholder="1"
+                        [(ngModel)]="fiscalNumeroInicio"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="fiscNumFin">Talonario - Hasta (Límite) *</label>
+                      <input
+                        id="fiscNumFin"
+                        type="number"
+                        min="1"
+                        class="form-control font-mono"
+                        placeholder="1000"
+                        [(ngModel)]="fiscalNumeroFin"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label text-warning" for="fiscUltimoNum">
+                        Último N° Factura Emitido ⚠️
+                      </label>
+                      <input
+                        id="fiscUltimoNum"
+                        type="number"
+                        min="0"
+                        class="form-control font-mono"
+                        [(ngModel)]="fiscalUltimoNumero"
+                      />
+                      <small class="field-hint text-warning">
+                        Modificar solo para sincronizar talonarios físicos o manuales.
+                      </small>
+                    </div>
+                  </div>
+
+                  <div class="form-actions-fiscal mt-4">
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      (click)="guardarDatosFiscales()"
+                      [disabled]="guardandoFiscal()"
+                    >
+                      <app-icon name="check" [size]="16" />
+                      <span>{{ guardandoFiscal() ? 'Guardando...' : 'Guardar Configuración Fiscal' }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- TICKET PREVIEW LATERAL -->
+                <div class="fiscal-ticket-preview">
+                  <div class="preview-title">
+                    <app-icon name="printer" [size]="16" />
+                    <span>Vista Previa Membrete Fiscal</span>
+                  </div>
+                  <div class="mini-ticket-paper">
+                    <div class="text-center font-bold">{{ institucionService.institucion().nombre || 'Heladería Artesanal' }}</div>
+                    <div class="text-center text-xs">RUC: {{ fiscalRuc || '80099887-1' }}</div>
+                    <div class="text-center text-xs border-dashed-t border-dashed-b my-1 py-1">
+                      <div>TIMBRADO N°: {{ fiscalTimbrado || '17894561' }}</div>
+                      <div>Válido hasta: {{ fiscalTimbradoVencimiento || '2026-12-31' }}</div>
+                      <div class="font-bold">IVA INCLUIDO</div>
+                    </div>
+                    <div class="text-center font-bold text-sm text-primary">
+                      FACTURA N°: {{ proximaFacturaPreview() }}
+                    </div>
+                    <div class="text-center text-xxs text-muted mt-1">
+                      (Próximo comprobante que emitirá el POS)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
       }
 
       <!-- MODAL DE COMPROBANTE PARA VER / REIMPRIMIR EN PDF -->
@@ -1243,6 +1538,131 @@ interface DonutSegment {
         [pedido]="pedidoSeleccionadoParaModal()"
         (close)="cerrarComprobanteModal()"
       />
+
+      <!-- MODAL PARA RENOVAR TIMBRADO / HABILITAR NUEVO TALONARIO -->
+      <app-modal
+        [isOpen]="modalNuevoTalonarioAbierto()"
+        title="Renovación de Timbrado y Alta de Nuevo Talonario Fiscal"
+        size="md"
+        (close)="cerrarModalNuevoTalonario()"
+      >
+        <div body class="nuevo-talonario-modal-body">
+          <p class="modal-instructions">
+            Ingresa los datos del nuevo timbrado o talonario autorizado por la SET/DNIT. Al confirmar, el sistema actualizará los membretes de impresión y fijará el nuevo rango de facturación.
+          </p>
+
+          <div class="form-grid-modal">
+            <div class="form-group">
+              <label class="form-label" for="nuevoTimbrado">Nuevo N° de Timbrado *</label>
+              <input
+                id="nuevoTimbrado"
+                type="text"
+                class="form-control"
+                placeholder="Ej. 18234567"
+                [(ngModel)]="nuevoTimbrado"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoTimbradoInicio">Inicio de Vigencia</label>
+              <input
+                id="nuevoTimbradoInicio"
+                type="date"
+                class="form-control"
+                [(ngModel)]="nuevoTimbradoInicio"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoTimbradoVencimiento">Vencimiento del Timbrado *</label>
+              <input
+                id="nuevoTimbradoVencimiento"
+                type="date"
+                class="form-control"
+                [(ngModel)]="nuevoTimbradoVencimiento"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoEstablecimiento">Establecimiento (3 dígitos)</label>
+              <input
+                id="nuevoEstablecimiento"
+                type="text"
+                class="form-control"
+                placeholder="001"
+                maxlength="3"
+                [(ngModel)]="nuevoEstablecimiento"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoPuntoEmision">Punto de Emisión (3 dígitos)</label>
+              <input
+                id="nuevoPuntoEmision"
+                type="text"
+                class="form-control"
+                placeholder="001"
+                maxlength="3"
+                [(ngModel)]="nuevoPuntoEmision"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoNumeroInicio">N° Inicial del Talonario *</label>
+              <input
+                id="nuevoNumeroInicio"
+                type="number"
+                min="1"
+                class="form-control"
+                placeholder="1"
+                [(ngModel)]="nuevoNumeroInicio"
+                (ngModelChange)="onCambioRangoNuevoTalonario()"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoNumeroFin">N° Final del Talonario (Límite) *</label>
+              <input
+                id="nuevoNumeroFin"
+                type="number"
+                min="1"
+                class="form-control"
+                placeholder="1000"
+                [(ngModel)]="nuevoNumeroFin"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoUltimoNumero">Último Número Emitido Previo</label>
+              <input
+                id="nuevoUltimoNumero"
+                type="number"
+                min="0"
+                class="form-control"
+                [(ngModel)]="nuevoUltimoNumero"
+              />
+              <small class="field-hint">
+                Primera factura a emitir: <strong>{{ nuevoEstablecimiento || '001' }}-{{ nuevoPuntoEmision || '001' }}-{{ ((nuevoUltimoNumero || 0) + 1).toString().padStart(7, '0') }}</strong>
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div footer class="modal-footer-actions">
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevoTalonario()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="confirmarNuevoTalonario()"
+            [disabled]="guardandoFiscal() || !nuevoTimbrado.trim() || !nuevoTimbradoVencimiento"
+          >
+            <app-icon name="check" [size]="16" />
+            <span>{{ guardandoFiscal() ? 'Activando...' : 'Habilitar y Activar Talonario' }}</span>
+          </button>
+        </div>
+      </app-modal>
     </div>
   `,
   styles: [`
@@ -2305,6 +2725,162 @@ interface DonutSegment {
       justify-content: center;
       padding: 2rem 1rem;
     }
+
+    /* TALONARIOS & TIMBRADO FISCAL */
+    .talonario-hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .talonario-header-info {
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .talonario-hero-actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-status.badge-success {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+
+    .badge-status.badge-warning {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    .badge-status.badge-danger {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .talonario-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    .fiscal-form-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .fiscal-form-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .form-actions-fiscal {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .fiscal-ticket-preview {
+      background: var(--bg-subtle, #f8fafc);
+      padding: 1rem;
+      border-radius: var(--radius-md);
+      border: 1px dashed var(--border-color);
+    }
+
+    .preview-title {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .mini-ticket-paper {
+      background: #ffffff;
+      color: #000;
+      padding: 1rem;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .border-dashed-t { border-top: 1px dashed #888; }
+    .border-dashed-b { border-bottom: 1px dashed #888; }
+    .my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .font-mono { font-family: monospace; }
+    .text-xxs { font-size: 0.6875rem; }
+
+    .nuevo-talonario-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .modal-instructions {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    .form-grid-modal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .form-grid-modal {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .modal-footer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      width: 100%;
+    }
   `]
 })
 export class ReportesComponent implements OnInit {
@@ -2312,6 +2888,7 @@ export class ReportesComponent implements OnInit {
   private readonly toast = inject(ToastService);
   public readonly impresorasService = inject(ImpresorasService);
   private readonly pedidosService = inject(PedidosService);
+  public readonly institucionService = inject(InstitucionService);
 
   // Estados principales
   public readonly tabActiva = signal<TabReporte>('dashboard');
@@ -2344,6 +2921,29 @@ export class ReportesComponent implements OnInit {
   public readonly modalComprobanteAbierto = signal<boolean>(false);
   public readonly pedidoSeleccionadoParaModal = signal<Pedido | null>(null);
   public readonly cargandoDetallePedido = signal<boolean>(false);
+
+  // Talonarios y Timbrado SET
+  public readonly modalNuevoTalonarioAbierto = signal<boolean>(false);
+  public readonly guardandoFiscal = signal<boolean>(false);
+
+  public fiscalRuc: string = '';
+  public fiscalTimbrado: string = '';
+  public fiscalTimbradoInicio: string = '';
+  public fiscalTimbradoVencimiento: string = '';
+  public fiscalEstablecimiento: string = '001';
+  public fiscalPuntoEmision: string = '001';
+  public fiscalNumeroInicio: number = 1;
+  public fiscalNumeroFin: number = 1000;
+  public fiscalUltimoNumero: number = 0;
+
+  public nuevoTimbrado: string = '';
+  public nuevoTimbradoInicio: string = '';
+  public nuevoTimbradoVencimiento: string = '';
+  public nuevoEstablecimiento: string = '001';
+  public nuevoPuntoEmision: string = '001';
+  public nuevoNumeroInicio: number = 1;
+  public nuevoNumeroFin: number = 1000;
+  public nuevoUltimoNumero: number = 0;
 
   // Paginación en ventas
   public readonly paginaVentas = signal<number>(1);
@@ -2385,6 +2985,52 @@ export class ReportesComponent implements OnInit {
         nroFactura.includes(q) ||
         nroVoucher.includes(q);
     });
+  });
+
+  public readonly diasRestantesTimbrado = computed<number>(() => {
+    if (!this.fiscalTimbradoVencimiento) return 0;
+    const partes = this.fiscalTimbradoVencimiento.split('-').map(Number);
+    if (partes.length < 3) return 0;
+    const fechaVenc = new Date(partes[0], partes[1] - 1, partes[2]);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diffTime = fechaVenc.getTime() - hoy.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  });
+
+  public readonly facturasRestantes = computed<number>(() => {
+    const fin = this.fiscalNumeroFin || 1000;
+    const actual = this.fiscalUltimoNumero || 0;
+    return Math.max(0, fin - actual);
+  });
+
+  public readonly porcentajeTalonarioUsado = computed<number>(() => {
+    const inicio = this.fiscalNumeroInicio || 1;
+    const fin = this.fiscalNumeroFin || 1000;
+    const actual = this.fiscalUltimoNumero || 0;
+    const total = Math.max(1, fin - inicio + 1);
+    const usados = Math.max(0, actual - inicio + 1);
+    return Math.min(100, Math.round((usados / total) * 100));
+  });
+
+  public readonly estadoTalonario = computed<'VIGENTE' | 'POR_VENCER' | 'POR_AGOTARSE' | 'VENCIDO' | 'AGOTADO'>(() => {
+    const dias = this.diasRestantesTimbrado();
+    const restantes = this.facturasRestantes();
+    const fin = this.fiscalNumeroFin || 1000;
+    const actual = this.fiscalUltimoNumero || 0;
+
+    if (dias < 0) return 'VENCIDO';
+    if (actual >= fin && fin > 0) return 'AGOTADO';
+    if (dias <= 30) return 'POR_VENCER';
+    if (restantes <= 50 || this.porcentajeTalonarioUsado() >= 90) return 'POR_AGOTARSE';
+    return 'VIGENTE';
+  });
+
+  public readonly proximaFacturaPreview = computed<string>(() => {
+    const estab = this.fiscalEstablecimiento || '001';
+    const punto = this.fiscalPuntoEmision || '001';
+    const sig = (this.fiscalUltimoNumero || 0) + 1;
+    return `${estab}-${punto}-${sig.toString().padStart(7, '0')}`;
   });
 
   // Puntos del gráfico SVG
@@ -2481,6 +3127,9 @@ export class ReportesComponent implements OnInit {
   ngOnInit(): void {
     this.aplicarPreset('esteMes');
     this.impresorasService.cargarImpresoras();
+    this.institucionService.obtenerInstitucion().subscribe(() => {
+      this.cargarDatosFiscales();
+    });
   }
 
   cambiarTab(tab: TabReporte): void {
@@ -2539,6 +3188,8 @@ export class ReportesComponent implements OnInit {
       this.cargarCajas();
     } else if (tab === 'rankings') {
       this.cargarRankings();
+    } else if (tab === 'talonarios') {
+      this.cargarDatosFiscales();
     }
   }
 
@@ -2722,5 +3373,120 @@ export class ReportesComponent implements OnInit {
   cerrarComprobanteModal(): void {
     this.modalComprobanteAbierto.set(false);
     this.pedidoSeleccionadoParaModal.set(null);
+  }
+
+  cargarDatosFiscales(): void {
+    const inst = this.institucionService.institucion();
+    this.fiscalRuc = inst.ruc || '';
+    this.fiscalTimbrado = inst.timbrado || '';
+    this.fiscalTimbradoInicio = inst.timbradoInicio || '';
+    this.fiscalTimbradoVencimiento = inst.timbradoVencimiento || '';
+    this.fiscalEstablecimiento = inst.establecimiento || '001';
+    this.fiscalPuntoEmision = inst.puntoEmision || '001';
+    this.fiscalNumeroInicio = inst.numeroInicioFactura ?? 1;
+    this.fiscalNumeroFin = inst.numeroFinFactura ?? 1000;
+    this.fiscalUltimoNumero = inst.ultimoNumeroFactura ?? 0;
+  }
+
+  guardarDatosFiscales(): void {
+    if (!this.fiscalTimbrado.trim()) {
+      this.toast.error('El número de timbrado es obligatorio.');
+      return;
+    }
+    if (!this.fiscalTimbradoVencimiento) {
+      this.toast.error('La fecha de vencimiento del timbrado es obligatoria.');
+      return;
+    }
+
+    this.guardandoFiscal.set(true);
+    const instActual = this.institucionService.institucion();
+    this.institucionService.actualizar({
+      ...instActual,
+      ruc: this.fiscalRuc.trim(),
+      timbrado: this.fiscalTimbrado.trim(),
+      timbradoInicio: this.fiscalTimbradoInicio || undefined,
+      timbradoVencimiento: this.fiscalTimbradoVencimiento,
+      establecimiento: this.fiscalEstablecimiento.trim() || '001',
+      puntoEmision: this.fiscalPuntoEmision.trim() || '001',
+      numeroInicioFactura: this.fiscalNumeroInicio,
+      numeroFinFactura: this.fiscalNumeroFin,
+      ultimoNumeroFactura: this.fiscalUltimoNumero
+    }).subscribe({
+      next: () => {
+        this.guardandoFiscal.set(false);
+        this.cargarDatosFiscales();
+        this.toast.success('Configuración fiscal y talonario actualizados exitosamente.');
+      },
+      error: (err) => {
+        this.guardandoFiscal.set(false);
+        this.toast.error('Error al actualizar datos fiscales: ' + (err?.error?.message || err.message || 'Error'));
+      }
+    });
+  }
+
+  abrirModalNuevoTalonario(): void {
+    const inst = this.institucionService.institucion();
+    this.nuevoTimbrado = '';
+    this.nuevoTimbradoInicio = this.formatoIsoFecha(new Date());
+    const unAno = new Date();
+    unAno.setFullYear(unAno.getFullYear() + 1);
+    this.nuevoTimbradoVencimiento = this.formatoIsoFecha(unAno);
+    this.nuevoEstablecimiento = inst.establecimiento || '001';
+    this.nuevoPuntoEmision = inst.puntoEmision || '001';
+
+    const finPrevio = inst.numeroFinFactura || inst.ultimoNumeroFactura || 0;
+    this.nuevoNumeroInicio = finPrevio + 1;
+    this.nuevoNumeroFin = finPrevio + 1000;
+    this.nuevoUltimoNumero = finPrevio;
+    this.modalNuevoTalonarioAbierto.set(true);
+  }
+
+  onCambioRangoNuevoTalonario(): void {
+    if (this.nuevoNumeroInicio) {
+      this.nuevoUltimoNumero = this.nuevoNumeroInicio - 1;
+      if (!this.nuevoNumeroFin || this.nuevoNumeroFin <= this.nuevoNumeroInicio) {
+        this.nuevoNumeroFin = this.nuevoNumeroInicio + 999;
+      }
+    }
+  }
+
+  cerrarModalNuevoTalonario(): void {
+    this.modalNuevoTalonarioAbierto.set(false);
+  }
+
+  confirmarNuevoTalonario(): void {
+    if (!this.nuevoTimbrado.trim() || !this.nuevoTimbradoVencimiento) {
+      this.toast.error('Debes completar el número de timbrado y la fecha de vencimiento.');
+      return;
+    }
+    if (this.nuevoNumeroFin <= this.nuevoNumeroInicio) {
+      this.toast.error('El número final debe ser mayor al número inicial del talonario.');
+      return;
+    }
+
+    this.guardandoFiscal.set(true);
+    const instActual = this.institucionService.institucion();
+    this.institucionService.actualizar({
+      ...instActual,
+      timbrado: this.nuevoTimbrado.trim(),
+      timbradoInicio: this.nuevoTimbradoInicio || undefined,
+      timbradoVencimiento: this.nuevoTimbradoVencimiento,
+      establecimiento: this.nuevoEstablecimiento.trim() || '001',
+      puntoEmision: this.nuevoPuntoEmision.trim() || '001',
+      numeroInicioFactura: this.nuevoNumeroInicio,
+      numeroFinFactura: this.nuevoNumeroFin,
+      ultimoNumeroFactura: this.nuevoUltimoNumero
+    }).subscribe({
+      next: () => {
+        this.guardandoFiscal.set(false);
+        this.modalNuevoTalonarioAbierto.set(false);
+        this.cargarDatosFiscales();
+        this.toast.success(`¡Nuevo talonario del timbrado #${this.nuevoTimbrado} habilitado con éxito!`);
+      },
+      error: (err) => {
+        this.guardandoFiscal.set(false);
+        this.toast.error('Error al habilitar nuevo talonario: ' + (err?.error?.message || err.message || 'Error'));
+      }
+    });
   }
 }

@@ -114,6 +114,17 @@ import { Institucion } from '../../core/models/institucion.model';
               </div>
 
               <div class="form-group">
+                <label class="form-label" for="timbradoInicioNegocio">Inicio Vigencia del Timbrado</label>
+                <input
+                  id="timbradoInicioNegocio"
+                  type="date"
+                  class="form-control"
+                  [(ngModel)]="timbradoInicio"
+                  name="timbradoInicio"
+                />
+              </div>
+
+              <div class="form-group">
                 <label class="form-label" for="vencimientoTimbrado">Vigencia del Timbrado (Vencimiento)</label>
                 <input
                   id="vencimientoTimbrado"
@@ -151,6 +162,32 @@ import { Institucion } from '../../core/models/institucion.model';
               </div>
 
               <div class="form-group">
+                <label class="form-label" for="numeroInicioNegocio">Talonario - Desde</label>
+                <input
+                  id="numeroInicioNegocio"
+                  type="number"
+                  min="1"
+                  class="form-control"
+                  placeholder="1"
+                  [(ngModel)]="numeroInicioFactura"
+                  name="numeroInicioFactura"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="numeroFinNegocio">Talonario - Hasta (Límite)</label>
+                <input
+                  id="numeroFinNegocio"
+                  type="number"
+                  min="1"
+                  class="form-control"
+                  placeholder="1000"
+                  [(ngModel)]="numeroFinFactura"
+                  name="numeroFinFactura"
+                />
+              </div>
+
+              <div class="form-group">
                 <label class="form-label" for="ultimoNumero">Último N° Factura Emitido</label>
                 <input
                   id="ultimoNumero"
@@ -161,7 +198,9 @@ import { Institucion } from '../../core/models/institucion.model';
                   [(ngModel)]="ultimoNumeroFactura"
                   name="ultimoNumeroFactura"
                 />
-                <small class="field-hint">El backend genera automáticamente el correlativo sucesivo.</small>
+                <small class="field-hint">
+                  Próxima factura: <strong>{{ establecimiento || '001' }}-{{ puntoEmision || '001' }}-{{ ((ultimoNumeroFactura || 0) + 1).toString().padStart(7, '0') }}</strong>
+                </small>
               </div>
             </div>
           </div>
@@ -388,9 +427,12 @@ export class InstitucionComponent implements OnInit {
   public nombre: string = '';
   public ruc: string = '';
   public timbrado: string = '';
+  public timbradoInicio: string = '';
   public timbradoVencimiento: string = '';
   public establecimiento: string = '001';
   public puntoEmision: string = '001';
+  public numeroInicioFactura: number = 1;
+  public numeroFinFactura: number = 1000;
   public ultimoNumeroFactura: number = 0;
   public direccion: string = '';
   public telefono: string = '';
@@ -413,9 +455,12 @@ export class InstitucionComponent implements OnInit {
     this.nombre = inst.nombre || '';
     this.ruc = inst.ruc || '';
     this.timbrado = inst.timbrado || '';
+    this.timbradoInicio = inst.timbradoInicio || '';
     this.timbradoVencimiento = inst.timbradoVencimiento || '';
     this.establecimiento = inst.establecimiento || '001';
     this.puntoEmision = inst.puntoEmision || '001';
+    this.numeroInicioFactura = inst.numeroInicioFactura ?? 1;
+    this.numeroFinFactura = inst.numeroFinFactura ?? 1000;
     this.ultimoNumeroFactura = inst.ultimoNumeroFactura ?? 0;
     this.direccion = inst.direccion || '';
     this.telefono = inst.telefono || '';
@@ -454,9 +499,12 @@ export class InstitucionComponent implements OnInit {
       logoBase64: this.logoBase64(),
       ruc: this.ruc,
       timbrado: this.timbrado,
+      timbradoInicio: this.timbradoInicio,
       timbradoVencimiento: this.timbradoVencimiento,
       establecimiento: this.establecimiento,
       puntoEmision: this.puntoEmision,
+      numeroInicioFactura: this.numeroInicioFactura,
+      numeroFinFactura: this.numeroFinFactura,
       ultimoNumeroFactura: this.ultimoNumeroFactura,
       direccion: this.direccion,
       telefono: this.telefono,
