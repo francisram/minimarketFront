@@ -1,4 +1,4 @@
-import { Component, inject, input, output, computed, signal, OnInit } from '@angular/core';
+import { Component, inject, input, output, computed, signal, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InstitucionService } from '../../../core/services/institucion.service';
@@ -799,17 +799,28 @@ export class ComprobanteModalComponent implements OnInit {
     return 0;
   }
 
+  constructor() {
+    effect(() => {
+      const imps = this.impresorasService.impresoras();
+      if (imps.length > 0) {
+        const saved = localStorage.getItem('pos_impresora_id');
+        const savedId = saved ? Number(saved) : null;
+        const exists = savedId ? imps.some(i => i.id === savedId) : false;
+        if (exists && savedId) {
+          this.impresoraSeleccionadaId = savedId;
+        } else if (!this.impresoraSeleccionadaId) {
+          const preferred = imps.find(i => i.nombre.toUpperCase().includes('FTX')) || imps[0];
+          if (preferred && preferred.id) {
+            this.impresoraSeleccionadaId = preferred.id;
+            localStorage.setItem('pos_impresora_id', preferred.id.toString());
+          }
+        }
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.impresorasService.cargarImpresoras();
-    const saved = localStorage.getItem('pos_impresora_id');
-    if (saved) {
-      this.impresoraSeleccionadaId = Number(saved);
-    } else {
-      const imps = this.impresorasService.impresoras();
-      if (imps.length > 0 && imps[0].id) {
-        this.impresoraSeleccionadaId = imps[0].id;
-      }
-    }
   }
 
   onCambiarImpresora(id: number | null): void {
@@ -836,7 +847,9 @@ export class ComprobanteModalComponent implements OnInit {
       },
       error: (err) => {
         this.imprimiendoTicketera.set(false);
-        const msg = err.error?.mensaje || 'Error al comunicarse con la ticketera local.';
+        const msg = (typeof err.error === 'string' && err.error.trim().length > 0)
+          ? err.error
+          : (err.error?.mensaje || 'Error al comunicarse con la ticketera local.');
         this.toast.error(msg, 'Error Impresión Térmica');
       }
     });
