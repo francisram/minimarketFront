@@ -70,10 +70,16 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
             <!-- TÍTULO DEL COMPROBANTE -->
             <div class="comprobante-title-row">
               <span class="comprobante-tipo">
-                {{ esFactura() ? 'FACTURA' : 'TICKET DE VENTA' }}
+                {{ esFactura() ? 'FACTURA' : 'Número de Ticket:' }}
               </span>
               <span class="comprobante-nro">{{ numeroComprobante() }}</span>
             </div>
+            @if (trxId()) {
+              <div class="trx-row">
+                <span>Trx ID:</span>
+                <strong>{{ trxId() }}</strong>
+              </div>
+            }
 
             <div class="ticket-meta">
               <div class="meta-row">
@@ -375,16 +381,28 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
       justify-content: space-between;
       align-items: center;
       font-weight: 700;
-      font-size: 13px;
-      padding: 0.2rem 0;
+      font-size: 12px;
+      padding: 0.15rem 0;
     }
 
     .comprobante-tipo {
-      letter-spacing: 0.5px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.25px;
     }
 
     .comprobante-nro {
       font-size: 12px;
+      font-weight: 700;
+    }
+
+    .trx-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 0.15rem;
+      color: #222;
     }
 
     .ticket-meta {
@@ -675,6 +693,12 @@ export class ComprobanteModalComponent implements OnInit {
       return p.numeroFactura;
     }
     return `#${p.id}`;
+  });
+
+  trxId = computed(() => {
+    const p = this.pedido();
+    if (!p) return '';
+    return p.trxId || (p.id ? `TRX-${p.id.toString().padStart(6, '0')}` : '');
   });
 
   detalles = computed(() => {

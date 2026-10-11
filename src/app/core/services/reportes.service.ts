@@ -40,6 +40,9 @@ export class ReportesService {
     if (filtros.cajero && filtros.cajero.trim() !== '') {
       params = params.set('cajero', filtros.cajero.trim());
     }
+    if (filtros.trxId && filtros.trxId.trim() !== '') {
+      params = params.set('trxId', filtros.trxId.trim());
+    }
     return this.http.get<ReporteVentasDTO>(`${this.endpoint}/ventas`, { params });
   }
 

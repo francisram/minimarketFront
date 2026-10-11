@@ -26,6 +26,7 @@ export interface CrearPedidoRequest {
   tipoEntrega: TipoEntrega;
   metodoPago: MetodoPago;
   numeroVoucher?: string;
+  trxId?: string;
   notas?: string;
   items: ItemPedidoRequest[];
   tipoComprobante?: TipoComprobante;
@@ -55,6 +56,7 @@ export interface Pedido {
   tipoEntrega: TipoEntrega;
   metodoPago: MetodoPago;
   numeroVoucher?: string;
+  trxId?: string;
   estado: EstadoPedido;
   notas?: string;
   total: number;

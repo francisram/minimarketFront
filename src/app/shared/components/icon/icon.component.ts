@@ -26,6 +26,10 @@ import { Component, input } from '@angular/core';
           <circle cx="12" cy="12" r="2"/>
           <path d="M6 12h.01M18 12h.01"/>
         }
+        @case ('credit-card') {
+          <rect width="20" height="14" x="2" y="5" rx="2"/>
+          <line x1="2" x2="22" y1="10" y2="10"/>
+        }
         @case ('shopping-cart') {
           <circle cx="8" cy="21" r="1"/>
           <circle cx="19" cy="21" r="1"/>
@@ -87,6 +91,10 @@ import { Component, input } from '@angular/core';
         }
         @case ('check') {
           <polyline points="20 6 9 17 4 12"/>
+        }
+        @case ('copy') {
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
         }
         @case ('alert-triangle') {
           <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>

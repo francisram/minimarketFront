@@ -5,6 +5,10 @@ import { ReportesService } from '../../core/services/reportes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
+import { PedidosService } from '../../core/services/pedidos.service';
+import { ImpresorasService } from '../../core/services/impresoras.service';
+import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
+import { Pedido } from '../../core/models/pedido.model';
 import {
   DashboardReporteDTO,
   ReporteVentasDTO,
@@ -14,10 +18,11 @@ import {
   PresetFecha,
   VentaDiariaDTO,
   ItemRankingDTO,
-  SaborRankingDTO
+  SaborRankingDTO,
+  PedidoResumenReporteDTO
 } from '../../core/models/reporte.model';
 
-type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings';
+type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones';
 
 interface DonutSegment {
   label: string;
@@ -31,7 +36,7 @@ interface DonutSegment {
 @Component({
   selector: 'app-reportes',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, AppIconComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, DatePipe, AppIconComponent, AppCurrencyPipe, ComprobanteModalComponent],
   template: `
     <div class="reportes-page">
       <!-- HEADER PRINCIPAL -->
@@ -180,6 +185,15 @@ interface DonutSegment {
         >
           <app-icon name="award" [size]="18" />
           <span>Ranking Productos & Sabores</span>
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="tabActiva() === 'reimpresiones'"
+          (click)="cambiarTab('reimpresiones')"
+        >
+          <app-icon name="printer" [size]="18" />
+          <span>Reimpresiones</span>
         </button>
       </nav>
 
@@ -1016,7 +1030,219 @@ interface DonutSegment {
             }
           </div>
         }
+
+        <!-- ============================================================= -->
+        <!-- PESTAÑA 6: REIMPRESIONES (TRX ID & TICKETS) -->
+        <!-- ============================================================= -->
+        @if (tabActiva() === 'reimpresiones') {
+          <div class="tab-content reimpresiones-content">
+            <!-- TARJETA SUPERIOR: HERO Y CONFIGURACIÓN DE IMPRESIÓN -->
+            <div class="card p-4">
+              <div class="reimpresion-hero">
+                <div class="hero-text">
+                  <div class="hero-badge">
+                    <app-icon name="printer" [size]="14" />
+                    <span>Auditoría & Re-emisión Térmica</span>
+                  </div>
+                  <h2 class="hero-title">Centro de Reimpresión de Comprobantes</h2>
+                  <p class="hero-desc">
+                    Busca por <strong>Trx ID</strong>, número de ticket o cliente para reenviar el ticket térmico ESC/POS a la ticketera seleccionada o previsualizar e imprimir en formato PDF.
+                  </p>
+                </div>
+
+                <!-- CONTROLES DE IMPRESORA Y BÚSQUEDA -->
+                <div class="reimpresion-controls">
+                  <div class="control-printer">
+                    <label for="selectPrinterReimp" class="control-label">
+                      <app-icon name="printer" [size]="14" />
+                      <span>Ticketera Destino:</span>
+                    </label>
+                    <select
+                      id="selectPrinterReimp"
+                      class="form-control"
+                      [(ngModel)]="impresoraSeleccionadaId"
+                    >
+                      <option [ngValue]="null">Ticketera por defecto del sistema</option>
+                      @for (imp of impresorasService.impresoras(); track imp.id) {
+                        <option [ngValue]="imp.id">
+                          🖨️ {{ imp.nombre }} ({{ imp.tipoConexion }})
+                        </option>
+                      }
+                    </select>
+                  </div>
+
+                  <div class="search-input-box">
+                    <div class="search-input-wrapper">
+                      <app-icon name="search" [size]="18" class="search-icon" />
+                      <input
+                        type="text"
+                        class="form-control input-lg"
+                        placeholder="Buscar por Trx ID (ej: TRX-000101), N° de Ticket o Cliente..."
+                        [(ngModel)]="busquedaReimpresion"
+                      />
+                      @if (busquedaReimpresion) {
+                        <button type="button" class="btn-clear" (click)="busquedaReimpresion = ''">
+                          <app-icon name="x" [size]="14" />
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TABLA DE TICKETS DISPONIBLES PARA REIMPRESIÓN -->
+            <div class="card">
+              <div class="card-header space-between">
+                <div>
+                  <h3 class="card-title">Comprobantes Listos para Reimpresión</h3>
+                  <p class="card-subtitle">
+                    {{ ticketsReimpresion().length }} comprobante(s) disponible(s) en el rango seleccionado
+                    @if (busquedaReimpresion) {
+                      • Coincidencias con <em>"{{ busquedaReimpresion }}"</em>
+                    }
+                  </p>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" (click)="cargarVentas()">
+                  <app-icon name="refresh" [size]="14" />
+                  <span>Actualizar Lista</span>
+                </button>
+              </div>
+
+              <div class="table-container">
+                <table class="reportes-table">
+                  <thead>
+                    <tr>
+                      <th>Trx ID</th>
+                      <th>N° Ticket / Factura</th>
+                      <th>Fecha / Hora</th>
+                      <th>Cajero</th>
+                      <th>Cliente</th>
+                      <th>Medio de Pago</th>
+                      <th class="text-right">Total</th>
+                      <th class="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of ticketsReimpresion(); track p.id) {
+                      <tr>
+                        <!-- TRX ID -->
+                        <td>
+                          <div class="trx-pill-wrapper">
+                            <span class="trx-pill">{{ p.trxId || ('TRX-' + p.id.toString().padStart(6, '0')) }}</span>
+                            <button
+                              type="button"
+                              class="btn-copy"
+                              [title]="copiadoTrxId() === (p.trxId || ('TRX-' + p.id.toString().padStart(6, '0'))) ? '¡Copiado!' : 'Copiar Trx ID'"
+                              (click)="copiarTrx(p.trxId || ('TRX-' + p.id.toString().padStart(6, '0')))"
+                            >
+                              @if (copiadoTrxId() === (p.trxId || ('TRX-' + p.id.toString().padStart(6, '0')))) {
+                                <app-icon name="check" [size]="13" class="text-success" />
+                              } @else {
+                                <app-icon name="copy" [size]="13" />
+                              }
+                            </button>
+                          </div>
+                        </td>
+
+                        <!-- TICKET / FACTURA -->
+                        <td>
+                          <div class="ticket-cell">
+                            <strong>{{ p.tipoComprobante === 'FACTURA' ? (p.numeroFactura || ('Fac #' + p.id)) : ('Ticket #' + p.id) }}</strong>
+                            <span class="badge" [class.badge-blue]="p.tipoComprobante === 'FACTURA'" [class.badge-gray]="p.tipoComprobante !== 'FACTURA'">
+                              {{ p.tipoComprobante }}
+                            </span>
+                          </div>
+                        </td>
+
+                        <!-- FECHA -->
+                        <td class="text-nowrap">{{ p.fechaCreacion | date:'dd/MM/yyyy HH:mm' }}</td>
+
+                        <!-- CAJERO -->
+                        <td>{{ p.cajero || 'Cajero' }}</td>
+
+                        <!-- CLIENTE -->
+                        <td>
+                          <div>{{ p.clienteNombre || 'Consumidor Final' }}</div>
+                          @if (p.clienteRuc) {
+                            <div class="text-muted text-xs">RUC: {{ p.clienteRuc }}</div>
+                          }
+                        </td>
+
+                        <!-- MEDIO DE PAGO & VOUCHER -->
+                        <td>
+                          <div class="pago-cell">
+                            <span class="badge badge-subtle">{{ formatearMedioPago(p.metodoPago) }}</span>
+                            @if (p.numeroVoucher) {
+                              <span class="badge-voucher" title="Voucher POS">
+                                <app-icon name="credit-card" [size]="11" />
+                                <span>#{{ p.numeroVoucher }}</span>
+                              </span>
+                            }
+                          </div>
+                        </td>
+
+                        <!-- TOTAL -->
+                        <td class="text-right">
+                          <strong class="text-success">{{ p.total | appCurrency }}</strong>
+                        </td>
+
+                        <!-- ACCIONES -->
+                        <td class="text-center">
+                          <div class="acciones-reimpresion">
+                            <button
+                              type="button"
+                              class="btn btn-primary btn-sm btn-reimprimir"
+                              (click)="reimprimirEnTicketera(p)"
+                              [disabled]="reimprimiendoId() === p.id"
+                              title="Reimprimir directamente en la ticketera térmica seleccionada"
+                            >
+                              <app-icon name="printer" [size]="14" [class.spinning]="reimprimiendoId() === p.id" />
+                              <span>{{ reimprimiendoId() === p.id ? 'Imprimiendo...' : 'Reimprimir' }}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              class="btn btn-secondary btn-sm"
+                              (click)="verComprobanteModal(p)"
+                              [disabled]="cargandoDetallePedido()"
+                              title="Ver comprobante en pantalla o generar PDF"
+                            >
+                              <app-icon name="file-text" [size]="14" />
+                              <span>Ver / PDF</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+
+                    @if (ticketsReimpresion().length === 0) {
+                      <tr>
+                        <td colspan="8" class="text-center p-4 text-muted">
+                          <div class="empty-reimpresion">
+                            <app-icon name="search" [size]="32" class="text-muted" />
+                            <p class="mt-2 mb-1"><strong>No se encontraron comprobantes para reimprimir</strong></p>
+                            <p class="text-xs">
+                              Prueba ampliando el rango de fechas en la barra superior o verificando el Trx ID ingresado.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        }
       }
+
+      <!-- MODAL DE COMPROBANTE PARA VER / REIMPRIMIR EN PDF -->
+      <app-comprobante-modal
+        [isOpen]="modalComprobanteAbierto()"
+        [pedido]="pedidoSeleccionadoParaModal()"
+        (close)="cerrarComprobanteModal()"
+      />
     </div>
   `,
   styles: [`
@@ -1884,11 +2110,208 @@ interface DonutSegment {
       align-items: center;
       gap: 0.5rem;
     }
+
+    /* REIMPRESIONES */
+    .reimpresion-hero {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .hero-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #eff6ff;
+      color: #2563eb;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      width: fit-content;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hero-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 0;
+    }
+
+    .hero-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin: 0;
+      max-width: 800px;
+      line-height: 1.45;
+    }
+
+    .reimpresion-controls {
+      display: grid;
+      grid-template-columns: minmax(240px, 320px) 1fr;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+
+    @media (max-width: 768px) {
+      .reimpresion-controls {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .control-printer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .control-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin: 0;
+    }
+
+    .search-input-box {
+      width: 100%;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .search-input-wrapper .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input-wrapper .input-lg {
+      padding-left: 2.6rem;
+      padding-right: 2.5rem;
+      height: 2.75rem;
+      font-size: 0.9375rem;
+      width: 100%;
+    }
+
+    .btn-clear {
+      position: absolute;
+      right: 0.75rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem;
+      border-radius: 50%;
+    }
+
+    .btn-clear:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    .trx-pill-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .trx-pill {
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 0.8125rem;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid #cbd5e1;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-copy {
+      background: transparent;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.35rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .btn-copy:hover {
+      background: #f8fafc;
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .ticket-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .pago-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      align-items: flex-start;
+    }
+
+    .badge-voucher {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+    }
+
+    .acciones-reimpresion {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    .empty-reimpresion {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
   `]
 })
 export class ReportesComponent implements OnInit {
   private readonly reportesService = inject(ReportesService);
   private readonly toast = inject(ToastService);
+  public readonly impresorasService = inject(ImpresorasService);
+  private readonly pedidosService = inject(PedidosService);
 
   // Estados principales
   public readonly tabActiva = signal<TabReporte>('dashboard');
@@ -1913,6 +2336,15 @@ export class ReportesComponent implements OnInit {
   public filtroTipoEntrega: string = 'TODOS';
   public filtroCajero: string = '';
 
+  // Reimpresiones
+  public busquedaReimpresion: string = '';
+  public impresoraSeleccionadaId: number | null = null;
+  public readonly reimprimiendoId = signal<number | null>(null);
+  public readonly copiadoTrxId = signal<string | null>(null);
+  public readonly modalComprobanteAbierto = signal<boolean>(false);
+  public readonly pedidoSeleccionadoParaModal = signal<Pedido | null>(null);
+  public readonly cargandoDetallePedido = signal<boolean>(false);
+
   // Paginación en ventas
   public readonly paginaVentas = signal<number>(1);
   public readonly tamanoPaginaVentas = 15;
@@ -1930,6 +2362,29 @@ export class ReportesComponent implements OnInit {
     const pedidos = this.ventasData()?.pedidos || [];
     const inicio = (this.paginaVentas() - 1) * this.tamanoPaginaVentas;
     return pedidos.slice(inicio, inicio + this.tamanoPaginaVentas);
+  });
+
+  public readonly ticketsReimpresion = computed<PedidoResumenReporteDTO[]>(() => {
+    const pedidos = this.ventasData()?.pedidos || [];
+    const q = this.busquedaReimpresion.trim().toLowerCase();
+    if (!q) {
+      return pedidos;
+    }
+    return pedidos.filter(p => {
+      const trx = (p.trxId || `TRX-${p.id.toString().padStart(6, '0')}`).toLowerCase();
+      const idStr = p.id.toString();
+      const cliente = (p.clienteNombre || '').toLowerCase();
+      const ruc = (p.clienteRuc || '').toLowerCase();
+      const nroFactura = (p.numeroFactura || '').toLowerCase();
+      const nroVoucher = (p.numeroVoucher || '').toLowerCase();
+
+      return trx.includes(q) ||
+        idStr.includes(q) ||
+        cliente.includes(q) ||
+        ruc.includes(q) ||
+        nroFactura.includes(q) ||
+        nroVoucher.includes(q);
+    });
   });
 
   // Puntos del gráfico SVG
@@ -2025,6 +2480,7 @@ export class ReportesComponent implements OnInit {
 
   ngOnInit(): void {
     this.aplicarPreset('esteMes');
+    this.impresorasService.cargarImpresoras();
   }
 
   cambiarTab(tab: TabReporte): void {
@@ -2075,7 +2531,7 @@ export class ReportesComponent implements OnInit {
     const tab = this.tabActiva();
     if (tab === 'dashboard') {
       this.cargarDashboard();
-    } else if (tab === 'ventas') {
+    } else if (tab === 'ventas' || tab === 'reimpresiones') {
       this.cargarVentas();
     } else if (tab === 'libro-iva') {
       this.cargarLibroIva();
@@ -2213,5 +2669,58 @@ export class ReportesComponent implements OnInit {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const dia = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${dia}`;
+  }
+
+  copiarTrx(trxId: string): void {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(trxId);
+    }
+    this.copiadoTrxId.set(trxId);
+    this.toast.success(`Trx ID copiado: ${trxId}`);
+    setTimeout(() => {
+      if (this.copiadoTrxId() === trxId) {
+        this.copiadoTrxId.set(null);
+      }
+    }, 2000);
+  }
+
+  reimprimirEnTicketera(p: PedidoResumenReporteDTO): void {
+    this.reimprimiendoId.set(p.id);
+    const impId = this.impresoraSeleccionadaId || undefined;
+    this.pedidosService.imprimirTicket(p.id, impId).subscribe({
+      next: () => {
+        this.toast.success(`Reimpresión del Ticket #${p.id} enviada exitosamente.`);
+        this.reimprimiendoId.set(null);
+      },
+      error: (err) => {
+        this.toast.error(`Error al enviar reimpresión del Ticket #${p.id}: ` + (err?.error?.message || err.message || 'Error de conexión'));
+        this.reimprimiendoId.set(null);
+      }
+    });
+  }
+
+  verComprobanteModal(p: PedidoResumenReporteDTO): void {
+    this.cargandoDetallePedido.set(true);
+    this.pedidosService.obtenerPorId(p.id).subscribe({
+      next: (pedidoCompleto) => {
+        if (!pedidoCompleto.trxId && p.trxId) {
+          pedidoCompleto.trxId = p.trxId;
+        } else if (!pedidoCompleto.trxId) {
+          pedidoCompleto.trxId = `TRX-${p.id.toString().padStart(6, '0')}`;
+        }
+        this.pedidoSeleccionadoParaModal.set(pedidoCompleto);
+        this.modalComprobanteAbierto.set(true);
+        this.cargandoDetallePedido.set(false);
+      },
+      error: () => {
+        this.toast.error('No se pudo cargar el detalle completo del comprobante.');
+        this.cargandoDetallePedido.set(false);
+      }
+    });
+  }
+
+  cerrarComprobanteModal(): void {
+    this.modalComprobanteAbierto.set(false);
+    this.pedidoSeleccionadoParaModal.set(null);
   }
 }

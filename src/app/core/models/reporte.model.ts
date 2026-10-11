@@ -10,6 +10,7 @@ export interface FiltroVentas extends FiltroReportes {
   tipoComprobante?: string;
   tipoEntrega?: string;
   cajero?: string;
+  trxId?: string;
 }
 
 export interface FiltroCajas extends FiltroReportes {
@@ -72,6 +73,7 @@ export interface PedidoResumenReporteDTO {
   condicionVenta: string;
   numeroFactura?: string;
   numeroVoucher?: string;
+  trxId?: string;
   metodoPago: string;
   tipoEntrega: string;
   total: number;
