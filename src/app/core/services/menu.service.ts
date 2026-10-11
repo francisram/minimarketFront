@@ -33,6 +33,7 @@ export class MenuService {
     { clave: 'monitor-pedidos', nombre: 'Monitor de Pedidos', ruta: '/pedidos', icono: 'clipboard-list' },
     { clave: 'clientes', nombre: 'Clientes', ruta: '/clientes', icono: 'users' },
     { clave: 'stock', nombre: 'Control de Stock', ruta: '/stock', icono: 'warehouse', adminOnly: true },
+    { clave: 'reportes', nombre: 'Reportes y Analítica', ruta: '/reportes', icono: 'bar-chart-3', adminOnly: true },
     { clave: 'sabores', nombre: 'Sabores', ruta: '/catalogos/sabores', icono: 'ice-cream' },
     { clave: 'presentaciones', nombre: 'Presentaciones', ruta: '/catalogos/presentaciones', icono: 'cup-soda' },
     { clave: 'toppings', nombre: 'Toppings', ruta: '/catalogos/toppings', icono: 'sparkles' },
@@ -63,9 +64,9 @@ export class MenuService {
       }
 
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
-      // Control de Stock, Impresoras, Institución y Dashboard SIEMPRE deben estar disponibles para administradores,
+      // Control de Stock, Reportes, Impresoras, Institución y Dashboard SIEMPRE deben estar disponibles para administradores,
       // garantizando que aparezcan aunque la tabla 'paginas' del backend no los tenga en su semilla inicial.
-      if (isAdminOrOwner && ['stock', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes'].includes(item.clave)) {
         return true;
       }
 
