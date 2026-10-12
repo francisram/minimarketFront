@@ -1,10 +1,12 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { AdminService } from '../services/admin.service';
 import { ToastService } from '../services/toast.service';
 
-export const adminGuard: CanActivateFn = () => {
+export const adminGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const authService = inject(AuthService);
+  const adminService = inject(AdminService);
   const router = inject(Router);
   const toastService = inject(ToastService);
 
@@ -12,7 +14,16 @@ export const adminGuard: CanActivateFn = () => {
     return true;
   }
 
-  toastService.error('Se requieren permisos de Administrador para acceder a esta sección.', 'Acceso Restringido');
+  // Verificar si el rol del usuario tiene asignada la página solicitada
+  const path = (route.routeConfig?.path || '').toLowerCase();
+  const userRoleName = (authService.role() || '').toUpperCase();
+  const currentRole = adminService.roles().find(r => r.nombre.toUpperCase() === userRoleName);
+
+  if (currentRole && currentRole.paginas && currentRole.paginas.some(p => p.toLowerCase() === path)) {
+    return true;
+  }
+
+  toastService.error('Se requieren permisos autorizados para acceder a esta sección.', 'Acceso Restringido');
   router.navigate(['/pos']);
   return false;
 };

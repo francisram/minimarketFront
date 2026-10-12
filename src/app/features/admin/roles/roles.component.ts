@@ -476,14 +476,17 @@ export class RolesComponent implements OnInit {
 
   public readonly modulosDisponibles: ModuloSistema[] = [
     { clave: 'dashboard', nombre: 'Dashboard General', descripcion: 'Métricas, resumen diario y accesos rápidos', icono: 'layout-dashboard' },
-    { clave: 'pedidos', nombre: 'Punto de Venta / POS', descripcion: 'Venta de helados, productos y comandas', icono: 'shopping-cart' },
+    { clave: 'pedidos', nombre: 'Punto de Venta / POS', descripcion: 'Cobro de ventas, comandas de heladería y tickets', icono: 'shopping-cart' },
     { clave: 'caja', nombre: 'Control de Caja', descripcion: 'Turnos, apertura, arqueo de ventas y cierres de caja', icono: 'banknote' },
+    { clave: 'clientes', nombre: 'Directorio de Clientes', descripcion: 'Búsqueda, registro de clientes, RUC y fidelización', icono: 'users' },
+    { clave: 'reportes', nombre: 'Reportes y Analítica SET', descripcion: 'Auditoría, Libro IVA, reimpresiones térmicas y talonarios', icono: 'bar-chart-3' },
+    { clave: 'stock', nombre: 'Control de Stock', descripcion: 'Inventario general y alertas de reposición', icono: 'warehouse' },
     { clave: 'sabores', nombre: 'Catálogo de Sabores', descripcion: 'Gestión y disponibilidad de sabores en bacha', icono: 'sparkles' },
     { clave: 'presentaciones', nombre: 'Envases y Cucuruchos', descripcion: 'Potes térmicos, vasitos y conos', icono: 'package' },
     { clave: 'toppings', nombre: 'Toppings y Agregados', descripcion: 'Salsas, confites y adicionales', icono: 'cup-soda' },
     { clave: 'productos', nombre: 'Productos Simples', descripcion: 'Bebidas, cafetería y snacks empaquetados', icono: 'coffee' },
-    { clave: 'stock', nombre: 'Control de Stock', descripcion: 'Inventario general y alertas de reposición', icono: 'warehouse' },
     { clave: 'impresoras', nombre: 'Impresoras ESC/POS', descripcion: 'Configuración de impresoras térmicas de tickets', icono: 'printer' },
+    { clave: 'institucion', nombre: 'Datos del Negocio', descripcion: 'Razón social, RUC emisor, timbrados fiscales y logo', icono: 'building' },
     { clave: 'usuarios', nombre: 'Gestión de Usuarios', descripcion: 'Cuentas de usuario y accesos al sistema', icono: 'user' },
     { clave: 'roles', nombre: 'Roles y Permisos', descripcion: 'Definición de perfiles y páginas autorizadas', icono: 'shield' },
     { clave: 'licencia', nombre: 'Licenciamiento', descripcion: 'Estado de suscripción y vigencia del software', icono: 'verified' }
@@ -517,12 +520,16 @@ export class RolesComponent implements OnInit {
     const mapa: Record<string, string> = {
       dashboard: 'Dashboard General',
       pedidos: 'Punto de Venta / Pedidos',
+      caja: 'Control de Caja',
+      clientes: 'Directorio de Clientes',
+      reportes: 'Reportes y Analítica SET',
       sabores: 'Catálogo de Sabores',
       presentaciones: 'Envases y Cucuruchos',
       toppings: 'Toppings y Agregados',
       productos: 'Bebidas y Cafetería',
       stock: 'Control de Stock',
       impresoras: 'Impresoras ESC/POS',
+      institucion: 'Datos del Negocio',
       usuarios: 'Gestión de Usuarios',
       roles: 'Roles y Permisos',
       licencia: 'Licenciamiento'

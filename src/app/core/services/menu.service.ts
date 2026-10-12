@@ -4,6 +4,7 @@ import { catchError, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Pagina } from '../models/pagina.model';
 import { AuthService } from './auth.service';
+import { AdminService } from './admin.service';
 
 export interface MenuItem {
   clave: string;
@@ -19,6 +20,7 @@ export interface MenuItem {
 export class MenuService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
+  private readonly adminService = inject(AdminService);
   private readonly apiUrl = environment.apiBaseUrl;
 
   private readonly _paginasDisponibles = signal<Pagina[]>([]);
@@ -48,46 +50,59 @@ export class MenuService {
   public readonly menuItems = computed<MenuItem[]>(() => {
     const paginas = this._paginasDisponibles();
     const isAdminOrOwner = this.authService.isAdminOrOwner();
+    const userRoleName = (this.authService.role() || '').toUpperCase();
+    const currentRole = this.adminService.roles().find(r => r.nombre.toUpperCase() === userRoleName);
+    const paginasDelRol = currentRole ? new Set(currentRole.paginas.map(p => p.toLowerCase())) : null;
 
     // Si aún no hay páginas cargadas desde el backend, mostramos menú estándar según rol
     if (!paginas || paginas.length === 0) {
-      return this.catalogoBase.filter(item => !item.adminOnly || isAdminOrOwner);
+      return this.catalogoBase.filter(item => {
+        if (isAdminOrOwner) return true;
+        if (paginasDelRol && paginasDelRol.has(item.clave.toLowerCase())) return true;
+        return !item.adminOnly;
+      });
     }
 
     // Filtrar por páginas activas en la licencia y rol
     const clavesDisponibles = new Set(paginas.map(p => p.clave?.toLowerCase()));
 
     return this.catalogoBase.filter(item => {
-      // 1. Si el módulo requiere ADMIN u OWNER y el usuario no lo es, nunca mostrar
+      const clave = item.clave.toLowerCase();
+
+      // Si el rol del usuario tiene asignada explícitamente esta página, permitir mostrarla
+      if (paginasDelRol && paginasDelRol.has(clave)) {
+        return true;
+      }
+
+      // 1. Si el módulo requiere ADMIN u OWNER y el usuario no lo es, nunca mostrar a menos que su rol la tenga
       if (item.adminOnly && !isAdminOrOwner) {
         return false;
       }
 
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
-      // Control de Stock, Reportes, Impresoras, Institución y Dashboard SIEMPRE deben estar disponibles para administradores,
-      // garantizando que aparezcan aunque la tabla 'paginas' del backend no los tenga en su semilla inicial.
       if (isAdminOrOwner && ['stock', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes'].includes(item.clave)) {
         return true;
       }
 
       // 3. Submódulo de monitor de pedidos vinculado a la clave 'pedidos'
       if (item.clave === 'monitor-pedidos') {
-        return clavesDisponibles.has('pedidos');
+        return clavesDisponibles.has('pedidos') || (paginasDelRol?.has('pedidos') ?? false);
       }
 
       // 4. Módulo de clientes disponible para cajeros vinculados a pedidos o con permiso explícito
       if (item.clave === 'clientes') {
-        return clavesDisponibles.has('clientes') || clavesDisponibles.has('pedidos');
+        return clavesDisponibles.has('clientes') || clavesDisponibles.has('pedidos') || (paginasDelRol?.has('clientes') ?? false);
       }
 
-      // 4. Módulos licenciados estándar (dashboard, sabores, presentaciones, toppings, productos, usuarios, roles, licencia)
-      return clavesDisponibles.has(item.clave.toLowerCase());
+      // 5. Módulos licenciados estándar
+      return clavesDisponibles.has(clave);
     });
   });
 
   cargarPaginasDisponibles(): void {
     if (!this.authService.isAuthenticated()) return;
     this.cargando.set(true);
+    this.adminService.cargarRoles();
 
     this.http.get<Pagina[]>(`${this.apiUrl}/api/paginas/disponibles`).pipe(
       tap(paginas => {
