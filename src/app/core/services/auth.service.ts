@@ -16,6 +16,9 @@ export class AuthService {
   private readonly _session = signal<UserSession | null>(this.loadSessionFromStorage());
   public readonly session = this._session.asReadonly();
 
+  private readonly _permisos = signal<string[]>(this.loadPermisosFromStorage());
+  public readonly permisos = this._permisos.asReadonly();
+
   public readonly isAuthenticated = computed(() => !!this._session()?.token);
   public readonly token = computed(() => this._session()?.token ?? null);
   public readonly username = computed(() => this._session()?.username ?? '');
@@ -28,6 +31,12 @@ export class AuthService {
     const r = (this.role() || '').toUpperCase();
     return r === 'CAJERO' || r === 'ROLE_CAJERO';
   });
+
+  constructor() {
+    if (this.isAuthenticated()) {
+      this.cargarPermisosDeRol();
+    }
+  }
 
   private loadSessionFromStorage(): UserSession | null {
     try {
@@ -43,6 +52,50 @@ export class AuthService {
     return null;
   }
 
+  private loadPermisosFromStorage(): string[] {
+    try {
+      const p = localStorage.getItem('permisos');
+      if (p) return JSON.parse(p);
+    } catch (e) {
+      console.error('Error leyendo permisos del almacenamiento local', e);
+    }
+    return [];
+  }
+
+  public actualizarPermisos(paginas: string[]): void {
+    const limpios = (paginas || []).map(p => p.toLowerCase());
+    try {
+      localStorage.setItem('permisos', JSON.stringify(limpios));
+    } catch {}
+    this._permisos.set(limpios);
+  }
+
+  public cargarPermisosDeRol(nombreRol?: string): void {
+    const rolBuscado = (nombreRol || this.role() || '').toUpperCase();
+    if (!rolBuscado) return;
+    this.http.get<any[]>(`${this.apiUrl}/api/roles`).subscribe({
+      next: (roles) => {
+        const miRol = roles.find(r => (r.nombre || '').toUpperCase() === rolBuscado);
+        if (miRol && miRol.paginas) {
+          this.actualizarPermisos(miRol.paginas);
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  public hasPermission(clave: string): boolean {
+    if (this.isAdminOrOwner()) {
+      return true;
+    }
+    const c = (clave || '').toLowerCase();
+    // 'pos' y 'monitor-pedidos' se autorizan bajo 'pedidos' o sus claves directas
+    if (c === 'pos' || c === 'monitor-pedidos') {
+      return this._permisos().some(p => p === 'pedidos' || p === 'pos' || p === c);
+    }
+    return this._permisos().some(p => p === c);
+  }
+
   login(credentials: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/api/auth/login`, credentials).pipe(
       tap(res => {
@@ -55,6 +108,7 @@ export class AuthService {
         localStorage.setItem('username', res.username);
         localStorage.setItem('rol', res.rol);
         this._session.set(session);
+        this.cargarPermisosDeRol(res.rol);
       })
     );
   }
@@ -67,7 +121,9 @@ export class AuthService {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('rol');
+    localStorage.removeItem('permisos');
     this._session.set(null);
+    this._permisos.set([]);
     if (redirect) {
       this.router.navigate(['/login']);
     }

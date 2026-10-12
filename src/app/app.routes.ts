@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { adminGuard } from './core/guards/role.guard';
+import { adminGuard, permissionGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   {
@@ -19,7 +19,7 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'pos'
+        redirectTo: 'dashboard'
       },
       {
         path: 'dashboard',
@@ -27,19 +27,23 @@ export const routes: Routes = [
       },
       {
         path: 'pos',
-        loadComponent: () => import('./features/pos/pos.component').then(m => m.PosComponent)
+        loadComponent: () => import('./features/pos/pos.component').then(m => m.PosComponent),
+        canActivate: [permissionGuard('pedidos')]
       },
       {
         path: 'caja',
-        loadComponent: () => import('./features/caja/caja.component').then(m => m.CajaComponent)
+        loadComponent: () => import('./features/caja/caja.component').then(m => m.CajaComponent),
+        canActivate: [permissionGuard('caja')]
       },
       {
         path: 'pedidos',
-        loadComponent: () => import('./features/pedidos/pedidos.component').then(m => m.PedidosComponent)
+        loadComponent: () => import('./features/pedidos/pedidos.component').then(m => m.PedidosComponent),
+        canActivate: [permissionGuard('pedidos')]
       },
       {
         path: 'clientes',
-        loadComponent: () => import('./features/clientes/clientes.component').then(m => m.ClientesComponent)
+        loadComponent: () => import('./features/clientes/clientes.component').then(m => m.ClientesComponent),
+        canActivate: [permissionGuard('clientes')]
       },
       {
         path: 'impresoras',
@@ -104,6 +108,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'pos'
+    redirectTo: 'dashboard'
   }
 ];

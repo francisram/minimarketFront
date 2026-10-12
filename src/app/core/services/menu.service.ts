@@ -50,51 +50,38 @@ export class MenuService {
   public readonly menuItems = computed<MenuItem[]>(() => {
     const paginas = this._paginasDisponibles();
     const isAdminOrOwner = this.authService.isAdminOrOwner();
-    const userRoleName = (this.authService.role() || '').toUpperCase();
-    const currentRole = this.adminService.roles().find(r => r.nombre.toUpperCase() === userRoleName);
-    const paginasDelRol = currentRole ? new Set(currentRole.paginas.map(p => p.toLowerCase())) : null;
 
-    // Si aún no hay páginas cargadas desde el backend, mostramos menú estándar según rol
-    if (!paginas || paginas.length === 0) {
-      return this.catalogoBase.filter(item => {
-        if (isAdminOrOwner) return true;
-        if (paginasDelRol && paginasDelRol.has(item.clave.toLowerCase())) return true;
-        return !item.adminOnly;
-      });
-    }
-
-    // Filtrar por páginas activas en la licencia y rol
+    // Claves licenciadas en el sistema
     const clavesDisponibles = new Set(paginas.map(p => p.clave?.toLowerCase()));
 
     return this.catalogoBase.filter(item => {
       const clave = item.clave.toLowerCase();
 
-      // Si el rol del usuario tiene asignada explícitamente esta página, permitir mostrarla
-      if (paginasDelRol && paginasDelRol.has(clave)) {
-        return true;
-      }
-
-      // 1. Si el módulo requiere ADMIN u OWNER y el usuario no lo es, nunca mostrar a menos que su rol la tenga
-      if (item.adminOnly && !isAdminOrOwner) {
-        return false;
+      // 1. Si no es admin ni owner, el rol del usuario DEBE tener explícitamente el permiso
+      if (!isAdminOrOwner) {
+        if (item.clave === 'monitor-pedidos') {
+          if (!this.authService.hasPermission('pedidos')) return false;
+        } else if (!this.authService.hasPermission(clave)) {
+          return false;
+        }
       }
 
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
-      if (isAdminOrOwner && ['stock', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'pedidos'].includes(item.clave)) {
         return true;
       }
 
       // 3. Submódulo de monitor de pedidos vinculado a la clave 'pedidos'
       if (item.clave === 'monitor-pedidos') {
-        return clavesDisponibles.has('pedidos') || (paginasDelRol?.has('pedidos') ?? false);
+        return clavesDisponibles.size === 0 || clavesDisponibles.has('pedidos');
       }
 
-      // 4. Módulo de clientes disponible para cajeros vinculados a pedidos o con permiso explícito
-      if (item.clave === 'clientes') {
-        return clavesDisponibles.has('clientes') || clavesDisponibles.has('pedidos') || (paginasDelRol?.has('clientes') ?? false);
+      // 4. Si aún no hay páginas cargadas desde el backend, mostrar según rol
+      if (clavesDisponibles.size === 0) {
+        return true;
       }
 
-      // 5. Módulos licenciados estándar
+      // 5. Módulos licenciados estándar en el plan
       return clavesDisponibles.has(clave);
     });
   });

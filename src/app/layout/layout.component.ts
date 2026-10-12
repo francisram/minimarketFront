@@ -105,19 +105,21 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
           </div>
 
           <div class="topbar-right">
-            <!-- PILL ESTADO DE CAJA -->
-            <a 
-              routerLink="/caja" 
-              class="topbar-caja-pill" 
-              [class.caja-open]="cajaService.cajaAbierta()"
-              [class.caja-closed]="!cajaService.cajaAbierta()"
-              title="Estado del turno de caja (Clic para gestionar)"
-            >
-              <span class="caja-dot"></span>
-              <span class="caja-pill-text">{{ cajaService.cajaAbierta() ? 'Caja Abierta' : 'Caja Cerrada' }}</span>
-            </a>
+            <!-- PILL ESTADO DE CAJA (Solo si tiene permiso de caja) -->
+            @if (authService.hasPermission('caja')) {
+              <a 
+                routerLink="/caja" 
+                class="topbar-caja-pill" 
+                [class.caja-open]="cajaService.cajaAbierta()"
+                [class.caja-closed]="!cajaService.cajaAbierta()"
+                title="Estado del turno de caja (Clic para gestionar)"
+              >
+                <span class="caja-dot"></span>
+                <span class="caja-pill-text">{{ cajaService.cajaAbierta() ? 'Caja Abierta' : 'Caja Cerrada' }}</span>
+              </a>
+            }
 
-            @if (authService.isAdminOrOwner()) {
+            @if (authService.hasPermission('stock')) {
               <a 
                 routerLink="/stock" 
                 class="stock-alert-bell" 
@@ -131,10 +133,12 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
               </a>
             }
 
-            <a routerLink="/pos" class="btn btn-primary btn-sm btn-quick-pos">
-              <app-icon name="shopping-cart" [size]="16" />
-              <span>Abrir POS</span>
-            </a>
+            @if (authService.hasPermission('pedidos')) {
+              <a routerLink="/pos" class="btn btn-primary btn-sm btn-quick-pos">
+                <app-icon name="shopping-cart" [size]="16" />
+                <span>Abrir POS</span>
+              </a>
+            }
           </div>
         </header>
 
