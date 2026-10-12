@@ -11,6 +11,7 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
 import { Pedido } from '../../core/models/pedido.model';
 import { InstitucionService } from '../../core/services/institucion.service';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
+import { ReporteExportService } from '../../core/services/reporte-export.service';
 import {
   DashboardReporteDTO,
   ReporteVentasDTO,
@@ -59,10 +60,37 @@ interface DonutSegment {
             <app-icon name="refresh" [size]="16" [class.spinning]="cargando()" />
             <span>Actualizar</span>
           </button>
-          @if (tabActiva() === 'libro-iva') {
-            <button type="button" class="btn btn-primary" (click)="descargarCsvLibroIva()" [disabled]="descargandoCsv()">
-              <app-icon name="download" [size]="16" />
-              <span>{{ descargandoCsv() ? 'Generando...' : 'Descargar Excel / CSV' }}</span>
+
+          @if (tabActiva() === 'ventas' && ventasData()) {
+            <button type="button" class="btn btn-outline" (click)="exportarVentasCsv()" title="Descargar listado de ventas en formato CSV / Excel">
+              <app-icon name="file-spreadsheet" [size]="16" />
+              <span>Exportar CSV</span>
+            </button>
+            <button type="button" class="btn btn-primary" (click)="exportarVentasPdf()" [disabled]="descargandoPdf()" title="Descargar reporte detallado de ventas en PDF tamaño A4">
+              <app-icon name="file-text" [size]="16" />
+              <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
+            </button>
+          }
+
+          @if (tabActiva() === 'libro-iva' && libroIvaData()) {
+            <button type="button" class="btn btn-outline" (click)="descargarCsvLibroIva()" [disabled]="descargandoCsv()" title="Descargar Libro IVA en formato CSV Hechauka/Excel">
+              <app-icon name="file-spreadsheet" [size]="16" />
+              <span>{{ descargandoCsv() ? 'Generando...' : 'Descargar CSV' }}</span>
+            </button>
+            <button type="button" class="btn btn-primary" (click)="exportarLibroIvaPdf()" [disabled]="descargandoPdf()" title="Descargar Libro de Ventas IVA en PDF tamaño A4">
+              <app-icon name="file-text" [size]="16" />
+              <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
+            </button>
+          }
+
+          @if (tabActiva() === 'cajas' && cajasData()) {
+            <button type="button" class="btn btn-outline" (click)="exportarCajasCsv()" title="Descargar auditoría de cajas en formato CSV / Excel">
+              <app-icon name="file-spreadsheet" [size]="16" />
+              <span>Exportar CSV</span>
+            </button>
+            <button type="button" class="btn btn-primary" (click)="exportarCajasPdf()" [disabled]="descargandoPdf()" title="Descargar auditoría de cajas en PDF tamaño A4">
+              <app-icon name="file-text" [size]="16" />
+              <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
             </button>
           }
         </div>
@@ -550,16 +578,28 @@ interface DonutSegment {
               </button>
             </div>
 
-            <!-- RESUMEN EN BADGES -->
+            <!-- RESUMEN EN BADGES Y EXPORTACIÓN -->
             @if (ventasData()) {
               <div class="resumen-strip">
-                <div class="resumen-pill">
-                  <span>Total Facturado:</span>
-                  <strong>{{ ventasData()!.totalVentas | appCurrency }}</strong>
+                <div class="resumen-badges">
+                  <div class="resumen-pill">
+                    <span>Total Facturado:</span>
+                    <strong>{{ ventasData()!.totalVentas | appCurrency }}</strong>
+                  </div>
+                  <div class="resumen-pill">
+                    <span>Transacciones:</span>
+                    <strong>{{ ventasData()!.cantidadVentas }}</strong>
+                  </div>
                 </div>
-                <div class="resumen-pill">
-                  <span>Transacciones:</span>
-                  <strong>{{ ventasData()!.cantidadVentas }}</strong>
+                <div class="export-actions">
+                  <button type="button" class="btn btn-outline btn-sm" (click)="exportarVentasCsv()" title="Exportar listado a CSV para Excel">
+                    <app-icon name="file-spreadsheet" [size]="14" />
+                    <span>CSV</span>
+                  </button>
+                  <button type="button" class="btn btn-primary btn-sm" (click)="exportarVentasPdf()" [disabled]="descargandoPdf()" title="Descargar documento oficial en PDF tamaño A4">
+                    <app-icon name="file-text" [size]="14" />
+                    <span>PDF A4</span>
+                  </button>
                 </div>
               </div>
 
@@ -699,10 +739,16 @@ interface DonutSegment {
                     <h3 class="card-title">Libro de Ventas Fiscal (SET / DNIT)</h3>
                     <p class="card-subtitle">Desglose legal de débitos fiscales y operaciones gravadas/exentas</p>
                   </div>
-                  <button type="button" class="btn btn-outline btn-sm" (click)="descargarCsvLibroIva()" [disabled]="descargandoCsv()">
-                    <app-icon name="download" [size]="14" />
-                    <span>Exportar CSV</span>
-                  </button>
+                  <div class="card-actions-group">
+                    <button type="button" class="btn btn-outline btn-sm" (click)="descargarCsvLibroIva()" [disabled]="descargandoCsv()" title="Exportar Libro de Ventas a CSV Hechauka/Excel">
+                      <app-icon name="file-spreadsheet" [size]="14" />
+                      <span>Exportar CSV</span>
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" (click)="exportarLibroIvaPdf()" [disabled]="descargandoPdf()" title="Descargar Libro de Ventas IVA en documento PDF tamaño A4">
+                      <app-icon name="file-text" [size]="14" />
+                      <span>PDF A4</span>
+                    </button>
+                  </div>
                 </div>
                 <div class="table-responsive">
                   <table class="data-table fiscal-table">
@@ -815,6 +861,16 @@ interface DonutSegment {
                   <div>
                     <h3 class="card-title">Historial de Turnos y Cierres de Caja</h3>
                     <p class="card-subtitle">Comparativa entre efectivo esperado por ventas y efectivo real contado</p>
+                  </div>
+                  <div class="card-actions-group">
+                    <button type="button" class="btn btn-outline btn-sm" (click)="exportarCajasCsv()" title="Exportar auditoría a CSV / Excel">
+                      <app-icon name="file-spreadsheet" [size]="14" />
+                      <span>Exportar CSV</span>
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" (click)="exportarCajasPdf()" [disabled]="descargandoPdf()" title="Descargar auditoría de cajas en PDF tamaño A4">
+                      <app-icon name="file-text" [size]="14" />
+                      <span>PDF A4</span>
+                    </button>
                   </div>
                 </div>
                 <div class="table-responsive">
@@ -2242,8 +2298,26 @@ interface DonutSegment {
 
     .resumen-strip {
       display: flex;
+      justify-content: space-between;
+      align-items: center;
       gap: 0.75rem;
       margin: 0.75rem 0;
+      flex-wrap: wrap;
+    }
+
+    .resumen-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .export-actions,
+    .card-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
     .resumen-pill {
@@ -2889,11 +2963,13 @@ export class ReportesComponent implements OnInit {
   public readonly impresorasService = inject(ImpresorasService);
   private readonly pedidosService = inject(PedidosService);
   public readonly institucionService = inject(InstitucionService);
+  public readonly exportService = inject(ReporteExportService);
 
   // Estados principales
   public readonly tabActiva = signal<TabReporte>('dashboard');
   public readonly cargando = signal<boolean>(false);
   public readonly descargandoCsv = signal<boolean>(false);
+  public readonly descargandoPdf = signal<boolean>(false);
 
   // Filtros de fecha
   public readonly presetSeleccionado = signal<PresetFecha>('esteMes');
@@ -3251,6 +3327,46 @@ export class ReportesComponent implements OnInit {
     });
   }
 
+  // =========================================================================
+  // MÉTODOS DE EXPORTACIÓN A CSV Y PDF (A4)
+  // =========================================================================
+
+  exportarVentasCsv(): void {
+    const data = this.ventasData();
+    if (!data || !data.pedidos || data.pedidos.length === 0) {
+      this.toast.warning('No hay datos de ventas en el período seleccionado para exportar.');
+      return;
+    }
+    this.exportService.exportarVentasCsv(
+      data.pedidos,
+      { inicio: this.fechaInicio, fin: this.fechaFin },
+      { totalVentas: data.totalVentas, cantidadVentas: data.cantidadVentas }
+    );
+    this.toast.success('Reporte de ventas detalladas descargado en CSV.');
+  }
+
+  exportarVentasPdf(): void {
+    const data = this.ventasData();
+    if (!data || !data.pedidos || data.pedidos.length === 0) {
+      this.toast.warning('No hay datos de ventas en el período seleccionado para generar el PDF.');
+      return;
+    }
+    this.descargandoPdf.set(true);
+    try {
+      this.exportService.exportarVentasPdf(
+        data.pedidos,
+        { inicio: this.fechaInicio, fin: this.fechaFin },
+        { totalVentas: data.totalVentas, cantidadVentas: data.cantidadVentas }
+      );
+      this.toast.success('Reporte de ventas detalladas generado en PDF tamaño A4.');
+    } catch (e) {
+      console.error('Error generando PDF de ventas', e);
+      this.toast.error('Error al generar el documento PDF.');
+    } finally {
+      this.descargandoPdf.set(false);
+    }
+  }
+
   descargarCsvLibroIva(): void {
     this.descargandoCsv.set(true);
     this.reportesService.descargarLibroIvaCsv({ fechaInicio: this.fechaInicio, fechaFin: this.fechaFin }).subscribe({
@@ -3265,6 +3381,67 @@ export class ReportesComponent implements OnInit {
         this.toast.error('Error al exportar el archivo CSV del Libro de Ventas.');
       }
     });
+  }
+
+  exportarLibroIvaPdf(): void {
+    const data = this.libroIvaData();
+    if (!data || !data.items || data.items.length === 0) {
+      this.toast.warning('No hay registros fiscales en el período seleccionado para generar el PDF.');
+      return;
+    }
+    this.descargandoPdf.set(true);
+    try {
+      this.exportService.exportarLibroIvaPdf(
+        data,
+        { inicio: this.fechaInicio, fin: this.fechaFin }
+      );
+      this.toast.success('Libro de Ventas IVA generado en PDF tamaño A4.');
+    } catch (e) {
+      console.error('Error generando PDF de libro IVA', e);
+      this.toast.error('Error al generar el documento PDF del Libro de Ventas.');
+    } finally {
+      this.descargandoPdf.set(false);
+    }
+  }
+
+  exportarCajasCsv(): void {
+    const data = this.cajasData();
+    if (!data || !data.sesiones || data.sesiones.length === 0) {
+      this.toast.warning('No hay turnos o sesiones de caja para exportar en el período.');
+      return;
+    }
+    this.exportService.exportarCajasCsv(
+      data.sesiones,
+      { inicio: this.fechaInicio, fin: this.fechaFin },
+      {
+        totalSesiones: data.totalSesiones,
+        totalVentasGeneral: data.totalVentasGeneral,
+        totalSobrante: data.totalSobrante,
+        totalFaltante: data.totalFaltante
+      }
+    );
+    this.toast.success('Auditoría de cajas descargada en CSV.');
+  }
+
+  exportarCajasPdf(): void {
+    const data = this.cajasData();
+    if (!data || !data.sesiones || data.sesiones.length === 0) {
+      this.toast.warning('No hay sesiones de caja en el período para generar el PDF.');
+      return;
+    }
+    this.descargandoPdf.set(true);
+    try {
+      this.exportService.exportarCajasPdf(
+        data,
+        { inicio: this.fechaInicio, fin: this.fechaFin }
+      );
+      this.toast.success('Auditoría de cajas generada en PDF tamaño A4.');
+    } catch (e) {
+      console.error('Error generando PDF de auditoría de cajas', e);
+      this.toast.error('Error al generar el documento PDF de cajas.');
+    } finally {
+      this.descargandoPdf.set(false);
+    }
   }
 
   cargarCajas(): void {
