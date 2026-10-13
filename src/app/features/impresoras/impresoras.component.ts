@@ -16,7 +16,7 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       <div class="page-header">
         <div>
           <h1 class="page-title">Impresoras Térmicas ESC/POS</h1>
-          <p class="page-subtitle">Administra ticketeras de red (TCP Raw) y colas CUPS (USB compartido)</p>
+          <p class="page-subtitle">Administra ticketeras de red (TCP Raw), colas CUPS (Linux/Mac) e impresoras compartidas desde Windows (SMB)</p>
         </div>
 
         <button type="button" class="btn btn-primary" (click)="abrirModalCrear()">
@@ -38,7 +38,7 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
               <app-icon name="printer" [size]="48" />
             </div>
             <h3>No hay impresoras registradas</h3>
-            <p>Registra tu primera impresora térmica de red o servidor CUPS para emitir comandas y tickets.</p>
+            <p>Registra tu primera impresora térmica de red, recurso compartido de Windows o servidor CUPS para emitir comandas y tickets.</p>
             <button type="button" class="btn btn-primary mt-3" (click)="abrirModalCrear()">
               Registrar Impresora
             </button>
@@ -47,13 +47,13 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
           @for (imp of impresorasService.impresoras(); track imp.id) {
             <div class="impresora-card">
               <div class="imp-top">
-                <div class="imp-icon-box" [class.cups-box]="imp.tipoConexion === 'CUPS'">
+                <div class="imp-icon-box" [class.cups-box]="imp.tipoConexion === 'CUPS'" [class.windows-box]="imp.tipoConexion === 'WINDOWS'">
                   <app-icon name="printer" [size]="24" />
                 </div>
                 <div class="imp-title-block">
                   <h3 class="imp-name">{{ imp.nombre }}</h3>
                   <div class="imp-badge-type" [ngClass]="'badge-' + imp.tipoConexion.toLowerCase()">
-                    {{ imp.tipoConexion === 'RED' ? 'Socket TCP Raw' : 'Servidor CUPS' }}
+                    {{ imp.tipoConexion === 'RED' ? 'Socket TCP Raw' : (imp.tipoConexion === 'WINDOWS' ? 'Windows Share' : 'Servidor CUPS') }}
                   </div>
                 </div>
               </div>
@@ -68,6 +68,21 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
                     <span class="detail-label">Puerto TCP:</span>
                     <span class="detail-val">{{ imp.puerto || 9100 }}</span>
                   </div>
+                } @else if (imp.tipoConexion === 'WINDOWS') {
+                  <div class="detail-row">
+                    <span class="detail-label">Recurso UNC:</span>
+                    <strong class="detail-val win-share">\\\\{{ imp.ip }}\\{{ imp.cola }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Puerto SMB:</span>
+                    <span class="detail-val">{{ imp.puerto || 445 }}</span>
+                  </div>
+                  @if (imp.usuario) {
+                    <div class="detail-row">
+                      <span class="detail-label">Usuario:</span>
+                      <span class="detail-val">{{ imp.usuario }}</span>
+                    </div>
+                  }
                 } @else {
                   <div class="detail-row">
                     <span class="detail-label">Cola CUPS:</span>
@@ -156,11 +171,20 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
               <button
                 type="button"
                 class="type-opt"
+                [class.active]="tipoConexionActual === 'WINDOWS'"
+                (click)="cambiarTipoConexion('WINDOWS')"
+              >
+                <strong>WINDOWS (Compartida SMB)</strong>
+                <small>Impresora USB compartida en red desde PC Windows</small>
+              </button>
+              <button
+                type="button"
+                class="type-opt"
                 [class.active]="tipoConexionActual === 'CUPS'"
                 (click)="cambiarTipoConexion('CUPS')"
               >
-                <strong>CUPS (USB / Servidor)</strong>
-                <small>Impresoras USB conectadas a servidor Linux / Mac</small>
+                <strong>CUPS (Servidor Linux/Mac)</strong>
+                <small>Impresoras administradas por servidor CUPS</small>
               </button>
             </div>
           </div>
@@ -194,6 +218,94 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
                   placeholder="9100"
                   formControlName="puerto"
                 />
+              </div>
+            </div>
+          }
+
+          <!-- CAMPOS SEGÚN TIPO: WINDOWS -->
+          @if (tipoConexionActual === 'WINDOWS') {
+            <div class="windows-helper-banner">
+              <app-icon name="info" [size]="18" />
+              <div>
+                <strong>¿Cómo compartir en Windows?</strong>
+                <p>En la PC: <em>Panel de control > Dispositivos e impresoras > Propiedades > pestaña Compartir > Marcar "Compartir esta impresora"</em> y colocar un recurso corto (ej. <code>TERMICA</code>).</p>
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group flex-2">
+                <label class="form-label" for="impWinIp">IP o Nombre de la PC Windows *</label>
+                <input
+                  id="impWinIp"
+                  type="text"
+                  class="form-control"
+                  placeholder="Ej. 192.168.1.100 o PC-CAJA"
+                  formControlName="ip"
+                  [class.is-invalid]="esCampoInvalido('ip') || !!erroresBackend['ip']"
+                />
+                @if (erroresBackend['ip']) {
+                  <div class="form-error">{{ erroresBackend['ip'] }}</div>
+                } @else if (esCampoInvalido('ip')) {
+                  <div class="form-error">La IP o nombre del equipo Windows es requerida.</div>
+                }
+              </div>
+
+              <div class="form-group flex-1">
+                <label class="form-label" for="impWinPuerto">Puerto SMB</label>
+                <input
+                  id="impWinPuerto"
+                  type="number"
+                  class="form-control"
+                  placeholder="445"
+                  formControlName="puerto"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="impWinCola">Nombre del Recurso Compartido (Share) *</label>
+              <input
+                id="impWinCola"
+                type="text"
+                class="form-control"
+                placeholder="Ej. TERMICA o POS58"
+                formControlName="cola"
+                [class.is-invalid]="esCampoInvalido('cola') || !!erroresBackend['cola']"
+              />
+              @if (erroresBackend['cola']) {
+                <div class="form-error">{{ erroresBackend['cola'] }}</div>
+              } @else if (esCampoInvalido('cola')) {
+                <div class="form-error">El recurso compartido es requerido.</div>
+              }
+              <small class="field-hint">Es el nombre asignado al compartir en Windows (Ruta: <code>\\\\IP\\RECURSO</code>).</small>
+            </div>
+
+            <div class="credentials-box">
+              <div class="credentials-header">
+                <label class="form-label mb-0">Credenciales de Windows (Opcionales)</label>
+                <small class="text-muted">Solo si Windows exige usuario/contraseña para acceder a la impresora</small>
+              </div>
+              <div class="form-row-2">
+                <div class="form-group flex-1">
+                  <label class="form-label" for="impWinUser">Usuario</label>
+                  <input
+                    id="impWinUser"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ej. Cajero o Invitado"
+                    formControlName="usuario"
+                  />
+                </div>
+                <div class="form-group flex-1">
+                  <label class="form-label" for="impWinPass">Contraseña</label>
+                  <input
+                    id="impWinPass"
+                    type="password"
+                    class="form-control"
+                    [placeholder]="modoEdicion() ? 'Dejar en blanco para conservar' : 'Opcional'"
+                    formControlName="password"
+                  />
+                </div>
               </div>
             </div>
           }
@@ -438,6 +550,11 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       color: #c026d3;
     }
 
+    .imp-icon-box.windows-box {
+      background: #e0f2fe;
+      color: #0284c7;
+    }
+
     .imp-title-block {
       flex: 1;
       min-width: 0;
@@ -465,6 +582,11 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
     .badge-cups {
       background: #fae8ff;
       color: #86198f;
+    }
+
+    .badge-windows {
+      background: #e0f2fe;
+      color: #0369a1;
     }
 
     .imp-details {
@@ -497,6 +619,12 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       font-weight: 700;
     }
 
+    .win-share {
+      color: #0369a1;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
     .imp-actions {
       display: flex;
       gap: 0.5rem;
@@ -512,9 +640,52 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
 
     .type-selector {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 0.75rem;
     }
+
+    @media (max-width: 640px) {
+      .type-selector {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .windows-helper-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      font-size: 0.8125rem;
+      color: #1e40af;
+      line-height: 1.4;
+    }
+
+    .windows-helper-banner p {
+      margin: 0.25rem 0 0;
+      font-size: 0.78rem;
+      color: #1d4ed8;
+    }
+
+    .credentials-box {
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem;
+      border: 1px dashed var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .credentials-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .mb-0 { margin-bottom: 0 !important; }
 
     .type-opt {
       display: flex;
@@ -622,7 +793,9 @@ export class ImpresorasComponent implements OnInit {
       tipoConexion: ['RED' as TipoConexion, [Validators.required]],
       ip: [''],
       puerto: [9100],
-      cola: ['']
+      cola: [''],
+      usuario: [''],
+      password: ['']
     });
 
     this.actualizarValidadoresPorTipo('RED');
@@ -633,9 +806,10 @@ export class ImpresorasComponent implements OnInit {
   }
 
   cambiarTipoConexion(tipo: TipoConexion): void {
+    const defaultPuerto = tipo === 'RED' ? 9100 : (tipo === 'WINDOWS' ? 445 : 631);
     this.impresoraForm.patchValue({
       tipoConexion: tipo,
-      puerto: tipo === 'RED' ? 9100 : 631
+      puerto: defaultPuerto
     });
     this.actualizarValidadoresPorTipo(tipo);
   }
@@ -648,6 +822,9 @@ export class ImpresorasComponent implements OnInit {
       ipControl?.setValidators([Validators.required]);
       colaControl?.clearValidators();
       colaControl?.setValue('');
+    } else if (tipo === 'WINDOWS') {
+      ipControl?.setValidators([Validators.required]);
+      colaControl?.setValidators([Validators.required]);
     } else {
       // CUPS: cola es obligatoria
       colaControl?.setValidators([Validators.required]);
@@ -672,7 +849,9 @@ export class ImpresorasComponent implements OnInit {
       tipoConexion: 'RED',
       ip: '',
       puerto: 9100,
-      cola: ''
+      cola: '',
+      usuario: '',
+      password: ''
     });
     this.actualizarValidadoresPorTipo('RED');
     this.modalFormAbierto.set(true);
@@ -682,13 +861,16 @@ export class ImpresorasComponent implements OnInit {
     this.erroresBackend = {};
     this.modoEdicion.set(true);
     const tipo = (imp.tipoConexion?.toUpperCase() as TipoConexion) || 'RED';
+    const defaultPuerto = tipo === 'RED' ? 9100 : (tipo === 'WINDOWS' ? 445 : 631);
     this.impresoraForm.patchValue({
       id: imp.id,
       nombre: imp.nombre,
       tipoConexion: tipo,
       ip: imp.ip || '',
-      puerto: imp.puerto || (tipo === 'RED' ? 9100 : 631),
-      cola: imp.cola || ''
+      puerto: imp.puerto || defaultPuerto,
+      cola: imp.cola || '',
+      usuario: imp.usuario || '',
+      password: ''
     });
     this.actualizarValidadoresPorTipo(tipo);
     this.modalFormAbierto.set(true);
@@ -713,7 +895,9 @@ export class ImpresorasComponent implements OnInit {
       tipoConexion: val.tipoConexion,
       ip: val.ip,
       puerto: val.puerto,
-      cola: val.cola
+      cola: val.cola,
+      usuario: val.usuario,
+      password: val.password || null
     };
 
     const request$ = this.modoEdicion() && val.id

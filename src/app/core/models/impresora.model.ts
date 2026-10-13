@@ -1,4 +1,4 @@
-export type TipoConexion = 'RED' | 'CUPS';
+export type TipoConexion = 'RED' | 'CUPS' | 'WINDOWS';
 
 export interface Impresora {
   id?: number;
@@ -7,6 +7,9 @@ export interface Impresora {
   ip?: string;
   puerto?: number;
   cola?: string | null;
+  usuario?: string | null;
+  password?: string | null;
+  tienePassword?: boolean;
 }
 
 export interface PruebaImpresionRequest {

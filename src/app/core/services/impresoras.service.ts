@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Impresora, PruebaImpresionRequest } from '../models/impresora.model';
+import { Impresora, PruebaImpresionRequest, TipoConexion } from '../models/impresora.model';
 import { ToastService } from './toast.service';
 
 @Injectable({
@@ -94,7 +94,7 @@ export class ImpresorasService {
   }
 
   private sanitizarPayload(impresora: Impresora): Impresora {
-    const tipo = impresora.tipoConexion.toUpperCase() as 'RED' | 'CUPS';
+    const tipo = (impresora.tipoConexion || 'RED').toUpperCase() as TipoConexion;
     if (tipo === 'RED') {
       return {
         nombre: impresora.nombre.trim(),
@@ -102,6 +102,16 @@ export class ImpresorasService {
         ip: impresora.ip?.trim(),
         puerto: impresora.puerto ? Number(impresora.puerto) : 9100,
         cola: null
+      };
+    } else if (tipo === 'WINDOWS') {
+      return {
+        nombre: impresora.nombre.trim(),
+        tipoConexion: 'WINDOWS',
+        ip: impresora.ip?.trim().replace(/^[\\\/]+/, ''),
+        puerto: impresora.puerto ? Number(impresora.puerto) : 445,
+        cola: impresora.cola?.trim().replace(/^[\\\/]+/, '') || '',
+        usuario: impresora.usuario?.trim() || null,
+        password: impresora.password ? impresora.password.trim() : null
       };
     } else {
       return {
