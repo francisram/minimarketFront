@@ -681,7 +681,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                 type="button"
                 class="option-tile"
                 [class.active]="checkoutData.metodoPago === 'EFECTIVO'"
-                (click)="checkoutData.metodoPago = 'EFECTIVO'"
+                (click)="onSeleccionarMetodoPago('EFECTIVO')"
               >
                 <span>💵 Efectivo</span>
               </button>
@@ -689,7 +689,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                 type="button"
                 class="option-tile"
                 [class.active]="checkoutData.metodoPago === 'TARJETA_DEBITO'"
-                (click)="checkoutData.metodoPago = 'TARJETA_DEBITO'"
+                (click)="onSeleccionarMetodoPago('TARJETA_DEBITO')"
               >
                 <span>💳 Débito</span>
               </button>
@@ -697,7 +697,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                 type="button"
                 class="option-tile"
                 [class.active]="checkoutData.metodoPago === 'TARJETA_CREDITO'"
-                (click)="checkoutData.metodoPago = 'TARJETA_CREDITO'"
+                (click)="onSeleccionarMetodoPago('TARJETA_CREDITO')"
               >
                 <span>💳 Crédito</span>
               </button>
@@ -705,33 +705,44 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                 type="button"
                 class="option-tile"
                 [class.active]="checkoutData.metodoPago === 'TRANSFERENCIA_QR'"
-                (click)="checkoutData.metodoPago = 'TRANSFERENCIA_QR'"
+                (click)="onSeleccionarMetodoPago('TRANSFERENCIA_QR')"
               >
                 <span>📱 QR / Transf.</span>
               </button>
             </div>
           </div>
 
-          <!-- CAMPO NRO DE VOUCHER (TARJETA DÉBITO O CRÉDITO) -->
-          @if (checkoutData.metodoPago === 'TARJETA_DEBITO' || checkoutData.metodoPago === 'TARJETA_CREDITO') {
-            <div class="voucher-box mb-3">
+          <!-- CAMPO NRO DE VOUCHER (OBLIGATORIO PARA TARJETA DÉBITO Y CRÉDITO) -->
+          @if (esVoucherRequerido) {
+            <div class="voucher-box mb-3" [class.has-error]="voucherTouched() && esVoucherInvalido()">
               <div class="voucher-header">
                 <app-icon name="banknote" [size]="16" />
                 <label class="form-label m-0" for="voucherInput">
-                  <strong>N° de Boleta / Voucher POS</strong>
+                  <strong>N° de Boleta / Voucher POS *</strong>
                 </label>
+                <span class="badge-voucher-req">Obligatorio</span>
               </div>
               <input
                 id="voucherInput"
                 type="text"
                 class="form-control input-voucher"
-                placeholder="Ej. 123456 o Nro. de Transacción..."
+                [class.is-invalid]="voucherTouched() && esVoucherInvalido()"
+                placeholder="Ingresa el N° de boleta o comprobante POS (Ej. 123456)..."
                 [(ngModel)]="checkoutData.numeroVoucher"
+                (ngModelChange)="onVoucherInput()"
+                (blur)="voucherTouched.set(esVoucherInvalido())"
                 autocomplete="off"
+                required
               />
-              <span class="form-hint">
-                Registra el número del comprobante impreso por el dispositivo POS (Bancard, Dinelco, etc.)
-              </span>
+              @if (voucherTouched() && esVoucherInvalido()) {
+                <div class="form-error text-danger mt-1" style="font-size: 0.8125rem; font-weight: 600;">
+                  ⚠️ El número de voucher o boleta es obligatorio para pagos con tarjeta.
+                </div>
+              } @else {
+                <span class="form-hint">
+                  Registra el número del comprobante impreso por el dispositivo POS (Bancard, Dinelco, etc.)
+                </span>
+              }
             </div>
           }
 
@@ -1668,6 +1679,12 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       border: 1px solid #bfdbfe;
       border-radius: var(--radius-md);
       padding: 0.75rem 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .voucher-box.has-error {
+      background: #fef2f2;
+      border-color: #fca5a5;
     }
 
     .voucher-header {
@@ -1678,10 +1695,34 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       margin-bottom: 0.35rem;
     }
 
+    .voucher-box.has-error .voucher-header {
+      color: #dc2626;
+    }
+
+    .badge-voucher-req {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+      margin-left: auto;
+    }
+
     .input-voucher {
       font-weight: 600;
       letter-spacing: 0.5px;
       background: #ffffff;
+      transition: all 0.2s ease;
+    }
+
+    .input-voucher.is-invalid {
+      border-color: #ef4444;
+      background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
     }
 
     .comprobante-options {
@@ -1876,6 +1917,7 @@ export class PosComponent implements OnInit {
   public readonly buscandoCliente = signal<boolean>(false);
   public readonly clienteExistente = signal<Cliente | null>(null);
   public readonly mostrarSugerenciasClientes = signal<boolean>(false);
+  public readonly voucherTouched = signal<boolean>(false);
   private readonly busquedaRucSubject = new Subject<string>();
 
   public checkoutData: {
@@ -2030,7 +2072,8 @@ export class PosComponent implements OnInit {
       return;
     }
 
-    // Limpiar estado de autocompletado
+    // Limpiar estado de autocompletado y validación de voucher
+    this.voucherTouched.set(false);
     this.clienteExistente.set(null);
     this.clientesSugeridos.set([]);
     this.mostrarSugerenciasClientes.set(false);
@@ -2041,6 +2084,35 @@ export class PosComponent implements OnInit {
   cerrarModalCheckout(): void {
     this.modalCheckoutAbierto.set(false);
     this.mostrarSugerenciasClientes.set(false);
+  }
+
+  get esVoucherRequerido(): boolean {
+    return this.checkoutData.metodoPago === 'TARJETA_DEBITO' || this.checkoutData.metodoPago === 'TARJETA_CREDITO';
+  }
+
+  esVoucherInvalido(): boolean {
+    return this.esVoucherRequerido && !this.checkoutData.numeroVoucher?.trim();
+  }
+
+  onSeleccionarMetodoPago(metodo: MetodoPago): void {
+    this.checkoutData.metodoPago = metodo;
+    if (metodo === 'TARJETA_DEBITO' || metodo === 'TARJETA_CREDITO') {
+      setTimeout(() => {
+        const input = document.getElementById('voucherInput') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+        }
+      }, 100);
+    } else {
+      this.voucherTouched.set(false);
+      this.checkoutData.numeroVoucher = '';
+    }
+  }
+
+  onVoucherInput(): void {
+    if (this.voucherTouched() && !this.esVoucherInvalido()) {
+      this.voucherTouched.set(false);
+    }
   }
 
   onInputRuc(valor: string): void {
@@ -2094,6 +2166,17 @@ export class PosComponent implements OnInit {
     if (!this.cajaService.cajaAbierta()) {
       this.toast.error('No se pueden registrar ventas: no existe una sesión de caja abierta.', 'Caja Cerrada');
       this.abrirModalAperturaRapida();
+      return;
+    }
+
+    if (this.esVoucherRequerido && this.esVoucherInvalido()) {
+      this.voucherTouched.set(true);
+      const metodoNombre = this.checkoutData.metodoPago === 'TARJETA_DEBITO' ? 'Débito' : 'Crédito';
+      this.toast.warning(`Para pagos con Tarjeta de ${metodoNombre}, el N° de Comprobante / Voucher POS es obligatorio.`, 'Voucher Requerido');
+      const input = document.getElementById('voucherInput') as HTMLInputElement | null;
+      if (input) {
+        input.focus();
+      }
       return;
     }
 
@@ -2165,6 +2248,7 @@ export class PosComponent implements OnInit {
         this.clienteExistente.set(null);
         this.clientesSugeridos.set([]);
         this.mostrarSugerenciasClientes.set(false);
+        this.voucherTouched.set(false);
       },
       error: (err) => {
         const mensaje = err.error?.mensaje || err.error?.error || 'Error al procesar el pedido.';
