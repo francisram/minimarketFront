@@ -132,7 +132,42 @@ Si prefieres usar otro puerto en tu máquina anfitriona (por ejemplo, el `4200` 
 
 ---
 
-## 💡 5. Resolución de Problemas Frecuentes
+## 🔄 5. Cómo Actualizar la Imagen de Docker al Hacer Cambios en el Código
+
+Cuando realizas modificaciones en el código de Angular y necesitas que se reflejen en Docker y se conserve la imagen actualizada, dispones de dos alternativas:
+
+### Opción 1: Actualización Rápida en Caliente (Recomendada para desarrollo ágil)
+Evita descargar librerías o reconstruir capas del Dockerfile; compilas localmente y copias el resultado directamente al contenedor activo:
+
+```bash
+# 1. Compilar el proyecto Angular en tu máquina local
+npm run build
+
+# 2. Copiar los archivos compilados dentro del contenedor en ejecución
+docker cp dist/minisuperangular/browser/. heladeria-front:/usr/share/nginx/html/
+
+# 3. Reiniciar el contenedor para que Nginx sirva los nuevos archivos
+docker restart heladeria-front
+
+# 4. Guardar los cambios del contenedor en la imagen de Docker (permanente)
+docker commit heladeria-front minimarketfront-heladeria-front:latest
+```
+
+> **¿Qué hace `docker commit`?** Toma el contenedor `heladeria-front` con todos los cambios copiados y actualiza la imagen `minimarketfront-heladeria-front:latest`. Así, aunque reinicies tu equipo o detengas el contenedor, tus cambios perduran de forma permanente.
+
+---
+
+### Opción 2: Reconstrucción Completa con Docker Compose
+Si prefieres que Docker ejecute todo el proceso de compilación desde el `Dockerfile`:
+
+```bash
+docker compose up -d --build
+```
+> El argumento `--build` le ordena a Docker reconstruir la imagen antes de encender el contenedor.
+
+---
+
+## 💡 6. Resolución de Problemas Frecuentes
 
 1. **"Puerto 8086 ya está en uso"**:
    * En Linux/Mac: `sudo lsof -i :8086` o `sudo ss -tulpn | grep 8086`
