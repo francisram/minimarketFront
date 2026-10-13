@@ -481,9 +481,24 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <span>Ventas Tarjeta Crédito:</span>
                 <span>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaCredito ?? 0) | appCurrency }}</span>
               </div>
-              <div class="summary-row text-muted small">
-                <span>Ventas Transferencia / QR:</span>
-                <span>{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTransferenciaQr ?? 0) | appCurrency }}</span>
+              <div class="summary-row">
+                <span>(=) TOTAL VOUCHERS POS ESPERADOS:</span>
+                <strong class="text-primary">
+                  {{ (((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaDebito ?? 0) + ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaCredito ?? 0)) | appCurrency }}
+                  @if ((resumenCierreTarget() ?? cajaService.resumenCaja())?.cantidadVouchers) {
+                    <span class="text-muted small"> ({{ (resumenCierreTarget() ?? cajaService.resumenCaja())?.cantidadVouchers }} vouchers)</span>
+                  }
+                </strong>
+              </div>
+              <div class="summary-divider"></div>
+              <div class="summary-row">
+                <span>(=) TOTAL QR / TRANSFERENCIAS ESPERADO:</span>
+                <strong class="text-info">
+                  {{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTransferenciaQr ?? 0) | appCurrency }}
+                  @if ((resumenCierreTarget() ?? cajaService.resumenCaja())?.cantidadTransferencias) {
+                    <span class="text-muted small"> ({{ (resumenCierreTarget() ?? cajaService.resumenCaja())?.cantidadTransferencias }} ops)</span>
+                  }
+                </strong>
               </div>
               <div class="summary-row summary-grand-total">
                 <span>TOTAL VENTAS GENERAL:</span>
@@ -492,43 +507,152 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             </div>
           </div>
 
-          <!-- INPUT DE EFECTIVO CONTADO -->
-          <div class="form-group mb-3">
-            <label class="form-label" for="montoRealEfectivo">
-              <strong>Efectivo Físico en Mano (Contado físicamente) *</strong>
-            </label>
-            <div class="input-currency-wrapper">
-              <span class="currency-prefix">Gs.</span>
-              <input
-                id="montoRealEfectivo"
-                type="number"
-                min="0"
-                step="1000"
-                class="form-control input-highlight"
-                placeholder="Ingresa el monto total contado"
-                [(ngModel)]="cierreData.montoRealEfectivo"
-                (ngModelChange)="calcularDiferencia()"
-              />
-            </div>
-            <span class="form-hint">Cuenta los billetes y monedas físicos existentes en la gaveta.</span>
-          </div>
+          <!-- SECCIÓN DE CONTEO Y ARQUEO DESGLOSADO -->
+          <div class="arqueo-inputs-section mb-3">
+            <h4 class="section-subtitle mb-2">Conteo y Arqueo por Medio de Pago</h4>
 
-          <!-- EVALUACIÓN DE DIFERENCIA (ARQUEO) -->
-          @if (cierreData.montoRealEfectivo !== null && cierreData.montoRealEfectivo !== undefined) {
-            <div class="diferencia-card mb-3" [ngClass]="getDiferenciaCardClass()">
-              <div class="d-flex align-center gap-2">
-                <app-icon [name]="diferenciaCalculada() === 0 ? 'check' : 'alert-triangle'" [size]="22" />
-                <div>
-                  <h4 class="m-0 font-bold">{{ getDiferenciaTitulo() }}</h4>
-                  <p class="m-0 text-sm">{{ getDiferenciaMensaje() }}</p>
+            <!-- 1. EFECTIVO FÍSICO -->
+            <div class="arqueo-block mb-3">
+              <div class="arqueo-block-header">
+                <span class="block-title">💵 1. Efectivo Físico en Gaveta *</span>
+                <span class="badge-expected">Esperado: {{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEsperadoEfectivo ?? 0) | appCurrency }}</span>
+              </div>
+              <div class="input-currency-wrapper">
+                <span class="currency-prefix">Gs.</span>
+                <input
+                  id="montoRealEfectivo"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  class="form-control input-highlight"
+                  placeholder="Ingresa el monto de efectivo físico contado..."
+                  [(ngModel)]="cierreData.montoRealEfectivo"
+                  (ngModelChange)="calcularDiferencia()"
+                />
+              </div>
+              <span class="form-hint">Cuenta los billetes y monedas físicos existentes en la gaveta.</span>
+              @if (cierreData.montoRealEfectivo !== null && cierreData.montoRealEfectivo !== undefined) {
+                <div class="diferencia-card mt-2" [ngClass]="getDiferenciaCardClass(diferenciaCalculada())">
+                  <div class="d-flex align-center gap-2">
+                    <app-icon [name]="diferenciaCalculada() === 0 ? 'check' : 'alert-triangle'" [size]="20" />
+                    <div>
+                      <h5 class="m-0 font-bold">Efectivo: {{ getDiferenciaTitulo(diferenciaCalculada()) }}</h5>
+                      <p class="m-0 text-xs">{{ getDiferenciaMensaje(diferenciaCalculada(), 'Efectivo') }}</p>
+                    </div>
+                  </div>
+                  <div class="diferencia-monto">
+                    <span>Diferencia:</span>
+                    <strong>{{ diferenciaCalculada() | appCurrency }}</strong>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- 2. VOUCHERS POS (TARJETAS) -->
+            <div class="arqueo-block mb-3">
+              <div class="arqueo-block-header">
+                <span class="block-title">💳 2. Vouchers Físicos de Tarjetas POS (Débito y Crédito)</span>
+                <div class="d-flex align-center gap-2">
+                  <span class="badge-expected">Esperado: {{ (((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaDebito ?? 0) + ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTarjetaCredito ?? 0)) | appCurrency }}</span>
+                  <button type="button" class="btn btn-xs btn-outline" (click)="coincidirVouchers()" title="Autocompletar si coincide exactamente con el Cierre de Lote del POS">
+                    ✓ Coincide con POS
+                  </button>
                 </div>
               </div>
-              <div class="diferencia-monto">
-                <span>Diferencia:</span>
-                <strong>{{ diferenciaCalculada() | appCurrency }}</strong>
+              <div class="input-currency-wrapper">
+                <span class="currency-prefix">Gs.</span>
+                <input
+                  id="montoRealTarjeta"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  class="form-control"
+                  placeholder="Total contado de comprobantes / vouchers POS..."
+                  [(ngModel)]="cierreData.montoRealTarjeta"
+                  (ngModelChange)="calcularDiferencia()"
+                />
               </div>
+              <span class="form-hint">Suma el total de los vouchers emitidos por el datáfono/POS o el Cierre de Lote.</span>
+              @if (cierreData.montoRealTarjeta !== null && cierreData.montoRealTarjeta !== undefined) {
+                <div class="diferencia-card mt-2" [ngClass]="getDiferenciaCardClass(diferenciaTarjetaCalculada())">
+                  <div class="d-flex align-center gap-2">
+                    <app-icon [name]="diferenciaTarjetaCalculada() === 0 ? 'check' : 'alert-triangle'" [size]="20" />
+                    <div>
+                      <h5 class="m-0 font-bold">Vouchers POS: {{ getDiferenciaTitulo(diferenciaTarjetaCalculada()) }}</h5>
+                      <p class="m-0 text-xs">{{ getDiferenciaMensaje(diferenciaTarjetaCalculada(), 'Vouchers POS') }}</p>
+                    </div>
+                  </div>
+                  <div class="diferencia-monto">
+                    <span>Diferencia:</span>
+                    <strong>{{ diferenciaTarjetaCalculada() | appCurrency }}</strong>
+                  </div>
+                </div>
+              }
             </div>
-          }
+
+            <!-- 3. TRANSFERENCIAS Y QR -->
+            <div class="arqueo-block mb-3">
+              <div class="arqueo-block-header">
+                <span class="block-title">📱 3. Transferencias Bancarias y QR Verificados</span>
+                <div class="d-flex align-center gap-2">
+                  <span class="badge-expected">Esperado: {{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalTransferenciaQr ?? 0) | appCurrency }}</span>
+                  <button type="button" class="btn btn-xs btn-outline" (click)="coincidirQr()" title="Autocompletar si coincide exactamente con el extracto bancario">
+                    ✓ Coincide con Banco
+                  </button>
+                </div>
+              </div>
+              <div class="input-currency-wrapper">
+                <span class="currency-prefix">Gs.</span>
+                <input
+                  id="montoRealTransferenciaQr"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  class="form-control"
+                  placeholder="Total verificado en banca / billetera..."
+                  [(ngModel)]="cierreData.montoRealTransferenciaQr"
+                  (ngModelChange)="calcularDiferencia()"
+                />
+              </div>
+              <span class="form-hint">Monto verificado en la aplicación bancaria o panel de cobranzas QR.</span>
+              @if (cierreData.montoRealTransferenciaQr !== null && cierreData.montoRealTransferenciaQr !== undefined) {
+                <div class="diferencia-card mt-2" [ngClass]="getDiferenciaCardClass(diferenciaQrCalculada())">
+                  <div class="d-flex align-center gap-2">
+                    <app-icon [name]="diferenciaQrCalculada() === 0 ? 'check' : 'alert-triangle'" [size]="20" />
+                    <div>
+                      <h5 class="m-0 font-bold">QR / Transf.: {{ getDiferenciaTitulo(diferenciaQrCalculada()) }}</h5>
+                      <p class="m-0 text-xs">{{ getDiferenciaMensaje(diferenciaQrCalculada(), 'QR / Transferencias') }}</p>
+                    </div>
+                  </div>
+                  <div class="diferencia-monto">
+                    <span>Diferencia:</span>
+                    <strong>{{ diferenciaQrCalculada() | appCurrency }}</strong>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- BALANCE NETO CONSOLIDADO -->
+            @if (cierreData.montoRealEfectivo !== null && cierreData.montoRealEfectivo !== undefined) {
+              <div class="balance-global-card mb-3" [ngClass]="getDiferenciaCardClass(diferenciaTotalCalculada())">
+                <div class="balance-global-info">
+                  <app-icon [name]="diferenciaTotalCalculada() === 0 ? 'check' : 'alert-triangle'" [size]="24" />
+                  <div>
+                    <h4 class="m-0 font-bold">Balance Neto Consolidado del Turno</h4>
+                    <span class="text-xs">
+                      Efectivo: {{ diferenciaCalculada() | appCurrency }} |
+                      Vouchers: {{ diferenciaTarjetaCalculada() | appCurrency }} |
+                      QR: {{ diferenciaQrCalculada() | appCurrency }}
+                    </span>
+                  </div>
+                </div>
+                <div class="balance-global-monto">
+                  <span>Diferencia Neta:</span>
+                  <strong class="text-lg">{{ diferenciaTotalCalculada() | appCurrency }}</strong>
+                </div>
+              </div>
+            }
+          </div>
 
           <div class="form-group">
             <label class="form-label" for="obsCierre">Observaciones de Cierre (opcional)</label>
@@ -604,12 +728,48 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 
               @if (sesionSeleccionada.estado === 'CERRADA') {
                 <div class="ticket-section arqueo-final">
+                  <div class="ticket-section-title">--- RESULTADOS DEL ARQUEO ---</div>
+                  <!-- EFECTIVO -->
                   <div class="ticket-row"><span>Efectivo Esperado:</span><strong>{{ (sesionSeleccionada.montoEsperadoEfectivo ?? 0) | appCurrency }}</strong></div>
                   <div class="ticket-row"><span>Efectivo Declarado:</span><strong>{{ (sesionSeleccionada.montoRealEfectivo ?? 0) | appCurrency }}</strong></div>
-                  <div class="ticket-row diferencia-row">
-                    <span>Diferencia:</span>
+                  <div class="ticket-row small">
+                    <span>Dif. Efectivo:</span>
                     <strong [ngClass]="getDiferenciaTextColor(sesionSeleccionada.diferencia)">
                       {{ (sesionSeleccionada.diferencia ?? 0) | appCurrency }}
+                    </strong>
+                  </div>
+
+                  @if (sesionSeleccionada.montoRealTarjeta !== null && sesionSeleccionada.montoRealTarjeta !== undefined) {
+                    <div class="ticket-divider-sm"></div>
+                    <!-- VOUCHERS TARJETA -->
+                    <div class="ticket-row"><span>Vouchers Esperados:</span><strong>{{ ((sesionSeleccionada.totalVentasTarjetaDebito ?? 0) + (sesionSeleccionada.totalVentasTarjetaCredito ?? 0)) | appCurrency }}</strong></div>
+                    <div class="ticket-row"><span>Vouchers Declarados:</span><strong>{{ sesionSeleccionada.montoRealTarjeta | appCurrency }}</strong></div>
+                    <div class="ticket-row small">
+                      <span>Dif. Vouchers:</span>
+                      <strong [ngClass]="getDiferenciaTextColor(sesionSeleccionada.diferenciaTarjeta)">
+                        {{ (sesionSeleccionada.diferenciaTarjeta ?? 0) | appCurrency }}
+                      </strong>
+                    </div>
+                  }
+
+                  @if (sesionSeleccionada.montoRealTransferenciaQr !== null && sesionSeleccionada.montoRealTransferenciaQr !== undefined) {
+                    <div class="ticket-divider-sm"></div>
+                    <!-- QR TRANSFERENCIA -->
+                    <div class="ticket-row"><span>QR Esperado:</span><strong>{{ (sesionSeleccionada.totalVentasTransferenciaQr ?? 0) | appCurrency }}</strong></div>
+                    <div class="ticket-row"><span>QR Verificado:</span><strong>{{ sesionSeleccionada.montoRealTransferenciaQr | appCurrency }}</strong></div>
+                    <div class="ticket-row small">
+                      <span>Dif. QR:</span>
+                      <strong [ngClass]="getDiferenciaTextColor(sesionSeleccionada.diferenciaTransferenciaQr)">
+                        {{ (sesionSeleccionada.diferenciaTransferenciaQr ?? 0) | appCurrency }}
+                      </strong>
+                    </div>
+                  }
+
+                  <div class="ticket-divider-sm"></div>
+                  <div class="ticket-row diferencia-row">
+                    <span>DIFERENCIA NETA TOTAL:</span>
+                    <strong [ngClass]="getDiferenciaTextColor((sesionSeleccionada.diferencia ?? 0) + (sesionSeleccionada.diferenciaTarjeta ?? 0) + (sesionSeleccionada.diferenciaTransferenciaQr ?? 0))">
+                      {{ ((sesionSeleccionada.diferencia ?? 0) + (sesionSeleccionada.diferenciaTarjeta ?? 0) + (sesionSeleccionada.diferenciaTransferenciaQr ?? 0)) | appCurrency }}
                     </strong>
                   </div>
                 </div>
@@ -978,6 +1138,79 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       font-size: 1.15rem;
     }
 
+    /* ARQUEO DESGLOSADO */
+    .section-subtitle {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 0.5rem;
+    }
+    .arqueo-block {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    .arqueo-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .block-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+    .badge-expected {
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+    .btn-xs {
+      padding: 0.2rem 0.55rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+    .balance-global-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      margin-top: 0.75rem;
+      border-width: 2px;
+    }
+    .balance-global-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .balance-global-monto {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .ticket-section-title {
+      text-align: center;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: #57534e;
+    }
+    .ticket-divider-sm {
+      height: 1px;
+      border-top: 1px dotted #d6d3d1;
+      margin: 0.4rem 0;
+    }
+
     /* TICKET ARQUEO MODAL */
     .ticket-arqueo {
       background: #fafaf9;
@@ -1187,11 +1420,16 @@ export class CajaComponent implements OnInit {
 
   public cierreData = {
     montoRealEfectivo: null as number | null,
+    montoRealTarjeta: null as number | null,
+    montoRealTransferenciaQr: null as number | null,
     observaciones: ''
   };
 
   public sesionSeleccionada: SesionCaja | null = null;
   public diferenciaCalculada = signal<number>(0);
+  public diferenciaTarjetaCalculada = signal<number>(0);
+  public diferenciaQrCalculada = signal<number>(0);
+  public diferenciaTotalCalculada = signal<number>(0);
 
   // Target específico de cierre (para cuando un supervisor cierra otra caja)
   public readonly cajaCierreTarget = signal<SesionCaja | null>(null);
@@ -1280,9 +1518,14 @@ export class CajaComponent implements OnInit {
           this.resumenCierreTarget.set(resumen);
           this.cierreData = {
             montoRealEfectivo: null,
+            montoRealTarjeta: null,
+            montoRealTransferenciaQr: null,
             observaciones: ''
           };
           this.diferenciaCalculada.set(0);
+          this.diferenciaTarjetaCalculada.set(0);
+          this.diferenciaQrCalculada.set(0);
+          this.diferenciaTotalCalculada.set(0);
           this.modalCierreAbierto.set(true);
         },
         error: () => {
@@ -1300,9 +1543,14 @@ export class CajaComponent implements OnInit {
           this.resumenCierreTarget.set(resumen);
           this.cierreData = {
             montoRealEfectivo: null,
+            montoRealTarjeta: null,
+            montoRealTransferenciaQr: null,
             observaciones: ''
           };
           this.diferenciaCalculada.set(0);
+          this.diferenciaTarjetaCalculada.set(0);
+          this.diferenciaQrCalculada.set(0);
+          this.diferenciaTotalCalculada.set(0);
           this.modalCierreAbierto.set(true);
         },
         error: () => {
@@ -1328,30 +1576,58 @@ export class CajaComponent implements OnInit {
 
   calcularDiferencia(): void {
     const resumen = this.resumenCierreTarget() || this.cajaService.resumenCaja();
-    const esperado = resumen?.totalEsperadoEfectivo ?? 0;
-    const real = this.cierreData.montoRealEfectivo ?? 0;
-    this.diferenciaCalculada.set(real - esperado);
+    const esperadoEfectivo = resumen?.totalEsperadoEfectivo ?? 0;
+    const realEfectivo = this.cierreData.montoRealEfectivo ?? 0;
+    const difEfectivo = realEfectivo - esperadoEfectivo;
+    this.diferenciaCalculada.set(difEfectivo);
+
+    const esperadoTarjeta = (resumen?.totalTarjetaDebito ?? 0) + (resumen?.totalTarjetaCredito ?? 0);
+    const realTarjeta = this.cierreData.montoRealTarjeta !== null && this.cierreData.montoRealTarjeta !== undefined
+      ? this.cierreData.montoRealTarjeta
+      : esperadoTarjeta;
+    const difTarjeta = realTarjeta - esperadoTarjeta;
+    this.diferenciaTarjetaCalculada.set(difTarjeta);
+
+    const esperadoQr = resumen?.totalTransferenciaQr ?? 0;
+    const realQr = this.cierreData.montoRealTransferenciaQr !== null && this.cierreData.montoRealTransferenciaQr !== undefined
+      ? this.cierreData.montoRealTransferenciaQr
+      : esperadoQr;
+    const difQr = realQr - esperadoQr;
+    this.diferenciaQrCalculada.set(difQr);
+
+    this.diferenciaTotalCalculada.set(difEfectivo + difTarjeta + difQr);
   }
 
-  getDiferenciaCardClass(): string {
-    const dif = this.diferenciaCalculada();
+  coincidirVouchers(): void {
+    const resumen = this.resumenCierreTarget() || this.cajaService.resumenCaja();
+    const esperadoTarjeta = (resumen?.totalTarjetaDebito ?? 0) + (resumen?.totalTarjetaCredito ?? 0);
+    this.cierreData.montoRealTarjeta = esperadoTarjeta;
+    this.calcularDiferencia();
+  }
+
+  coincidirQr(): void {
+    const resumen = this.resumenCierreTarget() || this.cajaService.resumenCaja();
+    const esperadoQr = resumen?.totalTransferenciaQr ?? 0;
+    this.cierreData.montoRealTransferenciaQr = esperadoQr;
+    this.calcularDiferencia();
+  }
+
+  getDiferenciaCardClass(dif: number = this.diferenciaCalculada()): string {
     if (dif === 0) return 'dif-exacto';
     if (dif > 0) return 'dif-sobrante';
     return 'dif-faltante';
   }
 
-  getDiferenciaTitulo(): string {
-    const dif = this.diferenciaCalculada();
+  getDiferenciaTitulo(dif: number = this.diferenciaCalculada()): string {
     if (dif === 0) return 'Cuadre Exacto';
-    if (dif > 0) return 'Sobrante de Caja';
-    return 'Faltante de Caja';
+    if (dif > 0) return 'Sobrante';
+    return 'Faltante';
   }
 
-  getDiferenciaMensaje(): string {
-    const dif = this.diferenciaCalculada();
-    if (dif === 0) return 'El efectivo contado coincide exactamente con el monto esperado.';
-    if (dif > 0) return 'Existe más dinero en mano que el registrado por el sistema.';
-    return 'Atención: Falta dinero respecto al total esperado.';
+  getDiferenciaMensaje(dif: number = this.diferenciaCalculada(), medio: string = 'Efectivo'): string {
+    if (dif === 0) return `El monto de ${medio} coincide exactamente con lo registrado.`;
+    if (dif > 0) return `Existe más dinero en ${medio} que el registrado por el sistema.`;
+    return `Atención: Falta dinero en ${medio} respecto al total esperado.`;
   }
 
   getDiferenciaTextColor(dif: number | null | undefined): string {
@@ -1383,6 +1659,8 @@ export class CajaComponent implements OnInit {
 
     this.cajaService.cerrarCaja({
       montoRealEfectivo: this.cierreData.montoRealEfectivo,
+      montoRealTarjeta: this.cierreData.montoRealTarjeta,
+      montoRealTransferenciaQr: this.cierreData.montoRealTransferenciaQr,
       observaciones: this.cierreData.observaciones,
       sesionId: targetId
     }).subscribe({
