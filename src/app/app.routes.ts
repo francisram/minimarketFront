@@ -81,6 +81,11 @@ export const routes: Routes = [
         canActivate: [adminGuard]
       },
       {
+        path: 'backup',
+        loadComponent: () => import('./features/admin/backup/backup.component').then(m => m.BackupComponent),
+        canActivate: [adminGuard]
+      },
+      {
         path: 'catalogos',
         loadComponent: () => import('./features/catalogos/catalogos.component').then(m => m.CatalogosComponent)
       },

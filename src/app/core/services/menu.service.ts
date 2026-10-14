@@ -44,7 +44,8 @@ export class MenuService {
     { clave: 'usuarios', nombre: 'Usuarios', ruta: '/usuarios', icono: 'user', adminOnly: true },
     { clave: 'roles', nombre: 'Roles y Permisos', ruta: '/roles', icono: 'shield', adminOnly: true },
     { clave: 'licencia', nombre: 'Licencia', ruta: '/licencia', icono: 'verified', adminOnly: true },
-    { clave: 'institucion', nombre: 'Datos del Negocio', ruta: '/institucion', icono: 'building', adminOnly: true }
+    { clave: 'institucion', nombre: 'Datos del Negocio', ruta: '/institucion', icono: 'building', adminOnly: true },
+    { clave: 'backup', nombre: 'Copias de Seguridad', ruta: '/backup', icono: 'database', adminOnly: true }
   ];
 
   public readonly menuItems = computed<MenuItem[]>(() => {
@@ -67,7 +68,7 @@ export class MenuService {
       }
 
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
-      if (isAdminOrOwner && ['stock', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'pedidos'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'pedidos', 'backup'].includes(item.clave)) {
         return true;
       }
 

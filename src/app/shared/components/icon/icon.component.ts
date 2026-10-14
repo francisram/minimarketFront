@@ -236,6 +236,26 @@ import { Component, input } from '@angular/core';
           <circle cx="12" cy="8" r="6"/>
           <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
         }
+        @case ('database') {
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
+          <path d="M3 12A9 3 0 0 0 21 12"/>
+        }
+        @case ('upload') {
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" x2="12" y1="3" y2="15"/>
+        }
+        @case ('rotate-ccw') {
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        }
+        @case ('server') {
+          <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+          <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+          <line x1="6" x2="6.01" y1="6" y2="6"/>
+          <line x1="6" x2="6.01" y1="18" y2="18"/>
+        }
         @default {
           <circle cx="12" cy="12" r="10"/>
         }
