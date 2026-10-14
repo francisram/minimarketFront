@@ -5,7 +5,18 @@ import { StockService } from '../../core/services/stock.service';
 import { CatalogosService } from '../../core/services/catalogos.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ItemAlertaStock, TipoItemStock } from '../../core/models/stock.model';
+import { InventarioService } from '../../core/services/inventario.service';
+import { ReporteExportService } from '../../core/services/reporte-export.service';
+import {
+  ItemAlertaStock,
+  TipoItemStock,
+  TipoMovimientoStock,
+  MovimientoStock,
+  ReporteValorizacion,
+  ValorizacionItem,
+  ArticuloInventario,
+  RegistrarMovimientoRequest
+} from '../../core/models/stock.model';
 import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
 import { ProductoSimple } from '../../core/models/producto-simple.model';
@@ -24,11 +35,15 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
         <div>
           <h1 class="page-title">Control Integral de Stock e Inventario</h1>
           <p class="page-subtitle">
-            Gestión completa de bachas de helado por kg, envases/cucuruchos físicos y productos simples
+            Kardex físico, valorización en Gs., bachas de helado por kg, envases y bebidas
           </p>
         </div>
 
         <div class="header-actions">
+          <button type="button" class="btn btn-primary" (click)="abrirModalMovimiento()">
+            <app-icon name="plus" [size]="16" />
+            <span>Registrar Movimiento</span>
+          </button>
           <button type="button" class="btn btn-outline" (click)="abrirModalSabor()">
             <app-icon name="plus" [size]="16" />
             <span>Nuevo Sabor</span>
@@ -90,7 +105,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               type="button"
               class="tab-btn"
               [class.active]="tabActiva() === 'TODOS'"
-              (click)="tabActiva.set('TODOS')"
+              (click)="cambiarTabStock('TODOS')"
             >
               <app-icon name="bell" [size]="16" />
               <span>Alertas Críticas</span>
@@ -102,7 +117,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               type="button"
               class="tab-btn"
               [class.active]="tabActiva() === 'SABOR'"
-              (click)="tabActiva.set('SABOR')"
+              (click)="cambiarTabStock('SABOR')"
             >
               <app-icon name="ice-cream" [size]="16" />
               <span>Sabores en Bacha</span>
@@ -112,7 +127,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               type="button"
               class="tab-btn"
               [class.active]="tabActiva() === 'ENVASE'"
-              (click)="tabActiva.set('ENVASE')"
+              (click)="cambiarTabStock('ENVASE')"
             >
               <app-icon name="cup-soda" [size]="16" />
               <span>Envases y Cucuruchos</span>
@@ -122,16 +137,34 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               type="button"
               class="tab-btn"
               [class.active]="tabActiva() === 'PRODUCTO'"
-              (click)="tabActiva.set('PRODUCTO')"
+              (click)="cambiarTabStock('PRODUCTO')"
             >
               <app-icon name="coffee" [size]="16" />
               <span>Bebidas y Cafetería</span>
               <span class="tab-badge">{{ catalogosService.productosSimples().length }}</span>
             </button>
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="tabActiva() === 'KARDEX'"
+              (click)="cambiarTabStock('KARDEX')"
+            >
+              <app-icon name="clipboard-list" [size]="16" />
+              <span>Movimientos & Kardex</span>
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="tabActiva() === 'VALORIZACION'"
+              (click)="cambiarTabStock('VALORIZACION')"
+            >
+              <app-icon name="warehouse" [size]="16" />
+              <span>Valorización en Gs.</span>
+            </button>
           </div>
 
           <!-- FILTRO VISUALIZACIÓN (SOLO PARA PESTAÑAS DE CATEGORÍA) -->
-          @if (tabActiva() !== 'TODOS') {
+          @if (tabActiva() === 'SABOR' || tabActiva() === 'ENVASE' || tabActiva() === 'PRODUCTO') {
             <div class="filter-switch">
               <button 
                 type="button" 
@@ -505,6 +538,264 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             </table>
           </div>
         }
+
+        <!-- ==================== VISTA 5: KARDEX DE MOVIMIENTOS ==================== -->
+        @if (tabActiva() === 'KARDEX') {
+          <div class="kardex-view">
+            <!-- FILTROS DE KARDEX -->
+            <div class="kardex-filters-bar">
+              <div class="filter-group">
+                <label>Tipo Ítem:</label>
+                <select class="form-control-sm" [(ngModel)]="filtroKardexTipo" (ngModelChange)="aplicarFiltrosKardex()">
+                  <option value="TODOS">Todos los tipos</option>
+                  <option value="SABOR">Sabores de Helado (kg)</option>
+                  <option value="ENVASE">Envases y Cucuruchos (unid)</option>
+                  <option value="PRODUCTO">Productos Simples (unid)</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label>Tipo Movimiento:</label>
+                <select class="form-control-sm" [(ngModel)]="filtroKardexMov" (ngModelChange)="aplicarFiltrosKardex()">
+                  <option value="TODOS">Todos los movimientos</option>
+                  <option value="ENTRADA_COMPRA">Entrada por Compra</option>
+                  <option value="ENTRADA_PRODUCCION">Entrada por Producción</option>
+                  <option value="SALIDA_VENTA">Salida por Venta POS</option>
+                  <option value="SALIDA_MERMA">Baja por Merma / Rotura</option>
+                  <option value="AJUSTE_INVENTARIO">Ajuste por Conteo Físico</option>
+                  <option value="REINTEGRO_CANCELACION">Reintegro por Cancelación</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label>Desde:</label>
+                <input type="date" class="form-control-sm" [(ngModel)]="filtroKardexInicio" (ngModelChange)="aplicarFiltrosKardex()" />
+              </div>
+
+              <div class="filter-group">
+                <label>Hasta:</label>
+                <input type="date" class="form-control-sm" [(ngModel)]="filtroKardexFin" (ngModelChange)="aplicarFiltrosKardex()" />
+              </div>
+
+              <div class="filter-actions-inline">
+                <button type="button" class="btn btn-outline btn-sm" (click)="exportarKardexCsv()" title="Exportar movimientos a CSV / Excel">
+                  <app-icon name="file-spreadsheet" [size]="14" />
+                  <span>CSV</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="exportarKardexPdf()" title="Descargar Kardex en PDF A4">
+                  <app-icon name="file-text" [size]="14" />
+                  <span>PDF A4</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TABLA DE KARDEX -->
+            @if (inventarioService.cargandoKardex()) {
+              <div class="loading-state">
+                <app-icon name="refresh" [size]="20" class="spinning" />
+                <span>Cargando movimientos del Kardex...</span>
+              </div>
+            } @else if (inventarioService.kardex().length === 0) {
+              <div class="empty-state">
+                <div class="empty-icon text-muted">
+                  <app-icon name="clipboard-list" [size]="40" />
+                </div>
+                <h3>No hay movimientos registrados en el período</h3>
+                <p>Registra compras, producción artesanal, bajas por merma o ventas desde el POS para ver el flujo aquí.</p>
+                <button type="button" class="btn btn-primary mt-2" (click)="abrirModalMovimiento()">
+                  <app-icon name="plus" [size]="16" />
+                  <span>Registrar Movimiento Ahora</span>
+                </button>
+              </div>
+            } @else {
+              <div class="table-responsive">
+                <table class="table-custom">
+                  <thead>
+                    <tr>
+                      <th>Fecha / Hora</th>
+                      <th>Tipo Movimiento</th>
+                      <th>Artículo</th>
+                      <th class="text-right">Cantidad</th>
+                      <th class="text-center">Stock Antes &rarr; Después</th>
+                      <th>Motivo / Referencia</th>
+                      <th class="text-right">Costo Unit. (Gs.)</th>
+                      <th class="text-right">Total (Gs.)</th>
+                      <th>Responsable</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (mov of inventarioService.kardex(); track mov.id) {
+                      <tr>
+                        <td class="font-mono text-sm whitespace-nowrap">
+                          {{ mov.fecha | date:'dd/MM/yyyy HH:mm' }}
+                        </td>
+                        <td>
+                          <span class="kardex-badge" [ngClass]="getClaseTipoMovimiento(mov.tipoMovimiento)">
+                            {{ getEtiquetaTipoMovimiento(mov.tipoMovimiento) }}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="item-cell">
+                            <strong>{{ mov.itemNombre }}</strong>
+                            <span class="sub-label">
+                              <span class="type-chip" [ngClass]="getClaseTipoItem(mov.tipoItem)">{{ mov.tipoItem }}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td class="text-right font-bold whitespace-nowrap" [class.text-success]="mov.cantidad > 0" [class.text-danger]="mov.cantidad < 0">
+                          {{ mov.cantidad > 0 ? '+' : '' }}{{ mov.tipoItem === 'SABOR' ? (mov.cantidad | number:'1.2-3') : mov.cantidad }} {{ mov.unidad }}
+                        </td>
+                        <td class="text-center font-mono text-sm">
+                          <span class="text-muted">{{ mov.tipoItem === 'SABOR' ? (mov.stockAnterior | number:'1.2-3') : mov.stockAnterior }}</span>
+                          <span class="mx-1">&rarr;</span>
+                          <strong>{{ mov.tipoItem === 'SABOR' ? (mov.stockPosterior | number:'1.2-3') : mov.stockPosterior }}</strong>
+                        </td>
+                        <td class="text-sm max-w-xs truncate" [title]="mov.motivo || ''">
+                          {{ mov.motivo || '-' }}
+                        </td>
+                        <td class="text-right font-mono text-sm">
+                          {{ mov.costoUnitario ? (mov.costoUnitario | appCurrency) : '-' }}
+                        </td>
+                        <td class="text-right font-mono text-sm font-bold">
+                          {{ (mov.costoUnitario && mov.cantidad) ? ((mov.costoUnitario * mov.cantidad) | appCurrency) : '-' }}
+                        </td>
+                        <td class="text-sm text-muted">
+                          {{ mov.usuario || 'Sistema' }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ==================== VISTA 6: VALORIZACIÓN DE STOCK ==================== -->
+        @if (tabActiva() === 'VALORIZACION') {
+          <div class="valorizacion-view">
+            @if (inventarioService.cargandoValorizacion()) {
+              <div class="loading-state">
+                <app-icon name="refresh" [size]="20" class="spinning" />
+                <span>Calculando valorización del inventario...</span>
+              </div>
+            } @else if (inventarioService.valorizacion(); as val) {
+              <!-- RESUMEN DE VALORIZACIÓN -->
+              <div class="val-summary-cards">
+                <div class="val-card border-costo">
+                  <span class="val-label">Valor Total en Stock (a Costo)</span>
+                  <span class="val-amount text-primary">{{ val.totalValorizadoGeneral | appCurrency }}</span>
+                  <span class="val-sub">{{ val.totalArticulos }} artículos físicos contabilizados</span>
+                </div>
+                <div class="val-card border-venta">
+                  <span class="val-label">Artículos en Alerta Crítica</span>
+                  <span class="val-amount text-danger">{{ val.totalBajoMinimo + val.totalAgotados }}</span>
+                  <span class="val-sub">{{ val.totalAgotados }} agotados &bull; {{ val.totalBajoMinimo }} bajo mínimo</span>
+                </div>
+                <div class="val-card border-margen">
+                  <span class="val-label">Artículos con Stock Óptimo</span>
+                  <span class="val-amount text-success">{{ val.totalArticulos - val.totalBajoMinimo - val.totalAgotados }}</span>
+                  <span class="val-sub">Existencia física normal</span>
+                </div>
+              </div>
+
+              <!-- DESGLOSE POR CATEGORÍA -->
+              <div class="val-categories-breakdown">
+                <div class="cat-pill">
+                  <app-icon name="ice-cream" [size]="16" />
+                  <span>Sabores de Helado: <strong>{{ subtotalSabores() | appCurrency }}</strong></span>
+                </div>
+                <div class="cat-pill">
+                  <app-icon name="cup-soda" [size]="16" />
+                  <span>Envases / Cucuruchos: <strong>{{ subtotalPresentaciones() | appCurrency }}</strong></span>
+                </div>
+                <div class="cat-pill">
+                  <app-icon name="coffee" [size]="16" />
+                  <span>Productos Simples: <strong>{{ subtotalProductos() | appCurrency }}</strong></span>
+                </div>
+              </div>
+
+              <!-- ACCIONES DE EXPORTACIÓN Y BÚSQUEDA -->
+              <div class="val-toolbar">
+                <div class="search-box">
+                  <app-icon name="search" [size]="16" />
+                  <input
+                    type="text"
+                    class="form-control-sm"
+                    placeholder="Buscar artículo..."
+                    [(ngModel)]="busquedaValorizacion"
+                  />
+                </div>
+
+                <div class="filter-group">
+                  <select class="form-control-sm" [(ngModel)]="filtroValorizacionTipo">
+                    <option value="TODOS">Todos los tipos</option>
+                    <option value="SABOR">Sabores de Helado</option>
+                    <option value="ENVASE">Envases</option>
+                    <option value="PRODUCTO">Productos Simples</option>
+                  </select>
+                </div>
+
+                <div class="export-buttons-group">
+                  <button type="button" class="btn btn-outline btn-sm" (click)="exportarValorizacionCsv()">
+                    <app-icon name="file-spreadsheet" [size]="14" />
+                    <span>Exportar CSV</span>
+                  </button>
+                  <button type="button" class="btn btn-primary btn-sm" (click)="exportarValorizacionPdf()">
+                    <app-icon name="file-text" [size]="14" />
+                    <span>Descargar PDF A4</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- TABLA DE ARTÍCULOS VALORADOS -->
+              <div class="table-responsive">
+                <table class="table-custom">
+                  <thead>
+                    <tr>
+                      <th>Artículo</th>
+                      <th>Tipo</th>
+                      <th class="text-right">Stock Actual</th>
+                      <th class="text-right">Costo / Precio Unit.</th>
+                      <th class="text-right">Total Valorado (Gs.)</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of itemsValorizacionFiltrados(); track item.tipoItem + '-' + item.id) {
+                      <tr>
+                        <td>
+                          <strong>{{ item.nombre }}</strong>
+                        </td>
+                        <td>
+                          <span class="type-chip" [ngClass]="getClaseTipoItem(item.tipoItem)">{{ item.tipoItem }}</span>
+                        </td>
+                        <td class="text-right font-mono font-bold">
+                          {{ item.tipoItem === 'SABOR' ? (item.stockActual | number:'1.2-3') : item.stockActual }} {{ item.unidad }}
+                        </td>
+                        <td class="text-right font-mono text-sm">
+                          {{ item.precioUnitario | appCurrency }}
+                        </td>
+                        <td class="text-right font-mono font-bold text-primary">
+                          {{ item.totalValorizado | appCurrency }}
+                        </td>
+                        <td>
+                          @if (item.estadoStock === 'AGOTADO') {
+                            <span class="badge-status badge-danger">Agotado</span>
+                          } @else if (item.estadoStock === 'BAJO') {
+                            <span class="badge-status badge-warning">Bajo Mínimo</span>
+                          } @else {
+                            <span class="badge-status badge-success">Óptimo</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        }
       </div>
 
       <!-- ==================== MODAL DE AJUSTE RÁPIDO ==================== -->
@@ -580,6 +871,133 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           </button>
           <button type="button" class="btn btn-primary" (click)="guardarAjuste()" [disabled]="guardandoAjuste()">
             <span>Guardar Ajuste</span>
+          </button>
+        </div>
+      </app-modal>
+
+      <!-- ==================== MODAL REGISTRAR MOVIMIENTO MANUAL ==================== -->
+      <app-modal
+        [isOpen]="modalMovimientoAbierto()"
+        title="Registrar Movimiento de Inventario / Kardex"
+        size="md"
+        (close)="cerrarModalMovimiento()"
+      >
+        <div body class="form-grid">
+          <!-- TIPO DE ÍTEM -->
+          <div class="form-group">
+            <label class="form-label">Tipo de Artículo *</label>
+            <div class="segmented-control">
+              <button
+                type="button"
+                [class.active]="movimientoTipoItem() === 'PRODUCTO'"
+                (click)="cambiarTipoItemMovimiento('PRODUCTO')"
+              >
+                ☕ Producto Simple
+              </button>
+              <button
+                type="button"
+                [class.active]="movimientoTipoItem() === 'SABOR'"
+                (click)="cambiarTipoItemMovimiento('SABOR')"
+              >
+                🍨 Helado en Bacha
+              </button>
+              <button
+                type="button"
+                [class.active]="movimientoTipoItem() === 'ENVASE'"
+                (click)="cambiarTipoItemMovimiento('ENVASE')"
+              >
+                🥡 Envase / Pote
+              </button>
+            </div>
+          </div>
+
+          <!-- SELECTOR DE ARTÍCULO -->
+          <div class="form-group">
+            <label class="form-label" for="movItemId">Seleccionar Artículo *</label>
+            <select
+              id="movItemId"
+              class="form-control"
+              [(ngModel)]="movimientoItemId"
+              (ngModelChange)="onArticuloMovimientoCambiado()"
+            >
+              <option [ngValue]="null" disabled>-- Seleccione un artículo --</option>
+              @for (art of articulosFiltradosParaModal(); track art.id) {
+                <option [ngValue]="art.id">
+                  {{ art.nombre }} (Stock: {{ art.tipoItem === 'SABOR' ? (art.stockActual | number:'1.2-3') : art.stockActual }} {{ art.unidad }})
+                </option>
+              }
+            </select>
+          </div>
+
+          <!-- TIPO DE MOVIMIENTO -->
+          <div class="form-group">
+            <label class="form-label" for="movTipoMov">Tipo de Movimiento *</label>
+            <select
+              id="movTipoMov"
+              class="form-control"
+              [(ngModel)]="movimientoTipoMov"
+            >
+              <option value="ENTRADA_COMPRA">➕ Entrada por Compra a Proveedor</option>
+              <option value="ENTRADA_PRODUCCION">🍨 Entrada por Elaboración / Producción</option>
+              <option value="SALIDA_MERMA">⚠️ Salida por Merma / Vencimiento / Rotura</option>
+              <option value="AJUSTE_INVENTARIO">📋 Ajuste por Conteo Físico</option>
+            </select>
+          </div>
+
+          <!-- CANTIDAD Y UNIDAD -->
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="movCantidad">
+                Cantidad a {{ esMovimientoSalida() ? 'Descontar' : 'Ingresar' }} ({{ getUnidadMovimientoActual() }}) *
+              </label>
+              <input
+                id="movCantidad"
+                type="number"
+                [step]="movimientoTipoItem() === 'SABOR' ? '0.1' : '1'"
+                min="0.001"
+                class="form-control"
+                placeholder="Ej. 5"
+                [(ngModel)]="movimientoCantidad"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="movCosto">Costo Unitario en Gs. (Opcional)</label>
+              <input
+                id="movCosto"
+                type="number"
+                step="500"
+                class="form-control"
+                placeholder="Ej. 18000"
+                [(ngModel)]="movimientoCostoUnitario"
+              />
+            </div>
+          </div>
+
+          <!-- MOTIVO O JUSTIFICACIÓN -->
+          <div class="form-group">
+            <label class="form-label" for="movMotivo">Motivo / Justificación *</label>
+            <textarea
+              id="movMotivo"
+              class="form-control"
+              rows="3"
+              placeholder="Ej: Factura compra N° 001-002-1234, o Descongelamiento accidental en heladera 2"
+              [(ngModel)]="movimientoMotivo"
+            ></textarea>
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalMovimiento()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="guardarMovimiento()"
+            [disabled]="inventarioService.guardandoMovimiento() || !movimientoItemId || !movimientoMotivo.trim() || movimientoCantidad <= 0"
+          >
+            <span>{{ inventarioService.guardandoMovimiento() ? 'Registrando...' : 'Confirmar Movimiento' }}</span>
           </button>
         </div>
       </app-modal>
@@ -1138,15 +1556,169 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     @media (max-width: 768px) {
       .form-row-2 { grid-template-columns: 1fr; }
     }
+
+    /* KARDEX Y VALORIZACIÓN STYLES */
+    .kardex-view, .valorizacion-view {
+      padding: 0.5rem 0;
+    }
+    .kardex-filters-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 1.25rem;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .form-control-sm {
+      padding: 0.35rem 0.65rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-size: 0.8125rem;
+      outline: none;
+    }
+    .filter-actions-inline {
+      margin-left: auto;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .kardex-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .badge-compra { background: #dcfce7; color: #15803d; }
+    .badge-produccion { background: #d1fae5; color: #065f46; }
+    .badge-venta { background: #e0f2fe; color: #0369a1; }
+    .badge-merma { background: #fee2e2; color: #b91c1c; }
+    .badge-ajuste { background: #f3e8ff; color: #7e22ce; }
+    .badge-reintegro { background: #fef3c7; color: #b45309; }
+
+    .val-summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .val-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .border-costo { border-left: 4px solid #3b82f6; }
+    .border-venta { border-left: 4px solid #10b981; }
+    .border-margen { border-left: 4px solid #8b5cf6; }
+    .val-label { font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; }
+    .val-amount { font-size: 1.5rem; font-weight: 800; }
+    .val-sub { font-size: 0.75rem; color: var(--text-muted); }
+    .text-purple { color: #8b5cf6; }
+
+    .val-categories-breakdown {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .cat-pill {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 0.4rem 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-main);
+    }
+
+    .val-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.65rem;
+      color: var(--text-muted);
+    }
+    .search-box input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 0.8125rem;
+      color: var(--text-main);
+    }
+    .export-buttons-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   `]
 })
 export class StockComponent implements OnInit {
   public readonly stockService = inject(StockService);
   public readonly catalogosService = inject(CatalogosService);
+  public readonly inventarioService = inject(InventarioService);
+  public readonly exportService = inject(ReporteExportService);
   private readonly toast = inject(ToastService);
 
-  public readonly tabActiva = signal<'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO'>('TODOS');
+  public readonly tabActiva = signal<'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION'>('TODOS');
   public readonly filtroModo = signal<'TODOS' | 'ALERTAS'>('TODOS');
+
+  // Modal Registrar Movimiento Manual (Kardex)
+  public readonly modalMovimientoAbierto = signal<boolean>(false);
+  public readonly movimientoTipoItem = signal<'PRODUCTO' | 'SABOR' | 'ENVASE'>('PRODUCTO');
+  public movimientoItemId: number | null = null;
+  public movimientoTipoMov: TipoMovimientoStock = 'ENTRADA_COMPRA';
+  public movimientoCantidad: number = 1;
+  public movimientoMotivo: string = '';
+  public movimientoCostoUnitario?: number;
+
+  // Filtros Kardex
+  public filtroKardexTipo: string = 'TODOS';
+  public filtroKardexMov: string = 'TODOS';
+  public filtroKardexInicio: string = '';
+  public filtroKardexFin: string = '';
+
+  // Filtros Valorización
+  public busquedaValorizacion: string = '';
+  public filtroValorizacionTipo: string = 'TODOS';
 
   // Modal Ajuste Rápido
   public readonly modalAjusteAbierto = signal<boolean>(false);
@@ -1215,6 +1787,207 @@ export class StockComponent implements OnInit {
     this.catalogosService.cargarSabores();
     this.catalogosService.cargarPresentaciones();
     this.catalogosService.cargarProductosSimples();
+    this.inventarioService.listarArticulos().subscribe();
+  }
+
+  // ==================== MOVIMIENTOS & KARDEX LOGIC ====================
+  public readonly articulosFiltradosParaModal = computed(() => {
+    const tipo = this.movimientoTipoItem();
+    return this.inventarioService.articulos().filter(a => a.tipoItem === tipo);
+  });
+
+  public readonly itemsValorizacionFiltrados = computed(() => {
+    const val = this.inventarioService.valorizacion();
+    if (!val || !val.items) return [];
+    let items = val.items;
+
+    if (this.filtroValorizacionTipo !== 'TODOS') {
+      items = items.filter(i => i.tipoItem === this.filtroValorizacionTipo);
+    }
+
+    if (this.busquedaValorizacion.trim()) {
+      const q = this.busquedaValorizacion.toLowerCase().trim();
+      items = items.filter(i => i.nombre.toLowerCase().includes(q));
+    }
+
+    return items;
+  });
+
+  public readonly subtotalSabores = computed(() => {
+    const items = this.inventarioService.valorizacion()?.items || [];
+    return items.filter(i => i.tipoItem === 'SABOR').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
+  });
+
+  public readonly subtotalPresentaciones = computed(() => {
+    const items = this.inventarioService.valorizacion()?.items || [];
+    return items.filter(i => i.tipoItem === 'ENVASE').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
+  });
+
+  public readonly subtotalProductos = computed(() => {
+    const items = this.inventarioService.valorizacion()?.items || [];
+    return items.filter(i => i.tipoItem === 'PRODUCTO').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
+  });
+
+  cambiarTabStock(tab: 'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION'): void {
+    this.tabActiva.set(tab);
+    if (tab === 'KARDEX') {
+      this.cargarKardex();
+    } else if (tab === 'VALORIZACION') {
+      this.cargarValorizacion();
+    }
+  }
+
+  cargarKardex(): void {
+    this.inventarioService.obtenerKardex(
+      this.filtroKardexInicio || undefined,
+      this.filtroKardexFin || undefined,
+      this.filtroKardexTipo,
+      this.filtroKardexMov
+    ).subscribe();
+  }
+
+  cargarValorizacion(): void {
+    this.inventarioService.obtenerValorizacion().subscribe();
+  }
+
+  aplicarFiltrosKardex(): void {
+    this.cargarKardex();
+  }
+
+  abrirModalMovimiento(): void {
+    this.inventarioService.listarArticulos().subscribe(() => {
+      this.cambiarTipoItemMovimiento('PRODUCTO');
+      this.movimientoTipoMov = 'ENTRADA_COMPRA';
+      this.movimientoCantidad = 1;
+      this.movimientoMotivo = '';
+      this.modalMovimientoAbierto.set(true);
+    });
+  }
+
+  cerrarModalMovimiento(): void {
+    this.modalMovimientoAbierto.set(false);
+  }
+
+  cambiarTipoItemMovimiento(tipo: 'PRODUCTO' | 'SABOR' | 'ENVASE'): void {
+    this.movimientoTipoItem.set(tipo);
+    const disponibles = this.articulosFiltradosParaModal();
+    if (disponibles.length > 0) {
+      this.movimientoItemId = disponibles[0].id;
+      this.movimientoCostoUnitario = disponibles[0].precio || undefined;
+    } else {
+      this.movimientoItemId = null;
+      this.movimientoCostoUnitario = undefined;
+    }
+    this.movimientoCantidad = tipo === 'SABOR' ? 5.0 : 1;
+  }
+
+  onArticuloMovimientoCambiado(): void {
+    if (!this.movimientoItemId) return;
+    const art = this.inventarioService.articulos().find(a => a.id === this.movimientoItemId && a.tipoItem === this.movimientoTipoItem());
+    if (art && art.precio) {
+      this.movimientoCostoUnitario = art.precio;
+    }
+  }
+
+  esMovimientoSalida(): boolean {
+    return this.movimientoTipoMov === 'SALIDA_MERMA';
+  }
+
+  getUnidadMovimientoActual(): string {
+    return this.movimientoTipoItem() === 'SABOR' ? 'kg' : 'unid';
+  }
+
+  guardarMovimiento(): void {
+    if (!this.movimientoItemId) {
+      this.toast.warning('Selecciona un artículo válido.');
+      return;
+    }
+    if (!this.movimientoMotivo.trim()) {
+      this.toast.warning('El motivo o justificación del movimiento es obligatorio.');
+      return;
+    }
+    if (this.movimientoCantidad <= 0) {
+      this.toast.warning('La cantidad debe ser mayor a 0.');
+      return;
+    }
+
+    const request: RegistrarMovimientoRequest = {
+      tipoItem: this.movimientoTipoItem(),
+      itemId: this.movimientoItemId,
+      tipoMovimiento: this.movimientoTipoMov,
+      cantidad: this.movimientoCantidad,
+      motivo: this.movimientoMotivo.trim(),
+      costoUnitario: this.movimientoCostoUnitario
+    };
+
+    this.inventarioService.registrarMovimiento(request).subscribe({
+      next: () => {
+        this.cerrarModalMovimiento();
+        this.recargarTodo();
+        if (this.tabActiva() === 'KARDEX') {
+          this.cargarKardex();
+        } else if (this.tabActiva() === 'VALORIZACION') {
+          this.cargarValorizacion();
+        }
+      }
+    });
+  }
+
+  getClaseTipoMovimiento(tipo: TipoMovimientoStock): string {
+    switch (tipo) {
+      case 'ENTRADA_COMPRA': return 'badge-compra';
+      case 'ENTRADA_PRODUCCION': return 'badge-produccion';
+      case 'SALIDA_VENTA': return 'badge-venta';
+      case 'SALIDA_MERMA': return 'badge-merma';
+      case 'AJUSTE_INVENTARIO': return 'badge-ajuste';
+      case 'REINTEGRO_CANCELACION': return 'badge-reintegro';
+      default: return '';
+    }
+  }
+
+  getEtiquetaTipoMovimiento(tipo: TipoMovimientoStock): string {
+    switch (tipo) {
+      case 'ENTRADA_COMPRA': return 'Entrada Compra';
+      case 'ENTRADA_PRODUCCION': return 'Producción Helado';
+      case 'SALIDA_VENTA': return 'Venta POS';
+      case 'SALIDA_MERMA': return 'Baja / Merma';
+      case 'AJUSTE_INVENTARIO': return 'Ajuste Conteo';
+      case 'REINTEGRO_CANCELACION': return 'Reintegro Cancelación';
+      default: return tipo;
+    }
+  }
+
+  getClaseTipoItem(tipo: TipoItemStock): string {
+    switch (tipo) {
+      case 'SABOR': return 'chip-sabor';
+      case 'ENVASE': return 'chip-envase';
+      case 'PRODUCTO': return 'chip-producto';
+      default: return '';
+    }
+  }
+
+  exportarKardexCsv(): void {
+    this.exportService.exportarKardexCsv(
+      this.inventarioService.kardex(),
+      { inicio: this.filtroKardexInicio, fin: this.filtroKardexFin }
+    );
+  }
+
+  exportarKardexPdf(): void {
+    this.exportService.exportarKardexPdf(
+      this.inventarioService.kardex(),
+      { inicio: this.filtroKardexInicio, fin: this.filtroKardexFin }
+    );
+  }
+
+  exportarValorizacionCsv(): void {
+    const val = this.inventarioService.valorizacion();
+    if (val) this.exportService.exportarValorizacionCsv(val);
+  }
+
+  exportarValorizacionPdf(): void {
+    const val = this.inventarioService.valorizacion();
+    if (val) this.exportService.exportarValorizacionPdf(val);
   }
 
   getPorcentajeBarra(stock?: number, minimo?: number): number {

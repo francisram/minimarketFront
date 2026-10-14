@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { InstitucionService } from './institucion.service';
+import { MovimientoStock, ReporteValorizacion, KpisInventario } from '../models/stock.model';
 import {
   PedidoResumenReporteDTO,
   LibroVentasIvaDTO,
@@ -523,6 +524,331 @@ export class ReporteExportService {
     });
 
     const nombreArchivo = `auditoria_cajas_${this.limpiarFechaArchivo(periodo.inicio)}_${this.limpiarFechaArchivo(periodo.fin)}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  // =========================================================================
+  // 4. INVENTARIO & KARDEX: CSV & PDF (A4)
+  // =========================================================================
+
+  exportarKardexCsv(
+    movimientos: MovimientoStock[],
+    periodo: { inicio?: string; fin?: string },
+    kpis?: KpisInventario
+  ): void {
+    const BOM = '\uFEFF';
+    const separador = ';';
+    const lineas: string[] = [];
+
+    const inst = this.institucionService.institucion();
+    lineas.push(`"REPORTE HISTÓRICO DE KARDEX Y MOVIMIENTOS - ${this.sanitizarCsv(inst.nombre || 'Minimarket & Heladería')}"`);
+    if (inst.ruc) lineas.push(`"RUC: ${this.sanitizarCsv(inst.ruc)}"`);
+    lineas.push(`"Período: ${periodo.inicio || 'Inicio'} al ${periodo.fin || 'Hoy'}"`);
+    lineas.push(`"Fecha de emisión: ${this.formatearFechaHora(new Date().toISOString())}"`);
+    lineas.push('');
+
+    const headers = [
+      'ID',
+      'Fecha y Hora',
+      'Tipo Artículo',
+      'Artículo',
+      'Tipo Movimiento',
+      'Cantidad',
+      'Unidad',
+      'Stock Anterior',
+      'Stock Posterior',
+      'Motivo / Justificación',
+      'Usuario'
+    ];
+    lineas.push(headers.map(h => `"${h}"`).join(separador));
+
+    for (const m of movimientos) {
+      const fila = [
+        m.id.toString(),
+        this.formatearFechaHora(m.fecha),
+        m.tipoItem,
+        this.sanitizarCsv(m.itemNombre),
+        m.tipoMovimiento,
+        m.cantidad.toString(),
+        m.unidad,
+        m.stockAnterior.toString(),
+        m.stockPosterior.toString(),
+        this.sanitizarCsv(m.motivo || '—'),
+        this.sanitizarCsv(m.usuario || 'SISTEMA')
+      ];
+      lineas.push(fila.map(f => `"${f}"`).join(separador));
+    }
+
+    if (kpis) {
+      lineas.push('');
+      lineas.push(`"TOTAL ENTRADAS"${separador}"${kpis.totalEntradas}"`);
+      lineas.push(`"TOTAL VENTAS POS"${separador}"${kpis.totalSalidasVenta}"`);
+      lineas.push(`"TOTAL MERMAS / PÉRDIDAS"${separador}"${kpis.totalMermas}"`);
+      lineas.push(`"TOTAL MOVIMIENTOS REGISTRADOS"${separador}"${kpis.totalMovimientos}"`);
+    }
+
+    const contenido = BOM + lineas.join('\r\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const nombreArchivo = `kardex_inventario_${this.limpiarFechaArchivo(periodo.inicio)}_${this.limpiarFechaArchivo(periodo.fin)}.csv`;
+    this.descargarBlob(blob, nombreArchivo);
+  }
+
+  exportarKardexPdf(
+    movimientos: MovimientoStock[],
+    periodo: { inicio?: string; fin?: string },
+    kpis?: KpisInventario
+  ): void {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const titulo = 'REPORTE DE KARDEX Y MOVIMIENTOS DE STOCK';
+    const periodoTexto = `Período: ${periodo.inicio ? this.formatearFecha(periodo.inicio) : 'Inicio'} al ${periodo.fin ? this.formatearFecha(periodo.fin) : 'Hoy'}`;
+    const startY = this.dibujarEncabezadoA4(doc, titulo, periodoTexto, 'landscape');
+
+    let tableStartY = startY + 2;
+    if (kpis) {
+      const kpiY = startY + 2;
+      const kpiW = 60;
+      const kpiH = 13;
+      const gap = 6;
+      let kpiX = 14;
+
+      this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'TOTAL ENTRADAS (COMPRAS/PROD)', `${kpis.totalEntradas}`, [37, 99, 235]);
+      kpiX += kpiW + gap;
+      this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'SALIDAS POR VENTA (POS)', `${kpis.totalSalidasVenta}`, [16, 185, 129]);
+      kpiX += kpiW + gap;
+      this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'MERMAS / DESCARTE', `${kpis.totalMermas}`, [220, 38, 38]);
+      kpiX += kpiW + gap;
+      this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'VALOR TOTAL INVENTARIO', this.formatearGuaranies(kpis.valorTotalStock), [180, 83, 9]);
+
+      tableStartY = kpiY + kpiH + 5;
+    }
+
+    const filas = movimientos.map(m => [
+      m.id.toString(),
+      this.formatearFechaHora(m.fecha),
+      m.tipoItem,
+      m.itemNombre,
+      m.tipoMovimiento.replace(/_/g, ' '),
+      `${m.cantidad} ${m.unidad === 'KG' ? 'kg' : 'u.'}`,
+      `${m.stockAnterior} ${m.unidad === 'KG' ? 'kg' : 'u.'}`,
+      `${m.stockPosterior} ${m.unidad === 'KG' ? 'kg' : 'u.'}`,
+      m.motivo || '—',
+      m.usuario || 'SISTEMA'
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [[
+        'ID',
+        'Fecha y Hora',
+        'Tipo',
+        'Artículo',
+        'Movimiento',
+        'Cantidad',
+        'Stock Ant.',
+        'Stock Post.',
+        'Motivo / Justificación',
+        'Usuario'
+      ]],
+      body: filas,
+      theme: 'grid',
+      styles: {
+        fontSize: 7.2,
+        cellPadding: 1.8,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1
+      },
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 12 },
+        1: { halign: 'center', cellWidth: 26 },
+        2: { halign: 'center', cellWidth: 18 },
+        3: { halign: 'left', cellWidth: 46 },
+        4: { halign: 'center', cellWidth: 32 },
+        5: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
+        6: { halign: 'right', cellWidth: 20 },
+        7: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
+        8: { halign: 'left', cellWidth: 50 },
+        9: { halign: 'center', cellWidth: 25 }
+      },
+      margin: { left: 14, right: 14, bottom: 15 },
+      didDrawPage: () => {
+        this.dibujarPiePaginaA4(doc, 'landscape');
+      }
+    });
+
+    const nombreArchivo = `kardex_inventario_${this.limpiarFechaArchivo(periodo.inicio)}_${this.limpiarFechaArchivo(periodo.fin)}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  exportarValorizacionCsv(reporte: ReporteValorizacion): void {
+    const BOM = '\uFEFF';
+    const separador = ';';
+    const lineas: string[] = [];
+
+    const inst = this.institucionService.institucion();
+    lineas.push(`"INVENTARIO FÍSICO VALORADO - ${this.sanitizarCsv(inst.nombre || 'Minimarket & Heladería')}"`);
+    if (inst.ruc) lineas.push(`"RUC: ${this.sanitizarCsv(inst.ruc)}"`);
+    lineas.push(`"Fecha de emisión: ${this.formatearFechaHora(new Date().toISOString())}"`);
+    lineas.push('');
+
+    const headers = [
+      'ID',
+      'Artículo / Recurso',
+      'Categoría / Tipo',
+      'Stock Actual',
+      'Stock Mínimo',
+      'Unidad',
+      'Precio / Costo Estimado (Gs.)',
+      'Total Valorizado (Gs.)',
+      'Estado'
+    ];
+    lineas.push(headers.map(h => `"${h}"`).join(separador));
+
+    for (const item of reporte.items) {
+      const fila = [
+        item.id.toString(),
+        this.sanitizarCsv(item.nombre),
+        item.tipoItem,
+        item.stockActual.toString(),
+        item.stockMinimo.toString(),
+        item.unidad,
+        Math.round(item.precioUnitario).toString(),
+        Math.round(item.totalValorizado).toString(),
+        item.estadoStock
+      ];
+      lineas.push(fila.map(f => `"${f}"`).join(separador));
+    }
+
+    lineas.push('');
+    lineas.push(`"TOTAL ARTÍCULOS"${separador}"${reporte.totalArticulos}"`);
+    lineas.push(`"ARTÍCULOS AGOTADOS"${separador}"${reporte.totalAgotados}"`);
+    lineas.push(`"ARTÍCULOS BAJO MÍNIMO"${separador}"${reporte.totalBajoMinimo}"`);
+    lineas.push(`"VALOR TOTAL GENERAL (Gs.)"${separador}"${Math.round(reporte.totalValorizadoGeneral)}"`);
+
+    const contenido = BOM + lineas.join('\r\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const nombreArchivo = `inventario_valorado_${this.limpiarFechaArchivo(new Date().toISOString().substring(0, 10))}.csv`;
+    this.descargarBlob(blob, nombreArchivo);
+  }
+
+  exportarValorizacionPdf(reporte: ReporteValorizacion): void {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const titulo = 'INVENTARIO FÍSICO VALORADO';
+    const subtitulo = `Fecha de Valorización: ${this.formatearFechaHora(new Date().toISOString())}`;
+    const startY = this.dibujarEncabezadoA4(doc, titulo, subtitulo, 'portrait');
+
+    const kpiY = startY + 2;
+    const kpiW = 42;
+    const kpiH = 13;
+    const gap = 3;
+    let kpiX = 14;
+
+    this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'TOTAL ARTÍCULOS', `${reporte.totalArticulos}`, [37, 99, 235]);
+    kpiX += kpiW + gap;
+    this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'AGOTADOS', `${reporte.totalAgotados}`, [220, 38, 38]);
+    kpiX += kpiW + gap;
+    this.dibujarKpiBox(doc, kpiX, kpiY, kpiW, kpiH, 'BAJO MÍNIMO', `${reporte.totalBajoMinimo}`, [217, 119, 6]);
+    kpiX += kpiW + gap;
+    this.dibujarKpiBox(doc, kpiX, kpiY, kpiW + 8, kpiH, 'VALOR TOTAL (Gs.)', this.formatearGuaranies(reporte.totalValorizadoGeneral), [16, 185, 129]);
+
+    const tableStartY = kpiY + kpiH + 5;
+
+    const filas = reporte.items.map(item => [
+      item.id.toString(),
+      item.nombre,
+      item.tipoItem,
+      `${item.stockActual} ${item.unidad === 'KG' ? 'kg' : 'u.'}`,
+      `${item.stockMinimo} ${item.unidad === 'KG' ? 'kg' : 'u.'}`,
+      this.formatearNumero(item.precioUnitario),
+      this.formatearNumero(item.totalValorizado),
+      item.estadoStock
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [[
+        'ID',
+        'Artículo / Recurso',
+        'Tipo',
+        'Stock',
+        'Mínimo',
+        'Precio / Costo (Gs.)',
+        'Subtotal (Gs.)',
+        'Estado'
+      ]],
+      body: filas,
+      foot: [[
+        '',
+        'GRAN TOTAL VALORIZADO',
+        `${reporte.totalArticulos} Ítems`,
+        '',
+        '',
+        '',
+        this.formatearGuaranies(reporte.totalValorizadoGeneral),
+        ''
+      ]],
+      theme: 'grid',
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 1.8,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1
+      },
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.8,
+        halign: 'center'
+      },
+      footStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'right'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'left', cellWidth: 48 },
+        2: { halign: 'center', cellWidth: 20 },
+        3: { halign: 'right', cellWidth: 20 },
+        4: { halign: 'right', cellWidth: 18 },
+        5: { halign: 'right', cellWidth: 26 },
+        6: { halign: 'right', cellWidth: 26, fontStyle: 'bold' },
+        7: { halign: 'center', cellWidth: 14 }
+      },
+      margin: { left: 14, right: 14, bottom: 15 },
+      didDrawPage: () => {
+        this.dibujarPiePaginaA4(doc, 'portrait');
+      }
+    });
+
+    const nombreArchivo = `inventario_valorado_${this.limpiarFechaArchivo(new Date().toISOString().substring(0, 10))}.pdf`;
     doc.save(nombreArchivo);
   }
 

@@ -56,6 +56,11 @@ export const routes: Routes = [
         canActivate: [adminGuard]
       },
       {
+        path: 'inventario',
+        redirectTo: 'stock',
+        pathMatch: 'full'
+      },
+      {
         path: 'reportes',
         loadComponent: () => import('./features/reportes/reportes.component').then(m => m.ReportesComponent),
         canActivate: [adminGuard]

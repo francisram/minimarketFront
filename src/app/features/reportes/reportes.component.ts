@@ -12,6 +12,8 @@ import { Pedido } from '../../core/models/pedido.model';
 import { InstitucionService } from '../../core/services/institucion.service';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { ReporteExportService } from '../../core/services/reporte-export.service';
+import { InventarioService } from '../../core/services/inventario.service';
+import { TipoMovimientoStock, TipoItemStock } from '../../core/models/stock.model';
 import {
   DashboardReporteDTO,
   ReporteVentasDTO,
@@ -25,7 +27,7 @@ import {
   PedidoResumenReporteDTO
 } from '../../core/models/reporte.model';
 
-type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones' | 'talonarios';
+type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones' | 'talonarios' | 'inventario';
 
 interface DonutSegment {
   label: string;
@@ -89,6 +91,17 @@ interface DonutSegment {
               <span>Exportar CSV</span>
             </button>
             <button type="button" class="btn btn-primary" (click)="exportarCajasPdf()" [disabled]="descargandoPdf()" title="Descargar auditoría de cajas en PDF tamaño A4">
+              <app-icon name="file-text" [size]="16" />
+              <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
+            </button>
+          }
+
+          @if (tabActiva() === 'inventario') {
+            <button type="button" class="btn btn-outline" (click)="exportarInventarioCsv()" title="Descargar reporte de inventario en CSV">
+              <app-icon name="file-spreadsheet" [size]="16" />
+              <span>Exportar CSV</span>
+            </button>
+            <button type="button" class="btn btn-primary" (click)="exportarInventarioPdf()" [disabled]="descargandoPdf()" title="Descargar reporte de inventario en PDF tamaño A4">
               <app-icon name="file-text" [size]="16" />
               <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
             </button>
@@ -233,6 +246,15 @@ interface DonutSegment {
         >
           <app-icon name="file-text" [size]="18" />
           <span>Talonarios & Timbrado SET</span>
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="tabActiva() === 'inventario'"
+          (click)="cambiarTab('inventario')"
+        >
+          <app-icon name="warehouse" [size]="18" />
+          <span>Inventario & Kardex</span>
         </button>
       </nav>
 
@@ -1584,6 +1606,281 @@ interface DonutSegment {
                 </div>
               </div>
             </div>
+          </div>
+        }
+
+        <!-- ==================== PESTAÑA: INVENTARIO & KARDEX ==================== -->
+        @if (tabActiva() === 'inventario') {
+          <div class="tab-content inventario-content">
+            <!-- SUBTABS KARDEX VS VALORIZACION -->
+            <div class="subtabs-bar">
+              <button
+                type="button"
+                class="subtab-btn"
+                [class.active]="subtabInventario() === 'kardex'"
+                (click)="cambiarSubtabInventario('kardex')"
+              >
+                <app-icon name="clipboard-list" [size]="16" />
+                <span>Kardex Analítico de Movimientos</span>
+              </button>
+              <button
+                type="button"
+                class="subtab-btn"
+                [class.active]="subtabInventario() === 'valorizacion'"
+                (click)="cambiarSubtabInventario('valorizacion')"
+              >
+                <app-icon name="warehouse" [size]="16" />
+                <span>Inventario Físico Valorado (Gs.)</span>
+              </button>
+            </div>
+
+            <!-- 4 TARJETAS KPI DE INVENTARIO -->
+            <div class="kpi-grid">
+              <div class="kpi-card card-kpi-1">
+                <div class="kpi-header">
+                  <span class="kpi-title">Valorización de Stock Físico</span>
+                  <app-icon name="warehouse" [size]="20" class="text-blue" />
+                </div>
+                <div class="kpi-value font-mono">
+                  {{ (inventarioService.valorizacion()?.totalValorizadoGeneral || 0) | appCurrency }}
+                </div>
+                <div class="kpi-footer">
+                  <span>{{ inventarioService.valorizacion()?.totalArticulos || 0 }} artículos en existencia</span>
+                </div>
+              </div>
+
+              <div class="kpi-card card-kpi-2">
+                <div class="kpi-header">
+                  <span class="kpi-title">Movimientos en Período</span>
+                  <app-icon name="clipboard-list" [size]="20" class="text-purple" />
+                </div>
+                <div class="kpi-value font-mono">
+                  {{ inventarioService.kpis()?.totalMovimientos || inventarioService.kardex().length }}
+                </div>
+                <div class="kpi-footer">
+                  <span>Entradas, salidas y ajustes</span>
+                </div>
+              </div>
+
+              <div class="kpi-card card-kpi-3">
+                <div class="kpi-header">
+                  <span class="kpi-title">Entradas Registradas</span>
+                  <app-icon name="plus" [size]="20" class="text-green" />
+                </div>
+                <div class="kpi-value font-mono text-success">
+                  {{ inventarioService.kpis()?.totalEntradas || 0 }} operaciones
+                </div>
+                <div class="kpi-footer">
+                  <span>Compras y producción</span>
+                </div>
+              </div>
+
+              <div class="kpi-card card-kpi-4">
+                <div class="kpi-header">
+                  <span class="kpi-title">Mermas / Desechos</span>
+                  <app-icon name="alert-triangle" [size]="20" class="text-danger" />
+                </div>
+                <div class="kpi-value font-mono text-danger">
+                  {{ inventarioService.kpis()?.totalMermas || 0 }} registros
+                </div>
+                <div class="kpi-footer">
+                  <span>Pérdidas y roturas reportadas</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUBVISTA 1: KARDEX -->
+            @if (subtabInventario() === 'kardex') {
+              <div class="card p-4 mt-4">
+                <div class="section-header space-between flex-wrap gap-2 mb-3">
+                  <div>
+                    <h3 class="section-title">Historial Completo de Movimientos (Kardex)</h3>
+                    <p class="section-desc">Auditoría cronológica de ingresos por compra, producción artesanal, salidas POS y mermas.</p>
+                  </div>
+                  <div class="d-flex gap-2 flex-wrap align-center">
+                    <select class="form-control form-control-sm" [(ngModel)]="filtroKardexTipo" (ngModelChange)="aplicarFiltrosKardex()">
+                      <option value="TODOS">Todos los ítems</option>
+                      <option value="SABOR">Sabores en Bacha</option>
+                      <option value="ENVASE">Envases</option>
+                      <option value="PRODUCTO">Productos Simples</option>
+                    </select>
+
+                    <select class="form-control form-control-sm" [(ngModel)]="filtroKardexMovimiento" (ngModelChange)="aplicarFiltrosKardex()">
+                      <option value="TODOS">Todos los movimientos</option>
+                      <option value="ENTRADA_COMPRA">Entrada Compra</option>
+                      <option value="ENTRADA_PRODUCCION">Entrada Producción</option>
+                      <option value="SALIDA_VENTA">Salida Venta POS</option>
+                      <option value="SALIDA_MERMA">Baja Merma</option>
+                      <option value="AJUSTE_INVENTARIO">Ajuste Físico</option>
+                      <option value="REINTEGRO_CANCELACION">Reintegro Cancelación</option>
+                    </select>
+                  </div>
+                </div>
+
+                @if (inventarioService.cargandoKardex()) {
+                  <div class="loading-state">
+                    <app-icon name="refresh" [size]="20" class="spinning" />
+                    <span>Cargando Kardex...</span>
+                  </div>
+                } @else if (inventarioService.kardex().length === 0) {
+                  <div class="empty-state">
+                    <app-icon name="clipboard-list" [size]="40" class="text-muted" />
+                    <h4>Sin movimientos para los filtros seleccionados</h4>
+                    <p class="text-muted">No se encontraron registros de inventario en este rango de fechas.</p>
+                  </div>
+                } @else {
+                  <div class="table-responsive">
+                    <table class="table-custom">
+                      <thead>
+                        <tr>
+                          <th>Fecha / Hora</th>
+                          <th>Tipo Movimiento</th>
+                          <th>Artículo</th>
+                          <th class="text-right">Cantidad</th>
+                          <th class="text-center">Stock Físico (Antes &rarr; Después)</th>
+                          <th>Motivo / Referencia</th>
+                          <th class="text-right">Costo Unit.</th>
+                          <th class="text-right">Total (Gs.)</th>
+                          <th>Usuario</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (mov of inventarioService.kardex(); track mov.id) {
+                          <tr>
+                            <td class="font-mono text-sm whitespace-nowrap">
+                              {{ mov.fecha | date:'dd/MM/yyyy HH:mm' }}
+                            </td>
+                            <td>
+                              <span class="badge-status" [ngClass]="getClaseTipoMov(mov.tipoMovimiento)">
+                                {{ getEtiquetaTipoMov(mov.tipoMovimiento) }}
+                              </span>
+                            </td>
+                            <td>
+                              <strong>{{ mov.itemNombre }}</strong>
+                              <span class="d-block text-xs text-muted">
+                                {{ mov.tipoItem }}
+                              </span>
+                            </td>
+                            <td class="text-right font-mono font-bold" [class.text-success]="mov.cantidad > 0" [class.text-danger]="mov.cantidad < 0">
+                              {{ mov.cantidad > 0 ? '+' : '' }}{{ mov.tipoItem === 'SABOR' ? (mov.cantidad | number:'1.2-3') : mov.cantidad }} {{ mov.unidad }}
+                            </td>
+                            <td class="text-center font-mono text-xs">
+                              {{ mov.tipoItem === 'SABOR' ? (mov.stockAnterior | number:'1.2-3') : mov.stockAnterior }}
+                              &rarr;
+                              <strong>{{ mov.tipoItem === 'SABOR' ? (mov.stockPosterior | number:'1.2-3') : mov.stockPosterior }}</strong>
+                            </td>
+                            <td class="text-xs max-w-xs truncate" [title]="mov.motivo || ''">
+                              {{ mov.motivo || '-' }}
+                            </td>
+                            <td class="text-right font-mono text-xs">
+                              {{ mov.costoUnitario ? (mov.costoUnitario | appCurrency) : '-' }}
+                            </td>
+                            <td class="text-right font-mono text-xs font-bold">
+                              {{ (mov.costoUnitario && mov.cantidad) ? ((mov.costoUnitario * mov.cantidad) | appCurrency) : '-' }}
+                            </td>
+                            <td class="text-xs text-muted">
+                              {{ mov.usuario || 'Sistema' }}
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- SUBVISTA 2: VALORIZACIÓN DE STOCK -->
+            @if (subtabInventario() === 'valorizacion') {
+              <div class="card p-4 mt-4">
+                <div class="section-header space-between flex-wrap gap-2 mb-3">
+                  <div>
+                    <h3 class="section-title">Inventario Físico Valorado a Costo y Precio de Venta</h3>
+                    <p class="section-desc">Balance total de mercadería disponible, valorizada al costo unitario registrado y valuación potencial de ventas.</p>
+                  </div>
+                  <div class="d-flex gap-2 align-center">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="Buscar por nombre..."
+                      [(ngModel)]="busquedaValorizacion"
+                    />
+                  </div>
+                </div>
+
+                @if (inventarioService.cargandoValorizacion()) {
+                  <div class="loading-state">
+                    <app-icon name="refresh" [size]="20" class="spinning" />
+                    <span>Cargando valorización...</span>
+                  </div>
+                } @else if (inventarioService.valorizacion(); as val) {
+                  <!-- CATEGORÍAS RESUMEN -->
+                  <div class="subtotales-val-grid mb-3">
+                    <div class="subtotal-box">
+                      <span class="sub-label">Sabores de Helado (Bachas)</span>
+                      <span class="sub-val">{{ subtotalSabores() | appCurrency }}</span>
+                    </div>
+                    <div class="subtotal-box">
+                      <span class="sub-label">Envases / Cucuruchos</span>
+                      <span class="sub-val">{{ subtotalPresentaciones() | appCurrency }}</span>
+                    </div>
+                    <div class="subtotal-box">
+                      <span class="sub-label">Productos Simples / Bebidas</span>
+                      <span class="sub-val">{{ subtotalProductos() | appCurrency }}</span>
+                    </div>
+                    <div class="subtotal-box highlight">
+                      <span class="sub-label">Total Costo Valorado</span>
+                      <span class="sub-val text-primary font-bold">{{ val.totalValorizadoGeneral | appCurrency }}</span>
+                    </div>
+                  </div>
+
+                  <div class="table-responsive">
+                    <table class="table-custom">
+                      <thead>
+                        <tr>
+                          <th>Artículo</th>
+                          <th>Tipo</th>
+                          <th class="text-right">Stock Físico</th>
+                          <th class="text-right">Costo / Precio Unit. (Gs.)</th>
+                          <th class="text-right">Total Valorado (Gs.)</th>
+                          <th>Estado Stock</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (item of itemsValorizacionFiltrados(); track item.tipoItem + '-' + item.id) {
+                          <tr>
+                            <td>
+                              <strong>{{ item.nombre }}</strong>
+                            </td>
+                            <td>
+                              <span class="badge-tipo-item">{{ item.tipoItem }}</span>
+                            </td>
+                            <td class="text-right font-mono font-bold">
+                              {{ item.tipoItem === 'SABOR' ? (item.stockActual | number:'1.2-3') : item.stockActual }} {{ item.unidad }}
+                            </td>
+                            <td class="text-right font-mono text-sm">
+                              {{ item.precioUnitario | appCurrency }}
+                            </td>
+                            <td class="text-right font-mono font-bold text-primary">
+                              {{ item.totalValorizado | appCurrency }}
+                            </td>
+                            <td>
+                              @if (item.estadoStock === 'AGOTADO') {
+                                <span class="badge-status badge-danger">Agotado</span>
+                              } @else if (item.estadoStock === 'BAJO') {
+                                <span class="badge-status badge-warning">Bajo Mínimo</span>
+                              } @else {
+                                <span class="badge-status badge-success">Óptimo</span>
+                              }
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
           </div>
         }
       }
@@ -2955,6 +3252,85 @@ interface DonutSegment {
       gap: 0.75rem;
       width: 100%;
     }
+
+    /* SUBTABS & INVENTARIO REPORT STYLES */
+    .subtabs-bar {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .subtab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .subtab-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-main);
+    }
+    .subtab-btn.active {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #ffffff;
+    }
+    .subtotales-val-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .subtotal-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .subtotal-box.highlight {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+    .subtotal-box .sub-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .subtotal-box .sub-val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .badge-tipo-item {
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+    }
+    .badge-status.badge-info {
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+    .badge-status.badge-purple {
+      background: #f3e8ff;
+      color: #7e22ce;
+      border: 1px solid #e9d5ff;
+    }
   `]
 })
 export class ReportesComponent implements OnInit {
@@ -2964,12 +3340,19 @@ export class ReportesComponent implements OnInit {
   private readonly pedidosService = inject(PedidosService);
   public readonly institucionService = inject(InstitucionService);
   public readonly exportService = inject(ReporteExportService);
+  public readonly inventarioService = inject(InventarioService);
 
   // Estados principales
   public readonly tabActiva = signal<TabReporte>('dashboard');
   public readonly cargando = signal<boolean>(false);
   public readonly descargandoCsv = signal<boolean>(false);
   public readonly descargandoPdf = signal<boolean>(false);
+
+  // Inventario & Kardex
+  public readonly subtabInventario = signal<'kardex' | 'valorizacion'>('kardex');
+  public filtroKardexTipo: string = 'TODOS';
+  public filtroKardexMovimiento: string = 'TODOS';
+  public busquedaValorizacion: string = '';
 
   // Filtros de fecha
   public readonly presetSeleccionado = signal<PresetFecha>('esteMes');
@@ -3200,6 +3583,34 @@ export class ReportesComponent implements OnInit {
     return Math.max(...list.map(t => t.cantidad), 1);
   });
 
+  public readonly itemsValorizacionFiltrados = computed(() => {
+    const val = this.inventarioService.valorizacion();
+    if (!val || !val.items) return [];
+    let items = val.items;
+
+    if (this.busquedaValorizacion.trim()) {
+      const q = this.busquedaValorizacion.toLowerCase().trim();
+      items = items.filter(i => i.nombre.toLowerCase().includes(q));
+    }
+
+    return items;
+  });
+
+  public readonly subtotalSabores = computed(() => {
+    const items = this.inventarioService.valorizacion()?.items || [];
+    return items.filter(i => i.tipoItem === 'SABOR').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
+  });
+
+  public readonly subtotalPresentaciones = computed(() => {
+    const items = this.inventarioService.valorizacion()?.items || [];
+    return items.filter(i => i.tipoItem === 'ENVASE').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
+  });
+
+  public readonly subtotalProductos = computed(() => {
+    const items = this.inventarioService.valorizacion()?.items || [];
+    return items.filter(i => i.tipoItem === 'PRODUCTO').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
+  });
+
   ngOnInit(): void {
     this.aplicarPreset('esteMes');
     this.impresorasService.cargarImpresoras();
@@ -3266,6 +3677,93 @@ export class ReportesComponent implements OnInit {
       this.cargarRankings();
     } else if (tab === 'talonarios') {
       this.cargarDatosFiscales();
+    } else if (tab === 'inventario') {
+      this.cargarInventario();
+    }
+  }
+
+  cambiarSubtabInventario(subtab: 'kardex' | 'valorizacion'): void {
+    this.subtabInventario.set(subtab);
+  }
+
+  cargarInventario(): void {
+    this.inventarioService.obtenerKpis(this.fechaInicio, this.fechaFin).subscribe({ error: () => {} });
+    this.inventarioService.obtenerKardex(
+      this.fechaInicio || undefined,
+      this.fechaFin || undefined,
+      this.filtroKardexTipo,
+      this.filtroKardexMovimiento
+    ).subscribe({ error: () => {} });
+    this.inventarioService.obtenerValorizacion().subscribe({ error: () => {} });
+  }
+
+  aplicarFiltrosKardex(): void {
+    this.inventarioService.obtenerKardex(
+      this.fechaInicio || undefined,
+      this.fechaFin || undefined,
+      this.filtroKardexTipo,
+      this.filtroKardexMovimiento
+    ).subscribe({ error: () => {} });
+  }
+
+  exportarInventarioCsv(): void {
+    if (this.subtabInventario() === 'kardex') {
+      this.exportService.exportarKardexCsv(
+        this.inventarioService.kardex(),
+        { inicio: this.fechaInicio, fin: this.fechaFin },
+        this.inventarioService.kpis() ?? undefined
+      );
+    } else {
+      const val = this.inventarioService.valorizacion();
+      if (val) this.exportService.exportarValorizacionCsv(val);
+    }
+  }
+
+  exportarInventarioPdf(): void {
+    this.descargandoPdf.set(true);
+    try {
+      if (this.subtabInventario() === 'kardex') {
+        this.exportService.exportarKardexPdf(
+          this.inventarioService.kardex(),
+          { inicio: this.fechaInicio, fin: this.fechaFin },
+          this.inventarioService.kpis() ?? undefined
+        );
+      } else {
+        const val = this.inventarioService.valorizacion();
+        if (val) this.exportService.exportarValorizacionPdf(val);
+      }
+    } finally {
+      this.descargandoPdf.set(false);
+    }
+  }
+
+  getClaseTipoMov(tipo: string): string {
+    switch (tipo) {
+      case 'ENTRADA_COMPRA':
+      case 'ENTRADA_PRODUCCION':
+        return 'badge-success';
+      case 'SALIDA_VENTA':
+        return 'badge-info';
+      case 'SALIDA_MERMA':
+        return 'badge-danger';
+      case 'AJUSTE_INVENTARIO':
+        return 'badge-purple';
+      case 'REINTEGRO_CANCELACION':
+        return 'badge-warning';
+      default:
+        return 'badge-secondary';
+    }
+  }
+
+  getEtiquetaTipoMov(tipo: string): string {
+    switch (tipo) {
+      case 'ENTRADA_COMPRA': return 'Entrada Compra';
+      case 'ENTRADA_PRODUCCION': return 'Producción Helado';
+      case 'SALIDA_VENTA': return 'Venta POS';
+      case 'SALIDA_MERMA': return 'Baja / Merma';
+      case 'AJUSTE_INVENTARIO': return 'Ajuste Físico';
+      case 'REINTEGRO_CANCELACION': return 'Reintegro';
+      default: return tipo;
     }
   }
 
