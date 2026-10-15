@@ -916,29 +916,29 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             } @else {
               <!-- MODO CONTEO ACTIVO: PLANILLA DE AUDITORÍA FÍSICA -->
               <div class="conteo-sheet-container">
-                <!-- BARRA DE KPIS EN VIVO -->
+                <!-- BARRA DE KPIS DE AUDITORÍA A CIEGAS -->
                 <div class="conteo-kpis-bar">
                   <div class="kpi-mini-card">
-                    <span class="kpi-mini-label">Total Artículos Catálogo</span>
+                    <span class="kpi-mini-label">Total a Contar</span>
                     <span class="kpi-mini-val text-primary">{{ totalArticulosConteo() }}</span>
                   </div>
                   <div class="kpi-mini-card">
-                    <span class="kpi-mini-label">Discrepancias Detectadas</span>
-                    <span class="kpi-mini-val" [class.text-danger]="totalDiferenciasConteo() > 0" [class.text-success]="totalDiferenciasConteo() === 0">
-                      {{ totalDiferenciasConteo() }}
+                    <span class="kpi-mini-label">Artículos Contados</span>
+                    <span class="kpi-mini-val text-success font-bold">
+                      {{ articulosContadosCount() }} / {{ totalArticulosConteo() }}
                     </span>
                   </div>
                   <div class="kpi-mini-card">
-                    <span class="kpi-mini-label">Impacto Neto Estimado</span>
-                    <span class="kpi-mini-val font-bold" [class.text-danger]="impactoNetoConteo() < 0" [class.text-success]="impactoNetoConteo() > 0">
-                      {{ impactoNetoConteo() | appCurrency }}
+                    <span class="kpi-mini-label">Pendientes por Contar</span>
+                    <span class="kpi-mini-val" [class.text-warning]="articulosPendientesCount() > 0" [class.text-muted]="articulosPendientesCount() === 0">
+                      {{ articulosPendientesCount() }}
                     </span>
                   </div>
-                  <div class="kpi-mini-card action-card">
-                    <button type="button" class="btn btn-outline btn-sm" (click)="autocompletarConStockSistema()" title="Rellenar conteo con el stock que el sistema tiene registrado">
-                      <app-icon name="copy" [size]="14" />
-                      <span>Copiar Stock Sistema a Todos</span>
-                    </button>
+                  <div class="kpi-mini-card">
+                    <span class="kpi-mini-label">Avance del Conteo</span>
+                    <span class="kpi-mini-val text-primary font-bold">
+                      {{ porcentajeConteo() }}%
+                    </span>
                   </div>
                 </div>
 
@@ -993,7 +993,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                   />
                 </div>
 
-                <!-- TABLA PLANILLA DE CONTEO -->
+                <!-- TABLA PLANILLA DE CONTEO FÍSICO A CIEGAS -->
                 <div class="table-responsive conteo-table-wrapper">
                   <table class="table-custom conteo-table">
                     <thead>
@@ -1001,16 +1001,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                         <th>Artículo</th>
                         <th>Rubro</th>
                         <th>U.M.</th>
-                        <th class="text-right">Stock Sistema (Antes)</th>
-                        <th class="text-center th-input">Stock Físico (Contado)</th>
-                        <th class="text-center">Diferencia</th>
-                        <th class="text-right">Costo / Precio Unit.</th>
-                        <th class="text-right">Impacto en Gs.</th>
+                        <th class="text-center th-input" style="width: 180px;">Stock Físico (Contado)</th>
+                        <th class="text-center" style="width: 140px;">Estado</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (item of itemsConteoFiltrados(); track item.tipoItem + '-' + item.itemId) {
-                        <tr [class.row-diff]="Math.abs(item.stockFisico - item.stockSistema) > (item.tipoItem === 'SABOR' ? 0.001 : 0.0001)">
+                        <tr>
                           <td>
                             <strong>{{ item.nombre }}</strong>
                           </td>
@@ -1018,39 +1015,26 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                             <span class="type-chip" [ngClass]="getClaseTipoItem(item.tipoItem)">{{ item.tipoItem }}</span>
                           </td>
                           <td class="font-mono text-sm text-muted">{{ item.unidad }}</td>
-                          <td class="text-right font-mono text-sm">
-                            {{ item.tipoItem === 'SABOR' ? (item.stockSistema | number:'1.2-3') : item.stockSistema }}
-                          </td>
                           <td class="text-center td-input">
                             <div class="conteo-input-wrap">
                               <input
                                 type="number"
                                 [step]="item.tipoItem === 'SABOR' ? '0.05' : '1'"
                                 [min]="0"
+                                placeholder="0"
                                 class="conteo-input"
                                 [(ngModel)]="item.stockFisico"
                               />
                             </div>
                           </td>
-                          <td class="text-center font-mono">
-                            @let dif = item.stockFisico - item.stockSistema;
-                            @if (Math.abs(dif) < 0.001) {
-                              <span class="badge-status badge-success">Coincide</span>
-                            } @else if (dif < 0) {
-                              <span class="badge-status badge-danger">
-                                Faltante: {{ item.tipoItem === 'SABOR' ? (dif | number:'1.2-3') : dif }} {{ item.unidad }}
+                          <td class="text-center">
+                            @if (esItemContado(item)) {
+                              <span class="badge-status badge-success">
+                                <app-icon name="check" [size]="12" /> Contado
                               </span>
                             } @else {
-                              <span class="badge-status badge-info">
-                                Sobrante: +{{ item.tipoItem === 'SABOR' ? (dif | number:'1.2-3') : dif }} {{ item.unidad }}
-                              </span>
+                              <span class="badge-status badge-warning">Pendiente</span>
                             }
-                          </td>
-                          <td class="text-right font-mono text-sm">
-                            {{ item.costoUnitario | appCurrency }}
-                          </td>
-                          <td class="text-right font-mono font-bold" [class.text-danger]="(item.stockFisico - item.stockSistema) < -0.001" [class.text-primary]="(item.stockFisico - item.stockSistema) > 0.001">
-                            {{ ((item.stockFisico - item.stockSistema) * item.costoUnitario) | appCurrency }}
                           </td>
                         </tr>
                       }
@@ -1061,7 +1045,10 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <!-- FOOTER DE ACCIÓN INFERIOR -->
                 <div class="conteo-footer space-between align-center p-3 mt-3">
                   <span class="text-sm text-muted">
-                    Total con diferencias: <strong>{{ totalDiferenciasConteo() }}</strong> artículos.
+                    Progreso: <strong>{{ articulosContadosCount() }}</strong> de <strong>{{ totalArticulosConteo() }}</strong> artículos contados ({{ porcentajeConteo() }}%).
+                    @if (articulosPendientesCount() > 0) {
+                      <span class="text-warning ml-2 font-medium">({{ articulosPendientesCount() }} pendientes)</span>
+                    }
                   </span>
                   <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline" (click)="cancelarConteo()">
@@ -1578,24 +1565,30 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 
           <div class="confirm-summary-grid my-3">
             <div class="confirm-item">
-              <span class="label">Total Artículos Auditados:</span>
+              <span class="label">Total Artículos Catálogo:</span>
               <span class="val font-bold">{{ totalArticulosConteo() }}</span>
             </div>
             <div class="confirm-item">
-              <span class="label">Artículos con Discrepancia:</span>
-              <span class="val font-bold text-danger">{{ totalDiferenciasConteo() }}</span>
+              <span class="label">Artículos con Conteo Físico:</span>
+              <span class="val font-bold text-success">{{ articulosContadosCount() }}</span>
             </div>
             <div class="confirm-item">
-              <span class="label">Artículos Coincidentes:</span>
-              <span class="val font-bold text-success">{{ totalArticulosConteo() - totalDiferenciasConteo() }}</span>
-            </div>
-            <div class="confirm-item">
-              <span class="label">Impacto Económico Neto:</span>
-              <span class="val font-bold" [class.text-danger]="impactoNetoConteo() < 0" [class.text-success]="impactoNetoConteo() > 0">
-                {{ impactoNetoConteo() | appCurrency }}
+              <span class="label">Artículos Pendientes:</span>
+              <span class="val font-bold" [class.text-warning]="articulosPendientesCount() > 0" [class.text-muted]="articulosPendientesCount() === 0">
+                {{ articulosPendientesCount() }}
               </span>
             </div>
+            <div class="confirm-item">
+              <span class="label">Porcentaje Auditado:</span>
+              <span class="val font-bold text-primary">{{ porcentajeConteo() }}%</span>
+            </div>
           </div>
+
+          @if (articulosPendientesCount() > 0) {
+            <div class="alert-info-box mb-3 text-xs text-warning">
+              <strong>Atención:</strong> Hay <strong>{{ articulosPendientesCount() }}</strong> artículo(s) sin conteo ingresado. Al confirmar, los artículos pendientes se asentarán con existencia física en <strong>0</strong>.
+            </div>
+          }
 
           @if (observacionesAuditoria.trim()) {
             <p class="text-xs text-muted mb-0">
@@ -2410,7 +2403,7 @@ export class StockComponent implements OnInit {
     nombre: string;
     unidad: string;
     stockSistema: number;
-    stockFisico: number;
+    stockFisico: number | null;
     costoUnitario: number;
   }>>([]);
 
@@ -2432,17 +2425,34 @@ export class StockComponent implements OnInit {
     return list;
   });
 
+  public esItemContado(item: { stockFisico: number | null }): boolean {
+    return item.stockFisico !== null && item.stockFisico !== undefined && (item.stockFisico as any) !== '' && !isNaN(Number(item.stockFisico));
+  }
+
   public readonly totalArticulosConteo = computed(() => this.itemsConteo().length);
+  public readonly articulosContadosCount = computed(() =>
+    this.itemsConteo().filter(i => this.esItemContado(i)).length
+  );
+  public readonly articulosPendientesCount = computed(() =>
+    this.totalArticulosConteo() - this.articulosContadosCount()
+  );
+  public readonly porcentajeConteo = computed(() => {
+    const total = this.totalArticulosConteo();
+    if (total === 0) return 0;
+    return Math.round((this.articulosContadosCount() / total) * 100);
+  });
   public readonly totalDiferenciasConteo = computed(() => {
     return this.itemsConteo().filter(i => {
-      const dif = Math.abs(i.stockFisico - i.stockSistema);
+      const fisico = (i.stockFisico !== null && i.stockFisico !== undefined && (i.stockFisico as any) !== '') ? Number(i.stockFisico) : 0;
+      const dif = Math.abs(fisico - i.stockSistema);
       return i.tipoItem === 'SABOR' ? dif > 0.001 : dif > 0.0001;
     }).length;
   });
 
   public readonly impactoNetoConteo = computed(() => {
     return this.itemsConteo().reduce((acc, i) => {
-      const dif = i.stockFisico - i.stockSistema;
+      const fisico = (i.stockFisico !== null && i.stockFisico !== undefined && (i.stockFisico as any) !== '') ? Number(i.stockFisico) : 0;
+      const dif = fisico - i.stockSistema;
       return acc + (dif * (i.costoUnitario || 0));
     }, 0);
   });
@@ -2609,7 +2619,7 @@ export class StockComponent implements OnInit {
         nombre: a.nombre,
         unidad: a.unidad,
         stockSistema: a.stockActual,
-        stockFisico: a.stockActual,
+        stockFisico: null as number | null,
         costoUnitario: a.precio || 0
       }));
       this.itemsConteo.set(items);
@@ -2621,14 +2631,12 @@ export class StockComponent implements OnInit {
   }
 
   autocompletarConStockSistema(): void {
-    this.itemsConteo.update(items =>
-      items.map(i => ({ ...i, stockFisico: i.stockSistema }))
-    );
+    // Deshabilitado en modalidad de auditoría a ciegas
   }
 
   limpiarConteo(): void {
     this.itemsConteo.update(items =>
-      items.map(i => ({ ...i, stockFisico: 0 }))
+      items.map(i => ({ ...i, stockFisico: null }))
     );
   }
 
@@ -2637,6 +2645,10 @@ export class StockComponent implements OnInit {
   }
 
   solicitarConfirmacionAuditoria(): void {
+    if (this.articulosContadosCount() === 0 && this.totalArticulosConteo() > 0) {
+      alert('Debes ingresar al menos el conteo físico de un artículo antes de aplicar el inventario.');
+      return;
+    }
     this.modalConfirmarAuditoriaAbierto.set(true);
   }
 
@@ -2654,7 +2666,7 @@ export class StockComponent implements OnInit {
         tipoItem: i.tipoItem,
         itemId: i.itemId,
         itemNombre: i.nombre,
-        stockFisico: i.stockFisico,
+        stockFisico: (i.stockFisico !== null && i.stockFisico !== undefined && (i.stockFisico as any) !== '') ? Number(i.stockFisico) : 0,
         costoUnitario: i.costoUnitario
       }))
     };
