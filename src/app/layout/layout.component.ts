@@ -133,6 +133,17 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
               </a>
             }
 
+            <!-- BOTÓN PANTALLA COMPLETA (MODO KIOSCO / APK) -->
+            <button 
+              type="button" 
+              class="topbar-fullscreen-btn" 
+              (click)="toggleFullscreen()" 
+              [title]="esPantallaCompleta() ? 'Salir de pantalla completa' : 'Pantalla completa (Modo Kiosco / APK)'"
+              aria-label="Pantalla completa"
+            >
+              <app-icon [name]="esPantallaCompleta() ? 'minimize' : 'maximize'" [size]="18" />
+            </button>
+
             @if (authService.hasPermission('pedidos')) {
               <a routerLink="/pos" class="btn btn-primary btn-sm btn-quick-pos">
                 <app-icon name="shopping-cart" [size]="16" />
@@ -510,6 +521,25 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
       margin: 0 auto;
     }
 
+    .topbar-fullscreen-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .topbar-fullscreen-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-main);
+    }
+
     /* RESPONSIVE */
     @media (max-width: 1024px) {
       .sidebar {
@@ -548,12 +578,28 @@ export class AppLayoutComponent implements OnInit {
   private readonly router = inject(Router);
 
   public readonly sidebarAbierto = signal<boolean>(false);
+  public readonly esPantallaCompleta = signal<boolean>(false);
 
   ngOnInit(): void {
     this.menuService.cargarPaginasDisponibles();
     this.institucionService.cargarInstitucion();
     this.stockService.cargarAlertas();
     this.cajaService.cargarEstado().subscribe();
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('fullscreenchange', () => {
+        this.esPantallaCompleta.set(!!document.fullscreenElement);
+      });
+    }
+  }
+
+  toggleFullscreen(): void {
+    if (typeof document === 'undefined') return;
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
   }
 
   toggleSidebar(): void {
