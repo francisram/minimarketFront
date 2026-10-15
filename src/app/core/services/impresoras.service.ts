@@ -16,17 +16,11 @@ export class ImpresorasService {
   public readonly impresoras = signal<Impresora[]>([]);
   public readonly cargando = signal<boolean>(false);
 
-  // La API puede exponer /impresoras o /api/impresoras
-  private readonly endpoint = `${this.apiUrl}/impresoras`;
+  private readonly endpoint = `${this.apiUrl}/api/impresoras`;
 
   cargarImpresoras(): void {
     this.cargando.set(true);
-    this.http.get<Impresora[]>(this.endpoint).pipe(
-      catchError(() => {
-        // Fallback a /api/impresoras por si está bajo el prefijo api
-        return this.http.get<Impresora[]>(`${this.apiUrl}/api/impresoras`);
-      })
-    ).subscribe({
+    this.http.get<Impresora[]>(this.endpoint).subscribe({
       next: (data) => {
         this.impresoras.set(data || []);
         this.cargando.set(false);
