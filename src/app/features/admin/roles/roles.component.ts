@@ -489,7 +489,9 @@ export class RolesComponent implements OnInit {
     { clave: 'institucion', nombre: 'Datos del Negocio', descripcion: 'Razón social, RUC emisor, timbrados fiscales y logo', icono: 'building' },
     { clave: 'usuarios', nombre: 'Gestión de Usuarios', descripcion: 'Cuentas de usuario y accesos al sistema', icono: 'user' },
     { clave: 'roles', nombre: 'Roles y Permisos', descripcion: 'Definición de perfiles y páginas autorizadas', icono: 'shield' },
-    { clave: 'licencia', nombre: 'Licenciamiento', descripcion: 'Estado de suscripción y vigencia del software', icono: 'verified' }
+    { clave: 'licencia', nombre: 'Licenciamiento', descripcion: 'Estado de suscripción y vigencia del software', icono: 'verified' },
+    { clave: 'auditoria', nombre: 'Auditoría & Conteo Físico', descripcion: 'Planilla de conteo físico a ciegas, actas y comparativo de existencias', icono: 'clipboard-check' },
+    { clave: 'backup', nombre: 'Copias de Seguridad', descripcion: 'Respaldo y restauración integral de la base de datos', icono: 'database' }
   ];
 
   ngOnInit(): void {
@@ -532,7 +534,9 @@ export class RolesComponent implements OnInit {
       institucion: 'Datos del Negocio',
       usuarios: 'Gestión de Usuarios',
       roles: 'Roles y Permisos',
-      licencia: 'Licenciamiento'
+      licencia: 'Licenciamiento',
+      auditoria: 'Auditoría & Conteo Físico',
+      backup: 'Copias de Seguridad'
     };
     return mapa[clave.toLowerCase()] || clave;
   }

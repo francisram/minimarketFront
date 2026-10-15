@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { StockService } from '../../core/services/stock.service';
 import { CatalogosService } from '../../core/services/catalogos.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -35,29 +36,38 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       <!-- ENCABEZADO -->
       <div class="page-header">
         <div>
-          <h1 class="page-title">Control Integral de Stock e Inventario</h1>
-          <p class="page-subtitle">
-            Kardex físico, valorización en Gs., bachas de helado por kg, envases y bebidas
-          </p>
+          @if (esSoloAuditor()) {
+            <h1 class="page-title">Auditoría & Conteo Físico de Inventario</h1>
+            <p class="page-subtitle">
+              Planilla oficial de conteo físico a ciegas, actas de auditoría y comparativos
+            </p>
+          } @else {
+            <h1 class="page-title">Control Integral de Stock e Inventario</h1>
+            <p class="page-subtitle">
+              Kardex físico, valorización en Gs., bachas de helado por kg, envases y bebidas
+            </p>
+          }
         </div>
 
         <div class="header-actions">
-          <button type="button" class="btn btn-primary" (click)="abrirModalMovimiento()">
-            <app-icon name="plus" [size]="16" />
-            <span>Registrar Movimiento</span>
-          </button>
-          <button type="button" class="btn btn-outline" (click)="abrirModalSabor()">
-            <app-icon name="plus" [size]="16" />
-            <span>Nuevo Sabor</span>
-          </button>
-          <button type="button" class="btn btn-outline" (click)="abrirModalProducto()">
-            <app-icon name="plus" [size]="16" />
-            <span>Nuevo Producto</span>
-          </button>
-          <button type="button" class="btn btn-outline" (click)="abrirModalPresentacion()">
-            <app-icon name="plus" [size]="16" />
-            <span>Nuevo Envase</span>
-          </button>
+          @if (tieneAccesoStockCompleto()) {
+            <button type="button" class="btn btn-primary" (click)="abrirModalMovimiento()">
+              <app-icon name="plus" [size]="16" />
+              <span>Registrar Movimiento</span>
+            </button>
+            <button type="button" class="btn btn-outline" (click)="abrirModalSabor()">
+              <app-icon name="plus" [size]="16" />
+              <span>Nuevo Sabor</span>
+            </button>
+            <button type="button" class="btn btn-outline" (click)="abrirModalProducto()">
+              <app-icon name="plus" [size]="16" />
+              <span>Nuevo Producto</span>
+            </button>
+            <button type="button" class="btn btn-outline" (click)="abrirModalPresentacion()">
+              <app-icon name="plus" [size]="16" />
+              <span>Nuevo Envase</span>
+            </button>
+          }
           <button type="button" class="btn btn-secondary" (click)="recargarTodo()">
             <app-icon name="refresh" [size]="16" />
             <span>Actualizar</span>
@@ -66,112 +76,118 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       </div>
 
       <!-- TARJETAS DE RESUMEN KPI -->
-      <div class="kpi-grid">
-        <div class="kpi-card card-total">
-          <div class="kpi-icon icon-total">
-            <app-icon name="bell" [size]="24" />
+      @if (tieneAccesoStockCompleto()) {
+        <div class="kpi-grid">
+          <div class="kpi-card card-total">
+            <div class="kpi-icon icon-total">
+              <app-icon name="bell" [size]="24" />
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Total Alertas Activas</span>
+              <span class="kpi-val">{{ stockService.totalAlertas() }}</span>
+            </div>
           </div>
-          <div class="kpi-info">
-            <span class="kpi-label">Total Alertas Activas</span>
-            <span class="kpi-val">{{ stockService.totalAlertas() }}</span>
-          </div>
-        </div>
 
-        <div class="kpi-card card-agotados">
-          <div class="kpi-icon icon-agotados">
-            <app-icon name="alert-triangle" [size]="24" />
+          <div class="kpi-card card-agotados">
+            <div class="kpi-icon icon-agotados">
+              <app-icon name="alert-triangle" [size]="24" />
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Artículos Agotados</span>
+              <span class="kpi-val">{{ stockService.totalAgotados() }}</span>
+            </div>
           </div>
-          <div class="kpi-info">
-            <span class="kpi-label">Artículos Agotados</span>
-            <span class="kpi-val">{{ stockService.totalAgotados() }}</span>
-          </div>
-        </div>
 
-        <div class="kpi-card card-bajo">
-          <div class="kpi-icon icon-bajo">
-            <app-icon name="package" [size]="24" />
-          </div>
-          <div class="kpi-info">
-            <span class="kpi-label">Bajo Stock Mínimo</span>
-            <span class="kpi-val">{{ stockService.totalBajoStock() }}</span>
+          <div class="kpi-card card-bajo">
+            <div class="kpi-icon icon-bajo">
+              <app-icon name="package" [size]="24" />
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Bajo Stock Mínimo</span>
+              <span class="kpi-val">{{ stockService.totalBajoStock() }}</span>
+            </div>
           </div>
         </div>
-      </div>
+      }
 
       <!-- TABS Y LISTADO PRINCIPAL -->
       <div class="card">
         <div class="card-header space-between flex-wrap gap-2">
           <!-- TABS -->
           <div class="tabs-nav">
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'TODOS'"
-              (click)="cambiarTabStock('TODOS')"
-            >
-              <app-icon name="bell" [size]="16" />
-              <span>Alertas Críticas</span>
-              <span class="tab-badge" [class.badge-alert]="stockService.totalAlertas() > 0">
-                {{ stockService.totalAlertas() }}
-              </span>
-            </button>
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'SABOR'"
-              (click)="cambiarTabStock('SABOR')"
-            >
-              <app-icon name="ice-cream" [size]="16" />
-              <span>Sabores en Bacha</span>
-              <span class="tab-badge">{{ catalogosService.sabores().length }}</span>
-            </button>
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'ENVASE'"
-              (click)="cambiarTabStock('ENVASE')"
-            >
-              <app-icon name="cup-soda" [size]="16" />
-              <span>Envases y Cucuruchos</span>
-              <span class="tab-badge">{{ catalogosService.presentaciones().length }}</span>
-            </button>
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'PRODUCTO'"
-              (click)="cambiarTabStock('PRODUCTO')"
-            >
-              <app-icon name="coffee" [size]="16" />
-              <span>Bebidas y Cafetería</span>
-              <span class="tab-badge">{{ catalogosService.productosSimples().length }}</span>
-            </button>
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'KARDEX'"
-              (click)="cambiarTabStock('KARDEX')"
-            >
-              <app-icon name="clipboard-list" [size]="16" />
-              <span>Movimientos & Kardex</span>
-            </button>
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'VALORIZACION'"
-              (click)="cambiarTabStock('VALORIZACION')"
-            >
-              <app-icon name="warehouse" [size]="16" />
-              <span>Valorización en Gs.</span>
-            </button>
-            <button
-              type="button"
-              class="tab-btn"
-              [class.active]="tabActiva() === 'AUDITORIA'"
-              (click)="cambiarTabStock('AUDITORIA')"
-            >
-              <app-icon name="clipboard-check" [size]="16" />
-              <span>Auditoría & Conteo Físico</span>
-            </button>
+            @if (tieneAccesoStockCompleto()) {
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'TODOS'"
+                (click)="cambiarTabStock('TODOS')"
+              >
+                <app-icon name="bell" [size]="16" />
+                <span>Alertas Críticas</span>
+                <span class="tab-badge" [class.badge-alert]="stockService.totalAlertas() > 0">
+                  {{ stockService.totalAlertas() }}
+                </span>
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'SABOR'"
+                (click)="cambiarTabStock('SABOR')"
+              >
+                <app-icon name="ice-cream" [size]="16" />
+                <span>Sabores en Bacha</span>
+                <span class="tab-badge">{{ catalogosService.sabores().length }}</span>
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'ENVASE'"
+                (click)="cambiarTabStock('ENVASE')"
+              >
+                <app-icon name="cup-soda" [size]="16" />
+                <span>Envases y Cucuruchos</span>
+                <span class="tab-badge">{{ catalogosService.presentaciones().length }}</span>
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'PRODUCTO'"
+                (click)="cambiarTabStock('PRODUCTO')"
+              >
+                <app-icon name="coffee" [size]="16" />
+                <span>Bebidas y Cafetería</span>
+                <span class="tab-badge">{{ catalogosService.productosSimples().length }}</span>
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'KARDEX'"
+                (click)="cambiarTabStock('KARDEX')"
+              >
+                <app-icon name="clipboard-list" [size]="16" />
+                <span>Movimientos & Kardex</span>
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'VALORIZACION'"
+                (click)="cambiarTabStock('VALORIZACION')"
+              >
+                <app-icon name="warehouse" [size]="16" />
+                <span>Valorización en Gs.</span>
+              </button>
+            }
+            @if (tieneAccesoAuditoria()) {
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tabActiva() === 'AUDITORIA'"
+                (click)="cambiarTabStock('AUDITORIA')"
+              >
+                <app-icon name="clipboard-check" [size]="16" />
+                <span>Auditoría & Conteo Físico</span>
+              </button>
+            }
           </div>
 
           <!-- FILTRO VISUALIZACIÓN (SOLO PARA PESTAÑAS DE CATEGORÍA) -->
@@ -2385,8 +2401,15 @@ export class StockComponent implements OnInit {
   public readonly catalogosService = inject(CatalogosService);
   public readonly inventarioService = inject(InventarioService);
   public readonly exportService = inject(ReporteExportService);
+  public readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly toast = inject(ToastService);
   protected readonly Math = Math;
+
+  public readonly tieneAccesoStockCompleto = computed(() => this.authService.isAdminOrOwner() || this.authService.hasPermission('stock'));
+  public readonly tieneAccesoAuditoria = computed(() => this.authService.isAdminOrOwner() || this.authService.hasPermission('stock') || this.authService.hasPermission('auditoria'));
+  public readonly esSoloAuditor = computed(() => !this.authService.isAdminOrOwner() && !this.authService.hasPermission('stock') && this.authService.hasPermission('auditoria'));
 
   public readonly tabActiva = signal<'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION' | 'AUDITORIA'>('TODOS');
   public readonly filtroModo = signal<'TODOS' | 'ALERTAS'>('TODOS');
@@ -2547,7 +2570,21 @@ export class StockComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.recargarTodo();
+    const isAuditoriaUrl = this.router.url.includes('auditoria');
+    if (isAuditoriaUrl || this.esSoloAuditor()) {
+      this.tabActiva.set('AUDITORIA');
+      this.cargarTomas();
+      this.inventarioService.listarArticulos().subscribe();
+    } else {
+      this.recargarTodo();
+    }
+
+    this.route.queryParams.subscribe(params => {
+      if (params['tab'] === 'AUDITORIA') {
+        this.tabActiva.set('AUDITORIA');
+        this.cargarTomas();
+      }
+    });
   }
 
   recargarTodo(): void {

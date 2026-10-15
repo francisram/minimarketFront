@@ -56,6 +56,11 @@ export const routes: Routes = [
         canActivate: [adminGuard]
       },
       {
+        path: 'auditoria',
+        loadComponent: () => import('./features/stock/stock.component').then(m => m.StockComponent),
+        canActivate: [permissionGuard('auditoria')]
+      },
+      {
         path: 'inventario',
         redirectTo: 'stock',
         pathMatch: 'full'

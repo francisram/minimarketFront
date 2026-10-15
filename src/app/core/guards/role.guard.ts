@@ -25,7 +25,7 @@ export const adminGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const toastService = inject(ToastService);
 
   const path = (route.routeConfig?.path || '').toLowerCase();
-  if (authService.hasPermission(path)) {
+  if (authService.hasPermission(path) || (path === 'stock' && authService.hasPermission('auditoria'))) {
     return true;
   }
 
