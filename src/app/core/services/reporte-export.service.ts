@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { InstitucionService } from './institucion.service';
-import { MovimientoStock, ReporteValorizacion, KpisInventario } from '../models/stock.model';
+import { MovimientoStock, ReporteValorizacion, KpisInventario, TomaInventario } from '../models/stock.model';
 import {
   PedidoResumenReporteDTO,
   LibroVentasIvaDTO,
@@ -849,6 +849,207 @@ export class ReporteExportService {
     });
 
     const nombreArchivo = `inventario_valorado_${this.limpiarFechaArchivo(new Date().toISOString().substring(0, 10))}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  // =========================================================================
+  // 6. AUDITORÍA Y CONTEO FÍSICO DE INVENTARIO: CSV & PDF (A4 LANDSCAPE)
+  // =========================================================================
+
+  exportarComparativoAuditoriaCsv(toma: TomaInventario): void {
+    const BOM = '\uFEFF';
+    const separador = ';';
+    const lineas: string[] = [];
+
+    const inst = this.institucionService.institucion();
+    lineas.push(`"ACTA DE AUDITORÍA Y CONTEO FÍSICO DE INVENTARIO - ${this.sanitizarCsv(inst.nombre || 'Minimarket & Heladería')}"`);
+    if (inst.ruc) lineas.push(`"RUC: ${this.sanitizarCsv(inst.ruc)}"`);
+    lineas.push(`"Auditoría N°: ${toma.id}"`);
+    lineas.push(`"Auditor Responsable: ${this.sanitizarCsv(toma.usuarioAuditor)}"`);
+    lineas.push(`"Fecha y Hora: ${this.formatearFechaHora(toma.fecha)}"`);
+    lineas.push(`"Estado: ${toma.estado}"`);
+    if (toma.observaciones) lineas.push(`"Observaciones: ${this.sanitizarCsv(toma.observaciones)}"`);
+    lineas.push(`"Artículos Contados: ${toma.totalArticulos} | Discrepancias: ${toma.totalDiferencias} | Impacto Neto: ${this.formatearGuaranies(toma.impactoNeto)}"`);
+    lineas.push('');
+
+    const headers = [
+      'N°',
+      'Artículo',
+      'Rubro / Tipo',
+      'U.M.',
+      'Stock en Sistema (Antes)',
+      'Stock Físico (Contado)',
+      'Diferencia (Físico - Sistema)',
+      'Costo / Precio Unit. (Gs.)',
+      'Diferencia Valorizada (Gs.)',
+      'Estado Discrepancia'
+    ];
+    lineas.push(headers.map(h => `"${h}"`).join(separador));
+
+    const detalles = toma.detalles || [];
+    let idx = 1;
+    for (const d of detalles) {
+      let estado = 'COINCIDE';
+      if (d.diferencia > 0.001) estado = 'SOBRANTE';
+      else if (d.diferencia < -0.001) estado = 'FALTANTE';
+
+      const difFormateada = d.tipoItem === 'SABOR'
+        ? (d.diferencia > 0 ? '+' : '') + d.diferencia.toFixed(3)
+        : (d.diferencia > 0 ? '+' : '') + Math.round(d.diferencia);
+
+      const fila = [
+        (idx++).toString(),
+        this.sanitizarCsv(d.itemNombre),
+        d.tipoItem,
+        d.unidad,
+        d.tipoItem === 'SABOR' ? d.stockSistema.toFixed(3) : Math.round(d.stockSistema).toString(),
+        d.tipoItem === 'SABOR' ? d.stockFisico.toFixed(3) : Math.round(d.stockFisico).toString(),
+        difFormateada,
+        Math.round(d.costoUnitario || 0).toString(),
+        Math.round(d.diferenciaValorizada || 0).toString(),
+        estado
+      ];
+      lineas.push(fila.map(val => `"${val}"`).join(separador));
+    }
+
+    const blob = new Blob([BOM + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const nombreArchivo = `auditoria_fisica_${toma.id}_${this.limpiarFechaArchivo(toma.fecha.substring(0, 10))}.csv`;
+    this.descargarBlob(blob, nombreArchivo);
+  }
+
+  exportarComparativoAuditoriaPdf(toma: TomaInventario): void {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const sub = `Auditor: ${toma.usuarioAuditor} • Fecha: ${this.formatearFechaHora(toma.fecha)}`;
+    const extra = `Estado: ${toma.estado} • Acta #${toma.id}`;
+
+    let y = this.dibujarEncabezadoA4(doc, `ACTA DE AUDITORÍA Y CONTEO FÍSICO #${toma.id}`, sub, 'landscape', extra);
+
+    const coincidentes = toma.totalArticulos - toma.totalDiferencias;
+    this.dibujarKpiBox(doc, 14, y, 64, 13, 'TOTAL ARTÍCULOS CONTADOS', toma.totalArticulos.toString(), [59, 130, 246]);
+    this.dibujarKpiBox(doc, 82, y, 64, 13, 'EXISTENCIAS COINCIDENTES', coincidentes.toString(), [16, 185, 129]);
+    this.dibujarKpiBox(doc, 150, y, 64, 13, 'DISCREPANCIAS / DIFERENCIAS', toma.totalDiferencias.toString(), [239, 68, 68]);
+    this.dibujarKpiBox(doc, 218, y, 65, 13, 'IMPACTO ECONÓMICO NETO', this.formatearGuaranies(toma.impactoNeto), [139, 92, 246]);
+
+    y += 16;
+
+    if (toma.observaciones) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Observaciones de la Auditoría: "${toma.observaciones}"`, 14, y);
+      y += 4;
+    }
+
+    const detalles = toma.detalles || [];
+    const tableBody = detalles.map((d, index) => {
+      let estado = 'Coincide';
+      if (d.diferencia > 0.001) estado = 'Sobrante';
+      else if (d.diferencia < -0.001) estado = 'Faltante';
+
+      const difTexto = d.tipoItem === 'SABOR'
+        ? (d.diferencia > 0 ? '+' : '') + d.diferencia.toFixed(3)
+        : (d.diferencia > 0 ? '+' : '') + Math.round(d.diferencia);
+
+      return [
+        (index + 1).toString(),
+        d.itemNombre,
+        d.tipoItem,
+        d.unidad,
+        d.tipoItem === 'SABOR' ? d.stockSistema.toFixed(3) : this.formatearNumero(d.stockSistema),
+        d.tipoItem === 'SABOR' ? d.stockFisico.toFixed(3) : this.formatearNumero(d.stockFisico),
+        difTexto,
+        this.formatearGuaranies(d.costoUnitario || 0),
+        this.formatearGuaranies(d.diferenciaValorizada || 0),
+        estado
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [[
+        '#',
+        'Artículo',
+        'Rubro',
+        'U.M.',
+        'Stock Sistema',
+        'Stock Físico',
+        'Diferencia',
+        'Costo Unit.',
+        'Impacto Gs.',
+        'Resultado'
+      ]],
+      body: tableBody,
+      theme: 'grid',
+      styles: {
+        fontSize: 7,
+        cellPadding: 1.5,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.15
+      },
+      headStyles: {
+        fillColor: [30, 58, 138],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },
+        1: { cellWidth: 'auto' },
+        2: { halign: 'center', cellWidth: 20 },
+        3: { halign: 'center', cellWidth: 14 },
+        4: { halign: 'right', cellWidth: 22 },
+        5: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
+        6: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
+        7: { halign: 'right', cellWidth: 28 },
+        8: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
+        9: { halign: 'center', cellWidth: 20 }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const rawRow = detalles[data.row.index];
+          if (rawRow && Math.abs(rawRow.diferencia) > 0.001) {
+            if (data.column.index === 6 || data.column.index === 8 || data.column.index === 9) {
+              if (rawRow.diferencia < 0) {
+                data.cell.styles.textColor = [220, 38, 38];
+              } else {
+                data.cell.styles.textColor = [37, 99, 235];
+              }
+            }
+          }
+        }
+      },
+      margin: { left: 14, right: 14, bottom: 26 },
+      didDrawPage: () => {
+        this.dibujarPiePaginaA4(doc, 'landscape');
+      }
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY || y;
+    const pageHeight = 210;
+    const firmaY = Math.min(pageHeight - 20, Math.max(finalY + 12, pageHeight - 32));
+
+    if (firmaY > pageHeight - 16) {
+      doc.addPage();
+      this.dibujarPiePaginaA4(doc, 'landscape');
+    }
+
+    const actualFirmaY = firmaY > pageHeight - 16 ? 40 : firmaY;
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.3);
+
+    doc.line(40, actualFirmaY, 110, actualFirmaY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Auditor Responsable: ${toma.usuarioAuditor}`, 75, actualFirmaY + 4, { align: 'center' });
+    doc.text('Firma y Aclaración', 75, actualFirmaY + 7, { align: 'center' });
+
+    doc.line(185, actualFirmaY, 255, actualFirmaY);
+    doc.text('Gerencia / Administración de Sucursal', 220, actualFirmaY + 4, { align: 'center' });
+    doc.text('Firma y Sello de Conformidad', 220, actualFirmaY + 7, { align: 'center' });
+
+    const nombreArchivo = `auditoria_fisica_${toma.id}_${this.limpiarFechaArchivo(toma.fecha.substring(0, 10))}.pdf`;
     doc.save(nombreArchivo);
   }
 

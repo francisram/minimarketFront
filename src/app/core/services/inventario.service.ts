@@ -7,7 +7,9 @@ import {
   RegistrarMovimientoRequest,
   ReporteValorizacion,
   KpisInventario,
-  ArticuloInventario
+  ArticuloInventario,
+  TomaInventario,
+  CrearTomaInventarioRequest
 } from '../models/stock.model';
 import { ToastService } from './toast.service';
 
@@ -23,10 +25,14 @@ export class InventarioService {
   public readonly valorizacion = signal<ReporteValorizacion | null>(null);
   public readonly kpis = signal<KpisInventario | null>(null);
   public readonly articulos = signal<ArticuloInventario[]>([]);
+  public readonly tomasInventario = signal<TomaInventario[]>([]);
+  public readonly tomaSeleccionada = signal<TomaInventario | null>(null);
 
   public readonly cargandoKardex = signal<boolean>(false);
   public readonly cargandoValorizacion = signal<boolean>(false);
+  public readonly cargandoTomas = signal<boolean>(false);
   public readonly guardandoMovimiento = signal<boolean>(false);
+  public readonly guardandoToma = signal<boolean>(false);
 
   obtenerKardex(
     inicio?: string,
@@ -100,6 +106,47 @@ export class InventarioService {
         return throwError(() => err);
       }),
       finalize(() => this.guardandoMovimiento.set(false))
+    );
+  }
+
+  obtenerTomas(): Observable<TomaInventario[]> {
+    this.cargandoTomas.set(true);
+    return this.http.get<TomaInventario[]>(`${this.apiUrl}/api/inventario/tomas`).pipe(
+      tap(data => this.tomasInventario.set(data || [])),
+      catchError(err => {
+        const msg = err.error?.mensaje || 'Error al obtener historial de auditorías';
+        this.toast.error(msg);
+        return throwError(() => err);
+      }),
+      finalize(() => this.cargandoTomas.set(false))
+    );
+  }
+
+  obtenerTomaPorId(id: number): Observable<TomaInventario> {
+    return this.http.get<TomaInventario>(`${this.apiUrl}/api/inventario/tomas/${id}`).pipe(
+      tap(data => this.tomaSeleccionada.set(data)),
+      catchError(err => {
+        const msg = err.error?.mensaje || 'Error al obtener detalle de la auditoría';
+        this.toast.error(msg);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  guardarYAplicarToma(request: CrearTomaInventarioRequest): Observable<TomaInventario> {
+    this.guardandoToma.set(true);
+    return this.http.post<TomaInventario>(`${this.apiUrl}/api/inventario/tomas`, request).pipe(
+      tap(res => {
+        this.toast.success(`Auditoría #${res.id} aplicada exitosamente con ${res.totalDiferencias} ajustes de stock.`);
+        this.tomasInventario.update(prev => [res, ...prev]);
+        this.tomaSeleccionada.set(res);
+      }),
+      catchError(err => {
+        const msg = err.error?.mensaje || 'Error al procesar y aplicar auditoría física';
+        this.toast.error(msg);
+        return throwError(() => err);
+      }),
+      finalize(() => this.guardandoToma.set(false))
     );
   }
 }

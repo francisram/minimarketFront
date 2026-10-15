@@ -13,7 +13,7 @@ import { InstitucionService } from '../../core/services/institucion.service';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { ReporteExportService } from '../../core/services/reporte-export.service';
 import { InventarioService } from '../../core/services/inventario.service';
-import { TipoMovimientoStock, TipoItemStock } from '../../core/models/stock.model';
+import { TipoMovimientoStock, TipoItemStock, TomaInventario } from '../../core/models/stock.model';
 import {
   DashboardReporteDTO,
   ReporteVentasDTO,
@@ -1632,6 +1632,15 @@ interface DonutSegment {
                 <app-icon name="warehouse" [size]="16" />
                 <span>Inventario Físico Valorado (Gs.)</span>
               </button>
+              <button
+                type="button"
+                class="subtab-btn"
+                [class.active]="subtabInventario() === 'auditorias'"
+                (click)="cambiarSubtabInventario('auditorias')"
+              >
+                <app-icon name="clipboard-check" [size]="16" />
+                <span>Auditorías Físicas & Comparativos</span>
+              </button>
             </div>
 
             <!-- 4 TARJETAS KPI DE INVENTARIO -->
@@ -1872,6 +1881,90 @@ interface DonutSegment {
                               } @else {
                                 <span class="badge-status badge-success">Óptimo</span>
                               }
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- SUBVISTA 3: AUDITORÍAS FÍSICAS HISTÓRICAS Y COMPARATIVOS -->
+            @if (subtabInventario() === 'auditorias') {
+              <div class="card p-4 mt-4">
+                <div class="section-header space-between flex-wrap gap-2 mb-3">
+                  <div>
+                    <h3 class="section-title">Historial de Auditorías Físicas y Actas de Conteo</h3>
+                    <p class="section-desc">Reportes oficiales de tomas físicas con comparación entre stock registrado en el sistema, conteo real, diferencias detectadas e impacto económico en Gs.</p>
+                  </div>
+                  <div>
+                    <button type="button" class="btn btn-outline btn-sm" (click)="inventarioService.obtenerTomas().subscribe()">
+                      <app-icon name="refresh" [size]="14" [class.spinning]="inventarioService.cargandoTomas()" />
+                      <span>Actualizar Lista</span>
+                    </button>
+                  </div>
+                </div>
+
+                @if (inventarioService.cargandoTomas()) {
+                  <div class="loading-state">
+                    <app-icon name="refresh" [size]="20" class="spinning" />
+                    <span>Cargando auditorías...</span>
+                  </div>
+                } @else if (inventarioService.tomasInventario().length === 0) {
+                  <div class="empty-state py-4 text-center">
+                    <app-icon name="clipboard-check" [size]="40" class="text-muted" />
+                    <h4 class="mt-2">No se han registrado auditorías físicas todavía</h4>
+                    <p class="text-muted text-sm">Las tomas de inventario se inician desde el módulo de <strong>Inventario & Stock</strong>.</p>
+                  </div>
+                } @else {
+                  <div class="table-responsive">
+                    <table class="table-custom">
+                      <thead>
+                        <tr>
+                          <th>N° Acta</th>
+                          <th>Fecha y Hora</th>
+                          <th>Auditor</th>
+                          <th>Observaciones</th>
+                          <th class="text-center">Artículos</th>
+                          <th class="text-center">Discrepancias</th>
+                          <th class="text-right">Impacto Neto (Gs.)</th>
+                          <th>Estado</th>
+                          <th class="text-right">Exportar Acta</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (toma of inventarioService.tomasInventario(); track toma.id) {
+                          <tr>
+                            <td class="font-mono font-bold text-primary">#{{ toma.id }}</td>
+                            <td class="font-mono text-sm whitespace-nowrap">{{ toma.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+                            <td class="font-medium">{{ toma.usuarioAuditor }}</td>
+                            <td class="text-sm max-w-xs truncate" [title]="toma.observaciones || ''">{{ toma.observaciones || '—' }}</td>
+                            <td class="text-center font-mono">{{ toma.totalArticulos }}</td>
+                            <td class="text-center">
+                              @if (toma.totalDiferencias === 0) {
+                                <span class="badge-status badge-success">0 (Exacto)</span>
+                              } @else {
+                                <span class="badge-status badge-warning">{{ toma.totalDiferencias }}</span>
+                              }
+                            </td>
+                            <td class="text-right font-mono font-bold" [class.text-danger]="toma.impactoNeto < 0" [class.text-success]="toma.impactoNeto > 0">
+                              {{ toma.impactoNeto | appCurrency }}
+                            </td>
+                            <td>
+                              <span class="badge-status badge-primary">{{ toma.estado }}</span>
+                            </td>
+                            <td class="text-right whitespace-nowrap">
+                              <div class="d-flex gap-1 justify-end">
+                                <button type="button" class="btn btn-outline btn-sm" (click)="exportarAuditoriaPdf(toma)" title="Descargar Acta en PDF A4">
+                                  <app-icon name="printer" [size]="14" />
+                                  <span>PDF A4</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-icon" (click)="exportarAuditoriaCsv(toma)" title="Exportar CSV">
+                                  <app-icon name="file-spreadsheet" [size]="14" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         }
@@ -3349,7 +3442,7 @@ export class ReportesComponent implements OnInit {
   public readonly descargandoPdf = signal<boolean>(false);
 
   // Inventario & Kardex
-  public readonly subtabInventario = signal<'kardex' | 'valorizacion'>('kardex');
+  public readonly subtabInventario = signal<'kardex' | 'valorizacion' | 'auditorias'>('kardex');
   public filtroKardexTipo: string = 'TODOS';
   public filtroKardexMovimiento: string = 'TODOS';
   public busquedaValorizacion: string = '';
@@ -3682,8 +3775,11 @@ export class ReportesComponent implements OnInit {
     }
   }
 
-  cambiarSubtabInventario(subtab: 'kardex' | 'valorizacion'): void {
+  cambiarSubtabInventario(subtab: 'kardex' | 'valorizacion' | 'auditorias'): void {
     this.subtabInventario.set(subtab);
+    if (subtab === 'auditorias') {
+      this.inventarioService.obtenerTomas().subscribe({ error: () => {} });
+    }
   }
 
   cargarInventario(): void {
@@ -3695,6 +3791,7 @@ export class ReportesComponent implements OnInit {
       this.filtroKardexMovimiento
     ).subscribe({ error: () => {} });
     this.inventarioService.obtenerValorizacion().subscribe({ error: () => {} });
+    this.inventarioService.obtenerTomas().subscribe({ error: () => {} });
   }
 
   aplicarFiltrosKardex(): void {
@@ -3713,9 +3810,14 @@ export class ReportesComponent implements OnInit {
         { inicio: this.fechaInicio, fin: this.fechaFin },
         this.inventarioService.kpis() ?? undefined
       );
-    } else {
+    } else if (this.subtabInventario() === 'valorizacion') {
       const val = this.inventarioService.valorizacion();
       if (val) this.exportService.exportarValorizacionCsv(val);
+    } else if (this.subtabInventario() === 'auditorias') {
+      const tomas = this.inventarioService.tomasInventario();
+      if (tomas.length > 0) {
+        this.exportarAuditoriaCsv(tomas[0]);
+      }
     }
   }
 
@@ -3728,12 +3830,37 @@ export class ReportesComponent implements OnInit {
           { inicio: this.fechaInicio, fin: this.fechaFin },
           this.inventarioService.kpis() ?? undefined
         );
-      } else {
+      } else if (this.subtabInventario() === 'valorizacion') {
         const val = this.inventarioService.valorizacion();
         if (val) this.exportService.exportarValorizacionPdf(val);
+      } else if (this.subtabInventario() === 'auditorias') {
+        const tomas = this.inventarioService.tomasInventario();
+        if (tomas.length > 0) {
+          this.exportarAuditoriaPdf(tomas[0]);
+        }
       }
     } finally {
       this.descargandoPdf.set(false);
+    }
+  }
+
+  exportarAuditoriaPdf(toma: TomaInventario): void {
+    if (!toma.detalles || toma.detalles.length === 0) {
+      this.inventarioService.obtenerTomaPorId(toma.id).subscribe(detalleToma => {
+        this.exportService.exportarComparativoAuditoriaPdf(detalleToma);
+      });
+    } else {
+      this.exportService.exportarComparativoAuditoriaPdf(toma);
+    }
+  }
+
+  exportarAuditoriaCsv(toma: TomaInventario): void {
+    if (!toma.detalles || toma.detalles.length === 0) {
+      this.inventarioService.obtenerTomaPorId(toma.id).subscribe(detalleToma => {
+        this.exportService.exportarComparativoAuditoriaCsv(detalleToma);
+      });
+    } else {
+      this.exportService.exportarComparativoAuditoriaCsv(toma);
     }
   }
 

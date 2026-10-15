@@ -15,7 +15,9 @@ import {
   ReporteValorizacion,
   ValorizacionItem,
   ArticuloInventario,
-  RegistrarMovimientoRequest
+  RegistrarMovimientoRequest,
+  TomaInventario,
+  CrearTomaInventarioRequest
 } from '../../core/models/stock.model';
 import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
@@ -160,6 +162,15 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             >
               <app-icon name="warehouse" [size]="16" />
               <span>Valorización en Gs.</span>
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="tabActiva() === 'AUDITORIA'"
+              (click)="cambiarTabStock('AUDITORIA')"
+            >
+              <app-icon name="clipboard-check" [size]="16" />
+              <span>Auditoría & Conteo Físico</span>
             </button>
           </div>
 
@@ -796,6 +807,276 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             }
           </div>
         }
+
+        <!-- ==================== VISTA 7: AUDITORÍA & CONTEO FÍSICO ==================== -->
+        @if (tabActiva() === 'AUDITORIA') {
+          <div class="auditoria-view">
+            <!-- MODO NORMAL: HISTORIAL DE AUDITORÍAS -->
+            @if (!modoConteoActivo()) {
+              <div class="auditoria-intro-banner">
+                <div class="intro-content">
+                  <div class="intro-icon-box">
+                    <app-icon name="clipboard-check" [size]="28" />
+                  </div>
+                  <div>
+                    <h3 class="intro-title">Auditoría y Toma de Inventario Físico</h3>
+                    <p class="intro-desc">
+                      Realiza conteos físicos periódicos en freezers y estanterías. El sistema comparará las existencias contadas contra el stock del sistema, calculará diferencias y valorización, y ajustará el inventario al confirmar.
+                    </p>
+                  </div>
+                </div>
+                <div class="intro-actions">
+                  <button type="button" class="btn btn-primary" (click)="iniciarConteoFisico()">
+                    <app-icon name="plus" [size]="16" />
+                    <span>Iniciar Nuevo Conteo Físico</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- HISTORIAL DE AUDITORÍAS -->
+              <div class="historial-header space-between flex-wrap gap-2 mt-4 mb-3">
+                <h4 class="font-bold text-main">Historial de Tomas y Auditorías Físicas</h4>
+                <button type="button" class="btn btn-outline btn-sm" (click)="cargarTomas()">
+                  <app-icon name="refresh" [size]="14" [class.spinning]="inventarioService.cargandoTomas()" />
+                  <span>Actualizar Historial</span>
+                </button>
+              </div>
+
+              @if (inventarioService.cargandoTomas()) {
+                <div class="loading-state">
+                  <app-icon name="refresh" [size]="20" class="spinning" />
+                  <span>Cargando historial de auditorías...</span>
+                </div>
+              } @else if (inventarioService.tomasInventario().length === 0) {
+                <div class="empty-state">
+                  <app-icon name="clipboard-list" [size]="48" class="text-muted" />
+                  <h4>Sin auditorías registradas</h4>
+                  <p class="text-muted">Aún no se ha realizado ninguna toma física de inventario. Haz clic en <strong>"Iniciar Nuevo Conteo Físico"</strong> para comenzar la primera.</p>
+                  <button type="button" class="btn btn-primary btn-sm mt-2" (click)="iniciarConteoFisico()">
+                    Iniciar Conteo Ahora
+                  </button>
+                </div>
+              } @else {
+                <div class="table-responsive">
+                  <table class="table-custom">
+                    <thead>
+                      <tr>
+                        <th>N° Acta</th>
+                        <th>Fecha y Hora</th>
+                        <th>Auditor</th>
+                        <th>Observaciones</th>
+                        <th class="text-center">Artículos</th>
+                        <th class="text-center">Discrepancias</th>
+                        <th class="text-right">Impacto Neto (Gs.)</th>
+                        <th>Estado</th>
+                        <th class="text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (toma of inventarioService.tomasInventario(); track toma.id) {
+                        <tr>
+                          <td class="font-mono font-bold text-primary">#{{ toma.id }}</td>
+                          <td class="font-mono text-sm whitespace-nowrap">{{ toma.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+                          <td class="font-medium">{{ toma.usuarioAuditor }}</td>
+                          <td class="text-sm max-w-xs truncate" [title]="toma.observaciones || ''">{{ toma.observaciones || '—' }}</td>
+                          <td class="text-center font-mono">{{ toma.totalArticulos }}</td>
+                          <td class="text-center">
+                            @if (toma.totalDiferencias === 0) {
+                              <span class="badge-status badge-success">0 (Exacto)</span>
+                            } @else {
+                              <span class="badge-status badge-warning">{{ toma.totalDiferencias }}</span>
+                            }
+                          </td>
+                          <td class="text-right font-mono font-bold" [class.text-danger]="toma.impactoNeto < 0" [class.text-success]="toma.impactoNeto > 0">
+                            {{ toma.impactoNeto | appCurrency }}
+                          </td>
+                          <td>
+                            <span class="badge-status badge-primary">{{ toma.estado }}</span>
+                          </td>
+                          <td class="text-right whitespace-nowrap">
+                            <div class="d-flex gap-1 justify-end">
+                              <button type="button" class="btn btn-outline btn-sm" (click)="verComparativoToma(toma)" title="Ver Reporte Comparativo">
+                                <app-icon name="file-text" [size]="14" />
+                                <span>Ver Comparativo</span>
+                              </button>
+                              <button type="button" class="btn btn-sm btn-icon" (click)="exportarComparativoPdf(toma)" title="Descargar PDF Oficial">
+                                <app-icon name="printer" [size]="14" />
+                              </button>
+                              <button type="button" class="btn btn-sm btn-icon" (click)="exportarComparativoCsv(toma)" title="Exportar CSV">
+                                <app-icon name="file-spreadsheet" [size]="14" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            } @else {
+              <!-- MODO CONTEO ACTIVO: PLANILLA DE AUDITORÍA FÍSICA -->
+              <div class="conteo-sheet-container">
+                <!-- BARRA DE KPIS EN VIVO -->
+                <div class="conteo-kpis-bar">
+                  <div class="kpi-mini-card">
+                    <span class="kpi-mini-label">Total Artículos Catálogo</span>
+                    <span class="kpi-mini-val text-primary">{{ totalArticulosConteo() }}</span>
+                  </div>
+                  <div class="kpi-mini-card">
+                    <span class="kpi-mini-label">Discrepancias Detectadas</span>
+                    <span class="kpi-mini-val" [class.text-danger]="totalDiferenciasConteo() > 0" [class.text-success]="totalDiferenciasConteo() === 0">
+                      {{ totalDiferenciasConteo() }}
+                    </span>
+                  </div>
+                  <div class="kpi-mini-card">
+                    <span class="kpi-mini-label">Impacto Neto Estimado</span>
+                    <span class="kpi-mini-val font-bold" [class.text-danger]="impactoNetoConteo() < 0" [class.text-success]="impactoNetoConteo() > 0">
+                      {{ impactoNetoConteo() | appCurrency }}
+                    </span>
+                  </div>
+                  <div class="kpi-mini-card action-card">
+                    <button type="button" class="btn btn-outline btn-sm" (click)="autocompletarConStockSistema()" title="Rellenar conteo con el stock que el sistema tiene registrado">
+                      <app-icon name="copy" [size]="14" />
+                      <span>Copiar Stock Sistema a Todos</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- TOOLBAR DE FILTROS Y BÚSQUEDA -->
+                <div class="conteo-toolbar space-between flex-wrap gap-2 my-3">
+                  <div class="d-flex gap-2 align-center flex-wrap">
+                    <div class="search-box">
+                      <app-icon name="search" [size]="16" />
+                      <input
+                        type="text"
+                        class="form-control-sm"
+                        placeholder="Buscar por nombre..."
+                        [(ngModel)]="busquedaConteo"
+                      />
+                    </div>
+                    <div class="rubro-pills">
+                      <button type="button" class="pill-btn" [class.active]="filtroRubroConteo() === 'TODOS'" (click)="filtroRubroConteo.set('TODOS')">
+                        Todos ({{ itemsConteo().length }})
+                      </button>
+                      <button type="button" class="pill-btn" [class.active]="filtroRubroConteo() === 'SABOR'" (click)="filtroRubroConteo.set('SABOR')">
+                        Sabores (kg)
+                      </button>
+                      <button type="button" class="pill-btn" [class.active]="filtroRubroConteo() === 'ENVASE'" (click)="filtroRubroConteo.set('ENVASE')">
+                        Envases (u)
+                      </button>
+                      <button type="button" class="pill-btn" [class.active]="filtroRubroConteo() === 'PRODUCTO'" (click)="filtroRubroConteo.set('PRODUCTO')">
+                        Bebidas / Otros
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="d-flex gap-2 align-center">
+                    <button type="button" class="btn btn-outline btn-sm text-danger" (click)="cancelarConteo()">
+                      <app-icon name="x" [size]="14" />
+                      <span>Cancelar Conteo</span>
+                    </button>
+                    <button type="button" class="btn btn-success btn-sm" (click)="solicitarConfirmacionAuditoria()" [disabled]="inventarioService.guardandoToma()">
+                      <app-icon name="check" [size]="14" />
+                      <span>Aplicar Conteo y Ajustar Stock</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- OBSERVACIONES DEL CONTEO -->
+                <div class="form-group mb-3">
+                  <label class="form-label text-xs">Observaciones / Motivo de la Auditoría</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Ej. Auditoría de cierre mensual de heladería - Verificación de freezers..."
+                    [(ngModel)]="observacionesAuditoria"
+                  />
+                </div>
+
+                <!-- TABLA PLANILLA DE CONTEO -->
+                <div class="table-responsive conteo-table-wrapper">
+                  <table class="table-custom conteo-table">
+                    <thead>
+                      <tr>
+                        <th>Artículo</th>
+                        <th>Rubro</th>
+                        <th>U.M.</th>
+                        <th class="text-right">Stock Sistema (Antes)</th>
+                        <th class="text-center th-input">Stock Físico (Contado)</th>
+                        <th class="text-center">Diferencia</th>
+                        <th class="text-right">Costo / Precio Unit.</th>
+                        <th class="text-right">Impacto en Gs.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of itemsConteoFiltrados(); track item.tipoItem + '-' + item.itemId) {
+                        <tr [class.row-diff]="Math.abs(item.stockFisico - item.stockSistema) > (item.tipoItem === 'SABOR' ? 0.001 : 0.0001)">
+                          <td>
+                            <strong>{{ item.nombre }}</strong>
+                          </td>
+                          <td>
+                            <span class="type-chip" [ngClass]="getClaseTipoItem(item.tipoItem)">{{ item.tipoItem }}</span>
+                          </td>
+                          <td class="font-mono text-sm text-muted">{{ item.unidad }}</td>
+                          <td class="text-right font-mono text-sm">
+                            {{ item.tipoItem === 'SABOR' ? (item.stockSistema | number:'1.2-3') : item.stockSistema }}
+                          </td>
+                          <td class="text-center td-input">
+                            <div class="conteo-input-wrap">
+                              <input
+                                type="number"
+                                [step]="item.tipoItem === 'SABOR' ? '0.05' : '1'"
+                                [min]="0"
+                                class="conteo-input"
+                                [(ngModel)]="item.stockFisico"
+                              />
+                            </div>
+                          </td>
+                          <td class="text-center font-mono">
+                            @let dif = item.stockFisico - item.stockSistema;
+                            @if (Math.abs(dif) < 0.001) {
+                              <span class="badge-status badge-success">Coincide</span>
+                            } @else if (dif < 0) {
+                              <span class="badge-status badge-danger">
+                                Faltante: {{ item.tipoItem === 'SABOR' ? (dif | number:'1.2-3') : dif }} {{ item.unidad }}
+                              </span>
+                            } @else {
+                              <span class="badge-status badge-info">
+                                Sobrante: +{{ item.tipoItem === 'SABOR' ? (dif | number:'1.2-3') : dif }} {{ item.unidad }}
+                              </span>
+                            }
+                          </td>
+                          <td class="text-right font-mono text-sm">
+                            {{ item.costoUnitario | appCurrency }}
+                          </td>
+                          <td class="text-right font-mono font-bold" [class.text-danger]="(item.stockFisico - item.stockSistema) < -0.001" [class.text-primary]="(item.stockFisico - item.stockSistema) > 0.001">
+                            {{ ((item.stockFisico - item.stockSistema) * item.costoUnitario) | appCurrency }}
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- FOOTER DE ACCIÓN INFERIOR -->
+                <div class="conteo-footer space-between align-center p-3 mt-3">
+                  <span class="text-sm text-muted">
+                    Total con diferencias: <strong>{{ totalDiferenciasConteo() }}</strong> artículos.
+                  </span>
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline" (click)="cancelarConteo()">
+                      Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" (click)="solicitarConfirmacionAuditoria()" [disabled]="inventarioService.guardandoToma()">
+                      <app-icon name="check" [size]="16" />
+                      <span>Aplicar Conteo y Ajustar Stock</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
       </div>
 
       <!-- ==================== MODAL DE AJUSTE RÁPIDO ==================== -->
@@ -1276,6 +1557,205 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           </button>
         </div>
       </app-modal>
+
+      <!-- ==================== MODAL DE CONFIRMACIÓN DE AUDITORÍA ==================== -->
+      <app-modal
+        [isOpen]="modalConfirmarAuditoriaAbierto()"
+        title="Confirmar y Aplicar Auditoría de Inventario Físico"
+        size="md"
+        (close)="cerrarModalConfirmarAuditoria()"
+      >
+        <div body class="auditoria-confirm-modal">
+          <div class="confirm-warning-box">
+            <app-icon name="alert-triangle" [size]="24" class="text-warning" />
+            <div>
+              <h4 class="font-bold">¿Deseas aplicar estos ajustes al inventario real?</h4>
+              <p class="text-sm text-muted">
+                Esta acción actualizará atómicamente el stock del sistema para que coincida exactamente con las cantidades que contaste.
+              </p>
+            </div>
+          </div>
+
+          <div class="confirm-summary-grid my-3">
+            <div class="confirm-item">
+              <span class="label">Total Artículos Auditados:</span>
+              <span class="val font-bold">{{ totalArticulosConteo() }}</span>
+            </div>
+            <div class="confirm-item">
+              <span class="label">Artículos con Discrepancia:</span>
+              <span class="val font-bold text-danger">{{ totalDiferenciasConteo() }}</span>
+            </div>
+            <div class="confirm-item">
+              <span class="label">Artículos Coincidentes:</span>
+              <span class="val font-bold text-success">{{ totalArticulosConteo() - totalDiferenciasConteo() }}</span>
+            </div>
+            <div class="confirm-item">
+              <span class="label">Impacto Económico Neto:</span>
+              <span class="val font-bold" [class.text-danger]="impactoNetoConteo() < 0" [class.text-success]="impactoNetoConteo() > 0">
+                {{ impactoNetoConteo() | appCurrency }}
+              </span>
+            </div>
+          </div>
+
+          @if (observacionesAuditoria.trim()) {
+            <p class="text-xs text-muted mb-0">
+              <strong>Motivo / Nota:</strong> "{{ observacionesAuditoria.trim() }}"
+            </p>
+          }
+        </div>
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalConfirmarAuditoria()">
+            Volver a la Planilla
+          </button>
+          <button type="button" class="btn btn-success" (click)="confirmarYAplicarAuditoria()" [disabled]="inventarioService.guardandoToma()">
+            <app-icon name="check" [size]="16" />
+            <span>Confirmar y Aplicar Inventario</span>
+          </button>
+        </div>
+      </app-modal>
+
+      <!-- ==================== MODAL DE REPORTE COMPARATIVO ==================== -->
+      <app-modal
+        [isOpen]="modalComparativoAbierto()"
+        [title]="'Reporte Comparativo de Auditoría Física #' + (tomaSeleccionada()?.id || '')"
+        size="lg"
+        (close)="cerrarModalComparativo()"
+      >
+        <div body class="reporte-comparativo-modal">
+          @if (tomaSeleccionada(); as toma) {
+            <!-- CABECERA RESUMEN -->
+            <div class="comparativo-meta-bar mb-3">
+              <div class="meta-item">
+                <span class="meta-label">Fecha y Hora</span>
+                <span class="meta-val font-mono">{{ toma.fecha | date:'dd/MM/yyyy HH:mm' }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Auditor Responsable</span>
+                <span class="meta-val font-bold">{{ toma.usuarioAuditor }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Estado</span>
+                <span class="badge-status badge-primary">{{ toma.estado }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Impacto Neto en Gs.</span>
+                <span class="meta-val font-mono font-bold" [class.text-danger]="toma.impactoNeto < 0" [class.text-success]="toma.impactoNeto > 0">
+                  {{ toma.impactoNeto | appCurrency }}
+                </span>
+              </div>
+            </div>
+
+            @if (toma.observaciones) {
+              <div class="alert-info-box mb-3 text-sm">
+                <strong>Observaciones:</strong> {{ toma.observaciones }}
+              </div>
+            }
+
+            <!-- TARJETAS COMPARATIVAS -->
+            <div class="kpi-mini-grid mb-3">
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Artículos Contados</span>
+                <span class="kpi-mini-val text-primary">{{ toma.totalArticulos }}</span>
+              </div>
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Existencias Exactas</span>
+                <span class="kpi-mini-val text-success">{{ toma.totalArticulos - toma.totalDiferencias }}</span>
+              </div>
+              <div class="kpi-mini-card">
+                <span class="kpi-mini-label">Con Discrepancia</span>
+                <span class="kpi-mini-val text-danger">{{ toma.totalDiferencias }}</span>
+              </div>
+            </div>
+
+            <!-- FILTRO DE DISCREPANCIAS Y BOTONES DE EXPORTACIÓN -->
+            <div class="comparativo-toolbar space-between flex-wrap gap-2 mb-3">
+              <div class="rubro-pills">
+                <button type="button" class="pill-btn" [class.active]="filtroComparativo() === 'TODOS'" (click)="filtroComparativo.set('TODOS')">
+                  Todos ({{ toma.detalles.length || 0 }})
+                </button>
+                <button type="button" class="pill-btn" [class.active]="filtroComparativo() === 'DIFERENCIAS'" (click)="filtroComparativo.set('DIFERENCIAS')">
+                  Solo Discrepancias ({{ toma.totalDiferencias }})
+                </button>
+                <button type="button" class="pill-btn" [class.active]="filtroComparativo() === 'COINCIDENTES'" (click)="filtroComparativo.set('COINCIDENTES')">
+                  Solo Coincidentes ({{ toma.totalArticulos - toma.totalDiferencias }})
+                </button>
+              </div>
+
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline btn-sm" (click)="exportarComparativoCsv(toma)">
+                  <app-icon name="file-spreadsheet" [size]="14" />
+                  <span>Exportar CSV</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="exportarComparativoPdf(toma)">
+                  <app-icon name="printer" [size]="14" />
+                  <span>Descargar Acta PDF A4</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TABLA COMPARATIVA DETALLADA -->
+            <div class="table-responsive">
+              <table class="table-custom">
+                <thead>
+                  <tr>
+                    <th>Artículo</th>
+                    <th>Rubro</th>
+                    <th>U.M.</th>
+                    <th class="text-right">Stock Sistema (Antes)</th>
+                    <th class="text-right">Stock Físico (Contado)</th>
+                    <th class="text-center">Diferencia</th>
+                    <th class="text-right">Costo Unit. (Gs.)</th>
+                    <th class="text-right">Impacto en Gs.</th>
+                    <th>Resultado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (det of detallesComparativosFiltrados(); track det.id) {
+                    <tr [class.row-diff]="Math.abs(det.diferencia) > 0.001">
+                      <td>
+                        <strong>{{ det.itemNombre }}</strong>
+                      </td>
+                      <td>
+                        <span class="type-chip" [ngClass]="getClaseTipoItem(det.tipoItem)">{{ det.tipoItem }}</span>
+                      </td>
+                      <td class="font-mono text-sm text-muted">{{ det.unidad }}</td>
+                      <td class="text-right font-mono text-sm">
+                        {{ det.tipoItem === 'SABOR' ? (det.stockSistema | number:'1.2-3') : det.stockSistema }}
+                      </td>
+                      <td class="text-right font-mono text-sm font-bold">
+                        {{ det.tipoItem === 'SABOR' ? (det.stockFisico | number:'1.2-3') : det.stockFisico }}
+                      </td>
+                      <td class="text-center font-mono font-bold" [class.text-danger]="det.diferencia < -0.001" [class.text-primary]="det.diferencia > 0.001">
+                        {{ det.diferencia > 0 ? '+' : '' }}{{ det.tipoItem === 'SABOR' ? (det.diferencia | number:'1.2-3') : det.diferencia }}
+                      </td>
+                      <td class="text-right font-mono text-sm">
+                        {{ det.costoUnitario ? (det.costoUnitario | appCurrency) : '-' }}
+                      </td>
+                      <td class="text-right font-mono font-bold" [class.text-danger]="det.diferenciaValorizada < 0" [class.text-primary]="det.diferenciaValorizada > 0">
+                        {{ det.diferenciaValorizada | appCurrency }}
+                      </td>
+                      <td>
+                        @if (Math.abs(det.diferencia) <= 0.001) {
+                          <span class="badge-status badge-success">Coincide</span>
+                        } @else if (det.diferencia < 0) {
+                          <span class="badge-status badge-danger">Faltante</span>
+                        } @else {
+                          <span class="badge-status badge-info">Sobrante</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalComparativo()">
+            Cerrar
+          </button>
+        </div>
+      </app-modal>
     </div>
   `,
   styles: [`
@@ -1682,6 +2162,222 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       gap: 0.5rem;
       margin-left: auto;
     }
+    /* ==================== ESTILOS AUDITORÍA & CONTEO FÍSICO ==================== */
+    .auditoria-view {
+      padding: 0.5rem 0;
+    }
+    .auditoria-intro-banner {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+      border: 1px solid #bfdbfe;
+      border-left: 5px solid #2563eb;
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+    .intro-content {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      max-width: 750px;
+    }
+    .intro-icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .intro-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.25rem;
+    }
+    .intro-desc {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .conteo-kpis-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+    .kpi-mini-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .kpi-mini-card.action-card {
+      align-items: center;
+      justify-content: center;
+    }
+    .kpi-mini-label {
+      font-size: 0.725rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .kpi-mini-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .rubro-pills {
+      display: flex;
+      background: var(--bg-subtle);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .pill-btn {
+      border: none;
+      background: none;
+      padding: 0.3rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .pill-btn.active {
+      background: #ffffff;
+      color: var(--text-main);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+
+    .conteo-table-wrapper {
+      max-height: 600px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+    }
+    .conteo-table {
+      margin: 0;
+    }
+    .conteo-table th.th-input {
+      width: 140px;
+    }
+    .conteo-input-wrap {
+      display: flex;
+      justify-content: center;
+    }
+    .conteo-input {
+      width: 110px;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: monospace;
+      padding: 0.35rem;
+      border: 2px solid #cbd5e1;
+      border-radius: 6px;
+      background: #ffffff;
+      transition: border-color 0.15s;
+    }
+    .conteo-input:focus {
+      border-color: #2563eb;
+      outline: none;
+      background: #f8faff;
+    }
+    .row-diff {
+      background-color: rgba(254, 243, 199, 0.35) !important;
+    }
+    .row-diff:hover {
+      background-color: rgba(254, 243, 199, 0.55) !important;
+    }
+
+    .conteo-footer {
+      background: var(--bg-subtle);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+    }
+
+    .confirm-warning-box {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+    }
+    .confirm-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+    }
+    .confirm-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .confirm-item .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .confirm-item .val {
+      font-size: 1rem;
+    }
+
+    .comparativo-meta-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .meta-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .meta-val {
+      font-size: 0.925rem;
+    }
+    .alert-info-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 0.65rem 0.85rem;
+      border-radius: 4px;
+      color: #1e3a8a;
+    }
+    .kpi-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+    .badge-info {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
     .spinning {
       animation: spin 1s linear infinite;
     }
@@ -1697,9 +2393,71 @@ export class StockComponent implements OnInit {
   public readonly inventarioService = inject(InventarioService);
   public readonly exportService = inject(ReporteExportService);
   private readonly toast = inject(ToastService);
+  protected readonly Math = Math;
 
-  public readonly tabActiva = signal<'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION'>('TODOS');
+  public readonly tabActiva = signal<'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION' | 'AUDITORIA'>('TODOS');
   public readonly filtroModo = signal<'TODOS' | 'ALERTAS'>('TODOS');
+
+  // ==================== AUDITORÍA / CONTEO FÍSICO ====================
+  public readonly modoConteoActivo = signal<boolean>(false);
+  public readonly modalConfirmarAuditoriaAbierto = signal<boolean>(false);
+  public readonly modalComparativoAbierto = signal<boolean>(false);
+  public readonly tomaSeleccionada = signal<TomaInventario | null>(null);
+
+  public readonly itemsConteo = signal<Array<{
+    tipoItem: TipoItemStock;
+    itemId: number;
+    nombre: string;
+    unidad: string;
+    stockSistema: number;
+    stockFisico: number;
+    costoUnitario: number;
+  }>>([]);
+
+  public readonly filtroRubroConteo = signal<'TODOS' | 'SABOR' | 'ENVASE' | 'PRODUCTO'>('TODOS');
+  public busquedaConteo: string = '';
+  public observacionesAuditoria: string = '';
+  public readonly filtroComparativo = signal<'TODOS' | 'DIFERENCIAS' | 'COINCIDENTES'>('TODOS');
+
+  public readonly itemsConteoFiltrados = computed(() => {
+    let list = this.itemsConteo();
+    const rubro = this.filtroRubroConteo();
+    if (rubro !== 'TODOS') {
+      list = list.filter(i => i.tipoItem === rubro);
+    }
+    const q = this.busquedaConteo.toLowerCase().trim();
+    if (q) {
+      list = list.filter(i => i.nombre.toLowerCase().includes(q));
+    }
+    return list;
+  });
+
+  public readonly totalArticulosConteo = computed(() => this.itemsConteo().length);
+  public readonly totalDiferenciasConteo = computed(() => {
+    return this.itemsConteo().filter(i => {
+      const dif = Math.abs(i.stockFisico - i.stockSistema);
+      return i.tipoItem === 'SABOR' ? dif > 0.001 : dif > 0.0001;
+    }).length;
+  });
+
+  public readonly impactoNetoConteo = computed(() => {
+    return this.itemsConteo().reduce((acc, i) => {
+      const dif = i.stockFisico - i.stockSistema;
+      return acc + (dif * (i.costoUnitario || 0));
+    }, 0);
+  });
+
+  public readonly detallesComparativosFiltrados = computed(() => {
+    const toma = this.tomaSeleccionada();
+    if (!toma || !toma.detalles) return [];
+    const modo = this.filtroComparativo();
+    if (modo === 'DIFERENCIAS') {
+      return toma.detalles.filter(d => Math.abs(d.diferencia) > 0.001);
+    } else if (modo === 'COINCIDENTES') {
+      return toma.detalles.filter(d => Math.abs(d.diferencia) <= 0.001);
+    }
+    return toma.detalles;
+  });
 
   // Modal Registrar Movimiento Manual (Kardex)
   public readonly modalMovimientoAbierto = signal<boolean>(false);
@@ -1828,12 +2586,127 @@ export class StockComponent implements OnInit {
     return items.filter(i => i.tipoItem === 'PRODUCTO').reduce((acc, i) => acc + (i.totalValorizado || 0), 0);
   });
 
-  cambiarTabStock(tab: 'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION'): void {
+  cambiarTabStock(tab: 'TODOS' | 'ENVASE' | 'SABOR' | 'PRODUCTO' | 'KARDEX' | 'VALORIZACION' | 'AUDITORIA'): void {
     this.tabActiva.set(tab);
     if (tab === 'KARDEX') {
       this.cargarKardex();
     } else if (tab === 'VALORIZACION') {
       this.cargarValorizacion();
+    } else if (tab === 'AUDITORIA') {
+      this.cargarTomas();
+    }
+  }
+
+  cargarTomas(): void {
+    this.inventarioService.obtenerTomas().subscribe();
+  }
+
+  iniciarConteoFisico(): void {
+    this.inventarioService.listarArticulos().subscribe(articulos => {
+      const items = (articulos || []).map(a => ({
+        tipoItem: a.tipoItem,
+        itemId: a.id,
+        nombre: a.nombre,
+        unidad: a.unidad,
+        stockSistema: a.stockActual,
+        stockFisico: a.stockActual,
+        costoUnitario: a.precio || 0
+      }));
+      this.itemsConteo.set(items);
+      this.busquedaConteo = '';
+      this.observacionesAuditoria = '';
+      this.filtroRubroConteo.set('TODOS');
+      this.modoConteoActivo.set(true);
+    });
+  }
+
+  autocompletarConStockSistema(): void {
+    this.itemsConteo.update(items =>
+      items.map(i => ({ ...i, stockFisico: i.stockSistema }))
+    );
+  }
+
+  limpiarConteo(): void {
+    this.itemsConteo.update(items =>
+      items.map(i => ({ ...i, stockFisico: 0 }))
+    );
+  }
+
+  cancelarConteo(): void {
+    this.modoConteoActivo.set(false);
+  }
+
+  solicitarConfirmacionAuditoria(): void {
+    this.modalConfirmarAuditoriaAbierto.set(true);
+  }
+
+  cerrarModalConfirmarAuditoria(): void {
+    this.modalConfirmarAuditoriaAbierto.set(false);
+  }
+
+  confirmarYAplicarAuditoria(): void {
+    const items = this.itemsConteo();
+    if (items.length === 0) return;
+
+    const request: CrearTomaInventarioRequest = {
+      observaciones: this.observacionesAuditoria.trim() || undefined,
+      detalles: items.map(i => ({
+        tipoItem: i.tipoItem,
+        itemId: i.itemId,
+        itemNombre: i.nombre,
+        stockFisico: i.stockFisico,
+        costoUnitario: i.costoUnitario
+      }))
+    };
+
+    this.inventarioService.guardarYAplicarToma(request).subscribe({
+      next: (toma) => {
+        this.modalConfirmarAuditoriaAbierto.set(false);
+        this.modoConteoActivo.set(false);
+        this.recargarTodo();
+        this.verComparativoToma(toma);
+      }
+    });
+  }
+
+  verComparativoToma(toma: TomaInventario): void {
+    this.tomaSeleccionada.set(toma);
+    this.filtroComparativo.set('TODOS');
+    this.modalComparativoAbierto.set(true);
+    if (!toma.detalles || toma.detalles.length === 0) {
+      this.inventarioService.obtenerTomaPorId(toma.id).subscribe(t => {
+        this.tomaSeleccionada.set(t);
+      });
+    }
+  }
+
+  cerrarModalComparativo(): void {
+    this.modalComparativoAbierto.set(false);
+  }
+
+  exportarComparativoPdf(toma?: TomaInventario): void {
+    const t = toma || this.tomaSeleccionada();
+    if (t) {
+      if (!t.detalles || t.detalles.length === 0) {
+        this.inventarioService.obtenerTomaPorId(t.id).subscribe(detalleToma => {
+          this.exportService.exportarComparativoAuditoriaPdf(detalleToma);
+        });
+      } else {
+        this.exportService.exportarComparativoAuditoriaPdf(t);
+      }
+    }
+  }
+
+  exportarComparativoCsv(toma?: TomaInventario): void {
+    const t = toma || this.tomaSeleccionada();
+    if (t) {
+      if (!t.detalles || t.detalles.length === 0) {
+        this.inventarioService.obtenerTomaPorId(t.id).subscribe(detalleToma => {
+          this.exportService.exportarComparativoAuditoriaCsv(detalleToma);
+        });
+      } else {
+        this.exportService.exportarComparativoAuditoriaCsv(t);
+      }
     }
   }
 

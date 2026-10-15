@@ -106,3 +106,44 @@ export interface ArticuloInventario {
   unidad: string;
   precio: number;
 }
+
+export type EstadoTomaInventario = 'APLICADA' | 'BORRADOR' | 'CANCELADA';
+
+export interface ItemConteoRequest {
+  tipoItem: TipoItemStock;
+  itemId: number;
+  itemNombre?: string;
+  stockFisico: number;
+  costoUnitario?: number;
+}
+
+export interface CrearTomaInventarioRequest {
+  observaciones?: string;
+  detalles: ItemConteoRequest[];
+}
+
+export interface DetalleTomaInventario {
+  id: number;
+  tipoItem: TipoItemStock;
+  itemId: number;
+  itemNombre: string;
+  unidad: string;
+  stockSistema: number;
+  stockFisico: number;
+  diferencia: number;
+  costoUnitario?: number;
+  diferenciaValorizada: number;
+}
+
+export interface TomaInventario {
+  id: number;
+  fecha: string;
+  usuarioAuditor: string;
+  observaciones?: string;
+  estado: EstadoTomaInventario;
+  totalArticulos: number;
+  totalDiferencias: number;
+  impactoNeto: number;
+  detalles: DetalleTomaInventario[];
+}
+
