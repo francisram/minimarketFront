@@ -6,6 +6,16 @@ services:
     container_name: heladeria-front
     ports:
       - "8086:80"
+      - "8443:443"
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+    networks:
+      - default
+      - minimarket_net
+
+networks:
+  default:
+  minimarket_net:
+    external: true
+    name: minimarket_default

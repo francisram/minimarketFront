@@ -27,8 +27,11 @@ COPY --from=build /app/dist/minisuperangular/browser ./
 # Copiar configuración personalizada de Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Exponer puerto HTTP
-EXPOSE 80
+# Copiar certificados SSL para HTTPS
+COPY ssl/ /etc/nginx/ssl/
+
+# Exponer puertos HTTP y HTTPS
+EXPOSE 80 443
 
 # Iniciar servidor
 CMD ["nginx", "-g", "daemon off;"]
