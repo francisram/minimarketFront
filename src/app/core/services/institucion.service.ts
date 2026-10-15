@@ -25,13 +25,8 @@ export class InstitucionService {
 
   obtenerInstitucion(): Observable<Institucion> {
     this.cargando.set(true);
-    return this.http.get<Institucion>(`${this.apiUrl}/institucion`).pipe(
-      catchError(() => {
-        // Fallback a /api/institucion
-        return this.http.get<Institucion>(`${this.apiUrl}/api/institucion`).pipe(
-          catchError(() => of({ nombre: 'Heladería Artesanal', logoBase64: '' }))
-        );
-      }),
+    return this.http.get<Institucion>(`${this.apiUrl}/api/institucion`).pipe(
+      catchError(() => of({ nombre: 'Heladería Artesanal', logoBase64: '' })),
       tap(data => {
         if (data) {
           this.institucion.set(data);
@@ -65,7 +60,7 @@ export class InstitucionService {
       ciudad: datos.ciudad?.trim() || 'Asunción'
     };
 
-    return this.http.put<Institucion>(`${this.apiUrl}/institucion`, payload).pipe(
+    return this.http.put<Institucion>(`${this.apiUrl}/api/institucion`, payload).pipe(
       tap(actualizado => {
         this.institucion.set(actualizado || payload);
         this.toast.success('Datos del negocio y facturación actualizados correctamente.');
