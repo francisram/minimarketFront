@@ -90,6 +90,11 @@ export class MenuService {
 
   cargarPaginasDisponibles(): void {
     if (!this.authService.isAuthenticated()) return;
+    // Si es un operador/cajero sin permisos de administración, no requiere consultar la licencia de páginas
+    if (!this.authService.isAdminOrOwner() && !this.authService.hasPermission('roles') && !this.authService.hasPermission('licencia')) {
+      return;
+    }
+
     this.cargando.set(true);
     this.adminService.cargarRoles();
 
