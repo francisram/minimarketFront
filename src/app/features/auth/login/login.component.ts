@@ -262,7 +262,8 @@ export class LoginComponent {
       next: (res) => {
         this.cargando.set(false);
         this.toast.success(`Bienvenido, ${res.username} (${res.rol})`);
-        const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/pos';
+        const returnUrl = this.route.snapshot.queryParams['returnUrl'] || 
+          (this.authService.hasPermission('pedidos') ? '/pos' : '/dashboard');
         this.router.navigateByUrl(returnUrl);
       },
       error: (err) => {

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, switchMap, map, of, catchError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CambiarPasswordRequest, LoginRequest, LoginResponse, UserSession } from '../models/auth.model';
 
@@ -34,7 +34,7 @@ export class AuthService {
 
   constructor() {
     if (this.isAuthenticated()) {
-      this.cargarPermisosDeRol();
+      this.cargarPermisosDeRol().subscribe();
     }
   }
 
@@ -70,18 +70,20 @@ export class AuthService {
     this._permisos.set(limpios);
   }
 
-  public cargarPermisosDeRol(nombreRol?: string): void {
+  public cargarPermisosDeRol(nombreRol?: string): Observable<string[]> {
     const rolBuscado = (nombreRol || this.role() || '').toUpperCase();
-    if (!rolBuscado) return;
-    this.http.get<any[]>(`${this.apiUrl}/api/roles`).subscribe({
-      next: (roles) => {
+    if (!rolBuscado) return of([]);
+    return this.http.get<any[]>(`${this.apiUrl}/api/roles`).pipe(
+      map((roles) => {
         const miRol = roles.find(r => (r.nombre || '').toUpperCase() === rolBuscado);
         if (miRol && miRol.paginas) {
           this.actualizarPermisos(miRol.paginas);
+          return miRol.paginas;
         }
-      },
-      error: () => {}
-    });
+        return [];
+      }),
+      catchError(() => of([]))
+    );
   }
 
   public hasPermission(clave: string): boolean {
@@ -108,7 +110,14 @@ export class AuthService {
         localStorage.setItem('username', res.username);
         localStorage.setItem('rol', res.rol);
         this._session.set(session);
-        this.cargarPermisosDeRol(res.rol);
+      }),
+      switchMap(res => {
+        if (this.isAdminOrOwner()) {
+          return of(res);
+        }
+        return this.cargarPermisosDeRol(res.rol).pipe(
+          map(() => res)
+        );
       })
     );
   }
