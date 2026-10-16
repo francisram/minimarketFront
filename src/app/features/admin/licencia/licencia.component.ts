@@ -51,6 +51,28 @@ import { AppIconComponent } from '../../../shared/components/icon/icon.component
         </div>
       }
 
+      <!-- CRÉDITOS Y AUTORÍA DEL SISTEMA -->
+      <div class="card autor-card">
+        <div class="autor-wrapper">
+          <div class="autor-left">
+            <div class="autor-avatar-box">
+              <app-icon name="award" [size]="28" />
+            </div>
+            <div class="autor-details">
+              <span class="autor-kicker">Autor y Desarrollador del Sistema</span>
+              <h3 class="autor-title">Ing. Francis Lopez</h3>
+              <p class="autor-desc">Arquitectura de Software & Desarrollo Fullstack • Todos los derechos reservados</p>
+            </div>
+          </div>
+          <div class="autor-badges">
+            <span class="badge badge-autor">
+              <app-icon name="verified" [size]="14" />
+              <span>Autor Oficial</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- COMPARATIVA DE PLANES -->
       <div class="card">
         <div class="card-header">
@@ -181,6 +203,75 @@ import { AppIconComponent } from '../../../shared/components/icon/icon.component
     }
     .text-success {
       color: #22c55e;
+    }
+    .autor-card {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      padding: 1.25rem 1.5rem;
+    }
+    .autor-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .autor-left {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .autor-avatar-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+    }
+    .autor-details {
+      display: flex;
+      flex-direction: column;
+    }
+    .autor-kicker {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .autor-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 0.15rem 0;
+    }
+    .autor-desc {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .autor-badges {
+      display: flex;
+      align-items: center;
+    }
+    .badge-autor {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(34, 197, 94, 0.15);
+      color: #16a34a;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 0.4rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
     }
     .planes-grid {
       display: grid;
