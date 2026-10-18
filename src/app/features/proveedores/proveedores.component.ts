@@ -1,16 +1,19 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ProveedoresService } from '../../core/services/proveedores.service';
+import { CatalogosService } from '../../core/services/catalogos.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Proveedor, ProveedorRequest } from '../../core/models/proveedor.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
+import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-proveedores',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, AppIconComponent, AppModalComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
   template: `
     <div class="proveedores-page">
       <!-- ENCABEZADO -->
@@ -80,6 +83,7 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
                 <th>Teléfono</th>
                 <th>Email</th>
                 <th>Dirección</th>
+                <th>Productos</th>
                 <th>Estado</th>
                 <th class="text-right">Acciones</th>
               </tr>
@@ -98,12 +102,31 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
                   <td>{{ p.email || '—' }}</td>
                   <td class="address-cell">{{ p.direccion || '—' }}</td>
                   <td>
+                    <button 
+                      type="button" 
+                      class="btn-badge-products" 
+                      (click)="verProductosProveedor(p)"
+                      title="Ver productos provistos por {{ p.razonSocial }}"
+                    >
+                      <app-icon name="package" [size]="14" />
+                      <span>{{ obtenerCantidadProductos(p.id) }} prod.</span>
+                    </button>
+                  </td>
+                  <td>
                     <span class="badge" [class.badge-success]="p.activo" [class.badge-danger]="!p.activo">
                       {{ p.activo ? 'Activo' : 'Inactivo' }}
                     </span>
                   </td>
                   <td class="text-right">
                     <div class="actions-group">
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        title="Ver productos suministrados"
+                        (click)="verProductosProveedor(p)"
+                      >
+                        <app-icon name="package" [size]="16" />
+                      </button>
                       <button
                         type="button"
                         class="btn-icon"
@@ -248,6 +271,100 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
               <span>{{ proveedorEditando() ? 'Guardar Cambios' : 'Registrar Proveedor' }}</span>
             }
           </button>
+        </div>
+      </app-modal>
+
+      <!-- MODAL DETALLE DE PRODUCTOS DEL PROVEEDOR -->
+      <app-modal
+        [isOpen]="modalProductosAbierto()"
+        [title]="'Productos suministrados: ' + (proveedorSeleccionado()?.razonSocial || '')"
+        size="lg"
+        (close)="cerrarModalProductos()"
+      >
+        <div body>
+          @if (proveedorSeleccionado(); as prov) {
+            <div class="provider-modal-header mb-3">
+              <div class="info-pill">
+                <span class="text-muted">RUC:</span> <strong>{{ prov.ruc }}</strong>
+              </div>
+              <div class="info-pill">
+                <span class="text-muted">Contacto:</span> <strong>{{ prov.contacto || '—' }}</strong>
+              </div>
+              <div class="info-pill">
+                <span class="text-muted">Teléfono:</span> <strong>{{ prov.telefono || '—' }}</strong>
+              </div>
+              <div class="info-pill">
+                <span class="text-muted">Total:</span> <strong>{{ productosDelProveedor().length }} productos</strong>
+              </div>
+            </div>
+
+            @if (productosDelProveedor().length === 0) {
+              <div class="empty-products-state">
+                <app-icon name="package" [size]="40" />
+                <h4 class="mt-2">Sin productos asociados</h4>
+                <p class="text-muted text-sm">Este proveedor aún no tiene productos vinculados en el catálogo.</p>
+                <button type="button" class="btn btn-sm btn-primary mt-2" (click)="irACrearProductoConProveedor(prov.id)">
+                  <app-icon name="plus" [size]="14" />
+                  <span>Vincular en Catálogo</span>
+                </button>
+              </div>
+            } @else {
+              <div class="table-responsive">
+                <table class="data-table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Código de Barra</th>
+                      <th>Categoría</th>
+                      <th>Precio</th>
+                      <th>Stock Actual</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (prod of productosDelProveedor(); track prod.id) {
+                      <tr>
+                        <td><strong>{{ prod.nombre }}</strong></td>
+                        <td>
+                          @if (prod.codigoBarra) {
+                            <span class="barcode-badge">
+                              <app-icon name="barcode" [size]="12" />
+                              <span>{{ prod.codigoBarra }}</span>
+                            </span>
+                          } @else {
+                            <span class="text-muted">—</span>
+                          }
+                        </td>
+                        <td><span class="category-chip">{{ prod.categoria || 'BEBIDAS' }}</span></td>
+                        <td class="text-primary font-bold">{{ prod.precio | appCurrency }}</td>
+                        <td>
+                          <span class="font-bold" [class.text-danger]="prod.stock <= 0">
+                            {{ prod.stock }} unid.
+                          </span>
+                        </td>
+                        <td>
+                          <span class="badge" [class.badge-success]="prod.activo" [class.badge-danger]="!prod.activo">
+                            {{ prod.activo ? 'Activo' : 'Inactivo' }}
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        </div>
+        <div footer class="modal-footer-actions">
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalProductos()">
+            Cerrar
+          </button>
+          @if (proveedorSeleccionado(); as prov) {
+            <button type="button" class="btn btn-primary" (click)="irACatalogoFiltrado(prov.id)">
+              <app-icon name="external-link" [size]="14" />
+              <span>Ver en Catálogo de Productos</span>
+            </button>
+          }
         </div>
       </app-modal>
     </div>
@@ -606,10 +723,100 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    .btn-badge-products {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 9999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #dbeafe;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .btn-badge-products:hover {
+      background: #dbeafe;
+      border-color: #bfdbfe;
+      transform: translateY(-1px);
+    }
+
+    .provider-modal-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      background: var(--bg-subtle, #f8fafc);
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color, #e2e8f0);
+    }
+
+    .info-pill {
+      font-size: 0.8125rem;
+      display: inline-flex;
+      gap: 0.25rem;
+      padding: 0.2rem 0.5rem;
+      background: #ffffff;
+      border-radius: 0.375rem;
+      border: 1px solid #e2e8f0;
+    }
+
+    .empty-products-state {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--text-muted, #64748b);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-footer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      width: 100%;
+    }
+
+    .barcode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.375rem;
+      background: #f1f5f9;
+      color: #334155;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 0.75rem;
+      border: 1px solid #e2e8f0;
+    }
+
+    .category-chip {
+      background: var(--bg-subtle, #f1f5f9);
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .text-primary { color: var(--primary, #0284c7); }
+    .font-bold { font-weight: 700; }
+    .text-sm { font-size: 0.8125rem; }
+    .table-sm th, .table-sm td {
+      padding: 0.5rem 0.75rem;
+    }
   `]
 })
 export class ProveedoresComponent implements OnInit {
   protected readonly proveedoresService = inject(ProveedoresService);
+  protected readonly catalogosService = inject(CatalogosService);
+  private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
 
@@ -617,6 +824,18 @@ export class ProveedoresComponent implements OnInit {
   modalAbierto = signal<boolean>(false);
   proveedorEditando = signal<Proveedor | null>(null);
   guardando = signal<boolean>(false);
+
+  // Modal Productos del Proveedor
+  modalProductosAbierto = signal<boolean>(false);
+  proveedorSeleccionado = signal<Proveedor | null>(null);
+
+  productosDelProveedor = computed(() => {
+    const prov = this.proveedorSeleccionado();
+    if (!prov) return [];
+    return this.catalogosService.productosSimples().filter(
+      p => p.proveedor?.id === prov.id || p.proveedorId === prov.id
+    );
+  });
 
   proveedorForm!: FormGroup;
 
@@ -627,6 +846,33 @@ export class ProveedoresComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.proveedoresService.cargarProveedores();
+    this.catalogosService.cargarProductosSimples();
+  }
+
+  obtenerCantidadProductos(proveedorId: number): number {
+    return this.catalogosService.productosSimples()
+      .filter(p => p.proveedor?.id === proveedorId || p.proveedorId === proveedorId)
+      .length;
+  }
+
+  verProductosProveedor(proveedor: Proveedor): void {
+    this.proveedorSeleccionado.set(proveedor);
+    this.modalProductosAbierto.set(true);
+  }
+
+  cerrarModalProductos(): void {
+    this.modalProductosAbierto.set(false);
+    this.proveedorSeleccionado.set(null);
+  }
+
+  irACatalogoFiltrado(proveedorId: number): void {
+    this.cerrarModalProductos();
+    this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId } });
+  }
+
+  irACrearProductoConProveedor(proveedorId: number): void {
+    this.cerrarModalProductos();
+    this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId } });
   }
 
   private initForm(): void {

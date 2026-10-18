@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -314,12 +314,53 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       <!-- VISTA PRODUCTOS SIMPLES -->
       @if (tabActiva() === 'productos') {
         <div class="card">
-          <div class="card-header space-between">
-            <h3>Bebidas y Cafetería Envasada</h3>
-            <button type="button" class="btn btn-sm btn-secondary" (click)="catalogosService.cargarProductosSimples()">
-              <app-icon name="refresh" [size]="14" />
-              <span>Refrescar</span>
-            </button>
+          <div class="card-header space-between flex-wrap gap-3">
+            <div>
+              <h3>Bebidas y Cafetería Envasada</h3>
+              <p class="section-subtitle">
+                Mostrando {{ productosFiltrados().length }} de {{ catalogosService.productosSimples().length }} productos
+              </p>
+            </div>
+            
+            <div class="table-filters">
+              <div class="filter-provider-box">
+                <label for="filtroProveedorSelect" class="filter-label">
+                  <app-icon name="truck" [size]="14" />
+                  <span>Proveedor:</span>
+                </label>
+                <select 
+                  id="filtroProveedorSelect" 
+                  class="select-provider-filter"
+                  [ngModel]="filtroProveedorId()"
+                  (ngModelChange)="filtroProveedorId.set($event)"
+                >
+                  <option value="TODOS">Todos los proveedores ({{ catalogosService.productosSimples().length }})</option>
+                  <option value="SIN_PROVEEDOR">Sin proveedor asignado ({{ contarProductosSinProveedor() }})</option>
+                  @for (prov of proveedoresService.proveedores(); track prov.id) {
+                    <option [value]="prov.id.toString()">
+                      {{ prov.razonSocial }} ({{ contarProductosPorProveedor(prov.id) }})
+                    </option>
+                  }
+                </select>
+              </div>
+
+              @if (filtroProveedorId() !== 'TODOS') {
+                <button 
+                  type="button" 
+                  class="btn btn-sm btn-ghost text-primary font-bold" 
+                  (click)="filtroProveedorId.set('TODOS')"
+                  title="Ver todos los productos"
+                >
+                  <app-icon name="x" [size]="14" />
+                  <span>Ver Todos</span>
+                </button>
+              }
+
+              <button type="button" class="btn btn-sm btn-secondary" (click)="catalogosService.cargarProductosSimples()">
+                <app-icon name="refresh" [size]="14" />
+                <span>Refrescar</span>
+              </button>
+            </div>
           </div>
           <div class="table-responsive">
             <table class="table-custom">
@@ -338,7 +379,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 </tr>
               </thead>
               <tbody>
-                @for (prod of catalogosService.productosSimples(); track prod.id) {
+                @for (prod of productosFiltrados(); track prod.id) {
                   <tr>
                     <td><strong>{{ prod.nombre }}</strong></td>
                     <td>
@@ -353,12 +394,20 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                     </td>
                     <td>
                       @if (prod.proveedor) {
-                        <span class="supplier-tag">
+                        <span 
+                          class="supplier-tag cursor-pointer" 
+                          (click)="filtroProveedorId.set(prod.proveedor.id.toString())"
+                          title="Filtrar por {{ prod.proveedor.razonSocial }}"
+                        >
                           <app-icon name="truck" [size]="14" />
                           <span>{{ prod.proveedor.razonSocial }}</span>
                         </span>
                       } @else {
-                        <span class="text-muted small">Sin asignar</span>
+                        <span 
+                          class="text-muted small cursor-pointer"
+                          (click)="filtroProveedorId.set('SIN_PROVEEDOR')"
+                          title="Filtrar productos sin proveedor"
+                        >Sin asignar</span>
                       }
                     </td>
                     <td><span class="category-chip">{{ prod.categoria || 'BEBIDAS' }}</span></td>
@@ -395,6 +444,18 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                           title="Eliminar producto"
                         >
                           <app-icon name="trash" [size]="14" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="10" class="text-center py-5">
+                      <div class="empty-filter-state">
+                        <app-icon name="package" [size]="32" />
+                        <p class="mt-2 text-muted">No se encontraron productos para el filtro seleccionado.</p>
+                        <button type="button" class="btn btn-sm btn-secondary mt-2" (click)="filtroProveedorId.set('TODOS')">
+                          Mostrar todos los productos
                         </button>
                       </div>
                     </td>
@@ -822,6 +883,74 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       color: var(--text-main, #334155);
       font-weight: 500;
     }
+    .cursor-pointer {
+      cursor: pointer;
+    }
+    .table-filters {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .filter-provider-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--surface, #ffffff);
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-md, 0.375rem);
+      border: 1px solid var(--border-color, #cbd5e1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .filter-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted, #64748b);
+      white-space: nowrap;
+    }
+    .select-provider-filter {
+      border: none;
+      background: transparent;
+      font-weight: 600;
+      font-size: 0.8125rem;
+      color: var(--text-main, #1e293b);
+      padding: 0.2rem 0.4rem;
+      outline: none;
+      cursor: pointer;
+    }
+    .select-provider-filter:focus {
+      outline: none;
+    }
+    .section-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-muted, #64748b);
+      margin: 0.2rem 0 0 0;
+    }
+    .empty-filter-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted, #64748b);
+      padding: 1.5rem;
+    }
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.8125rem;
+      border-radius: var(--radius-sm, 0.25rem);
+    }
+    .btn-ghost:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
   `]
 })
 export class CatalogosComponent implements OnInit {
@@ -834,6 +963,23 @@ export class CatalogosComponent implements OnInit {
 
   public readonly tabActiva = signal<'sabores' | 'presentaciones' | 'toppings' | 'productos'>('sabores');
   public readonly guardandoItem = signal<boolean>(false);
+
+  // Filtro de Proveedor para pestaña Productos
+  public readonly filtroProveedorId = signal<string>('TODOS');
+
+  public readonly productosFiltrados = computed(() => {
+    const prods = this.catalogosService.productosSimples();
+    const filtro = this.filtroProveedorId();
+
+    if (filtro === 'TODOS') {
+      return prods;
+    }
+    if (filtro === 'SIN_PROVEEDOR') {
+      return prods.filter(p => !p.proveedor && !p.proveedorId);
+    }
+    const numId = Number(filtro);
+    return prods.filter(p => p.proveedor?.id === numId || p.proveedorId === numId);
+  });
 
   // Modales
   public readonly modalSaborAbierto = signal<boolean>(false);
@@ -862,11 +1008,33 @@ export class CatalogosComponent implements OnInit {
       }
     });
 
+    this.route.queryParams.subscribe(qp => {
+      if (qp['proveedorId']) {
+        this.filtroProveedorId.set(String(qp['proveedorId']));
+        this.tabActiva.set('productos');
+      }
+      if (qp['tab'] && ['sabores', 'presentaciones', 'toppings', 'productos'].includes(qp['tab'])) {
+        this.tabActiva.set(qp['tab']);
+      }
+    });
+
     this.catalogosService.cargarSabores();
     this.catalogosService.cargarPresentaciones();
     this.catalogosService.cargarToppings();
     this.catalogosService.cargarProductosSimples();
     this.proveedoresService.cargarProveedores();
+  }
+
+  contarProductosPorProveedor(proveedorId: number): number {
+    return this.catalogosService.productosSimples()
+      .filter(p => p.proveedor?.id === proveedorId || p.proveedorId === proveedorId)
+      .length;
+  }
+
+  contarProductosSinProveedor(): number {
+    return this.catalogosService.productosSimples()
+      .filter(p => !p.proveedor && !p.proveedorId)
+      .length;
   }
 
   // Sabor CRUD
