@@ -95,6 +95,9 @@ export class AuthService {
     if (c === 'pos' || c === 'monitor-pedidos') {
       return this._permisos().some(p => p === 'pedidos' || p === 'pos' || p === c);
     }
+    if (c === 'compras') {
+      return this._permisos().some(p => p === 'compras' || p === 'proveedores' || p === 'stock');
+    }
     return this._permisos().some(p => p === c);
   }
 

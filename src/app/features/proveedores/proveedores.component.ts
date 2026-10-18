@@ -399,7 +399,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           @if (proveedorSeleccionado(); as prov) {
             <button type="button" class="btn btn-secondary" (click)="registrarCompraProveedor(prov)">
               <app-icon name="file-text" [size]="14" />
-              <span>Registrar Compra</span>
+              <span>Registrar Factura de Compra</span>
             </button>
             <button type="button" class="btn btn-primary" (click)="irACatalogoFiltrado(prov.id)">
               <app-icon name="external-link" [size]="14" />
@@ -962,7 +962,7 @@ export class ProveedoresComponent implements OnInit {
 
   registrarCompraProveedor(proveedor: Proveedor): void {
     this.cerrarModalProductos();
-    this.router.navigate(['/compras'], { queryParams: { proveedorId: proveedor.id } });
+    this.router.navigate(['/compras'], { queryParams: { proveedorId: proveedor.id, accion: 'nueva' } });
   }
 
   private initForm(): void {

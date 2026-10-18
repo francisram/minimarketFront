@@ -201,12 +201,13 @@ interface ItemFormCompra {
     <!-- MODAL DETALLE DE FACTURA -->
     @if (modalDetalleAbierto()) {
       <app-modal
-        [isOpen]="true"
-        [title]="'Detalle Factura N° ' + compraSeleccionada()?.numeroFactura"
-        (closeModal)="modalDetalleAbierto.set(false)"
+        [isOpen]="modalDetalleAbierto()"
+        [title]="'Detalle Factura N° ' + (compraSeleccionada()?.numeroFactura || '')"
+        size="lg"
+        (close)="modalDetalleAbierto.set(false)"
       >
         @if (compraSeleccionada(); as c) {
-          <div class="modal-body-content">
+          <div body class="modal-body-content">
             <!-- CABECERA DE FACTURA -->
             <div class="factura-header-box">
               <div class="factura-header-row">
@@ -298,6 +299,18 @@ interface ItemFormCompra {
               </div>
             </div>
           </div>
+
+          <div footer class="modal-actions-footer">
+            <button type="button" class="btn btn-secondary" (click)="modalDetalleAbierto.set(false)">
+              Cerrar
+            </button>
+            @if (c.estado === 'REGISTRADA') {
+              <button type="button" class="btn btn-outline-danger" (click)="confirmarAnularCompra(c)">
+                <app-icon name="trash" [size]="14" />
+                <span>Anular Factura</span>
+              </button>
+            }
+          </div>
         }
       </app-modal>
     }
@@ -305,11 +318,12 @@ interface ItemFormCompra {
     <!-- MODAL REGISTRO DE NUEVA COMPRA -->
     @if (modalNuevaCompraAbierto()) {
       <app-modal
-        [isOpen]="true"
-        [title]="'Registrar Factura de Compra de Proveedor'"
-        (closeModal)="cerrarModalNuevaCompra()"
+        [isOpen]="modalNuevaCompraAbierto()"
+        title="Registrar Factura de Compra de Proveedor"
+        size="xl"
+        (close)="cerrarModalNuevaCompra()"
       >
-        <div class="modal-form-content">
+        <div body class="modal-form-content">
           <!-- CABECERA -->
           <div class="section-title">1. Datos del Comprobante</div>
           <div class="form-grid-3">
@@ -511,22 +525,23 @@ interface ItemFormCompra {
             </div>
           }
 
-          <div class="modal-actions-footer mt-4">
-            <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaCompra()">Cancelar</button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              [disabled]="guardandoCompra() || itemsCargados().length === 0"
-              (click)="guardarFacturaCompra()"
-            >
-              @if (guardandoCompra()) {
-                <span class="spinner-sm"></span> Guardando e Ingresando Stock...
-              } @else {
-                <app-icon name="check" [size]="16" />
-                <span>Confirmar e Ingresar Stock</span>
-              }
-            </button>
-          </div>
+        </div>
+
+        <div footer class="modal-actions-footer">
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaCompra()">Cancelar</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="guardandoCompra()"
+            (click)="guardarFacturaCompra()"
+          >
+            @if (guardandoCompra()) {
+              <span class="spinner-sm"></span> Guardando e Ingresando Stock...
+            } @else {
+              <app-icon name="check" [size]="16" />
+              <span>Confirmar e Ingresar Stock</span>
+            }
+          </button>
         </div>
       </app-modal>
     }
@@ -893,6 +908,8 @@ interface ItemFormCompra {
     .btn-primary:hover { background: #0369a1; }
     .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
     .btn-secondary:hover { background: #e2e8f0; }
+    .btn-outline-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .btn-outline-danger:hover { background: #fee2e2; }
     .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8125rem; }
     .form-group {
       display: flex;
@@ -1062,10 +1079,10 @@ export class ComprasComponent implements OnInit {
     this.proveedoresService.cargarProveedores();
     this.productosService.cargarProductos();
 
-    // Check si vino con parámetro ?proveedorId=X
+    // Check si vino con parámetro ?proveedorId=X o ?accion=nueva
     this.route.queryParams.subscribe(params => {
-      if (params['proveedorId']) {
-        const provId = Number(params['proveedorId']);
+      if (params['proveedorId'] || params['accion'] === 'nueva' || params['accion'] === 'crear') {
+        const provId = params['proveedorId'] ? Number(params['proveedorId']) : undefined;
         this.abrirModalNuevaCompra(provId);
       }
     });
@@ -1184,8 +1201,12 @@ export class ComprasComponent implements OnInit {
       this.toast.warning('Ingresa la fecha de emisión de la factura.');
       return;
     }
+    // Si el usuario seleccionó un artículo pero no presionó "+ Agregar Línea"
+    if (this.itemEnCarga.productoId && this.itemEnCarga.cantidad > 0) {
+      this.agregarItemALaFactura();
+    }
     if (this.itemsCargados().length === 0) {
-      this.toast.warning('Agrega al menos un artículo a la factura.');
+      this.toast.warning('Debes agregar al menos un artículo a la factura usando el botón "+ Agregar Línea".');
       return;
     }
 
