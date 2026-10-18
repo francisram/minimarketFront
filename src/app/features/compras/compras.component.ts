@@ -7,7 +7,7 @@ import { ProveedoresService } from '../../core/services/proveedores.service';
 import { ProductosService } from '../../core/services/productos.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Compra, DetalleCompra, RegistroCompraRequest, RegistroDetalleCompraRequest, CondicionCompra, EstadoCompra } from '../../core/models/compra.model';
-import { Producto, TipoIva } from '../../core/models/producto.model';
+import { Producto, TipoIva, TipoArticulo, UnidadMedida, ProductoRequest } from '../../core/models/producto.model';
 import { Proveedor } from '../../core/models/proveedor.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
@@ -30,6 +30,7 @@ interface ItemSeleccionMultiple {
   cantidad: number;
   costoUnitario: number;
   tipoIva: TipoIva;
+  suministradoPorProveedor: boolean;
 }
 
 @Component({
@@ -489,19 +490,40 @@ interface ItemSeleccionMultiple {
 
             <div class="form-grid-4">
               <div class="form-group span-2">
-                <label class="form-label" for="itemSelectProducto">Artículo del Catálogo Maestro *</label>
+                <div class="d-flex justify-content-between align-center mb-1">
+                  <label class="form-label m-0" for="itemSelectProducto">Artículo del Catálogo Maestro *</label>
+                  <button
+                    type="button"
+                    class="btn-link text-xs text-primary font-bold cursor-pointer"
+                    (click)="abrirModalNuevoArticuloRapido()"
+                    title="Dar de alta un nuevo artículo sin salir de la factura"
+                  >
+                    + ¿Artículo nuevo? Créalo aquí
+                  </button>
+                </div>
                 <select
                   id="itemSelectProducto"
                   class="form-control"
                   [ngModel]="itemEnCarga.productoId"
                   (ngModelChange)="onProductoSeleccionadoChange($event)"
                 >
-                  <option [ngValue]="null" disabled>-- Busca o selecciona un artículo individual --</option>
-                  @for (prod of productosService.productos(); track prod.id) {
-                    <option [ngValue]="prod.id">
-                      [{{ prod.tipoArticulo }}] {{ prod.nombre }} @if (prod.codigoBarra) { ({{ prod.codigoBarra }}) }
-                    </option>
+                  <option [ngValue]="null" disabled>-- Busca o selecciona un artículo --</option>
+                  @if (articulosDelProveedorActual().length > 0) {
+                    <optgroup [label]="'⭐ Suministrados por ' + (proveedorActual()?.razonSocial || 'este Proveedor')">
+                      @for (prod of articulosDelProveedorActual(); track prod.id) {
+                        <option [ngValue]="prod.id">
+                          ⭐ [{{ prod.tipoArticulo }}] {{ prod.nombre }} (Pactado: Gs. {{ getCostoPactado(prod) | appCurrency }})
+                        </option>
+                      }
+                    </optgroup>
                   }
+                  <optgroup [label]="articulosDelProveedorActual().length > 0 ? 'Otros Artículos del Catálogo' : 'Todos los Artículos del Catálogo'">
+                    @for (prod of otrosArticulosDelCatalogo(); track prod.id) {
+                      <option [ngValue]="prod.id">
+                        [{{ prod.tipoArticulo }}] {{ prod.nombre }} @if (prod.codigoBarra) { ({{ prod.codigoBarra }}) }
+                      </option>
+                    }
+                  </optgroup>
                 </select>
               </div>
 
@@ -678,10 +700,25 @@ interface ItemSeleccionMultiple {
         (close)="cerrarModalSeleccionMultiple()"
       >
         <div body class="modal-form-content">
-          <div class="d-flex justify-content-between align-center mb-3">
-            <p class="m-0 text-sm text-muted">
-              Tilda los artículos que deseas incluir en la factura, ajusta cantidades o costos y presiona "Agregar Seleccionados".
-            </p>
+          <div class="d-flex justify-content-between align-center mb-3 flex-wrap gap-2">
+            <div class="d-flex align-center gap-2">
+              <button
+                type="button"
+                class="btn-pill"
+                [class.active]="!filtroSoloProveedorMultiple()"
+                (click)="filtroSoloProveedorMultiple.set(false)"
+              >
+                Todos ({{ itemsSeleccionMultiple.length }})
+              </button>
+              <button
+                type="button"
+                class="btn-pill"
+                [class.active]="filtroSoloProveedorMultiple()"
+                (click)="filtroSoloProveedorMultiple.set(true)"
+              >
+                ⭐ Solo de este Proveedor ({{ totalArticulosProveedorMultiple }})
+              </button>
+            </div>
             <div class="search-box-sm">
               <app-icon name="search" [size]="16" />
               <input
@@ -716,7 +753,12 @@ interface ItemSeleccionMultiple {
                       />
                     </td>
                     <td>
-                      <div class="font-medium">{{ item.producto.nombre }}</div>
+                      <div class="font-medium d-flex align-center gap-1">
+                        <span>{{ item.producto.nombre }}</span>
+                        @if (item.suministradoPorProveedor) {
+                          <span class="badge badge-success text-xs" title="Artículo suministrado habitualmente por este proveedor">⭐ Habitual</span>
+                        }
+                      </div>
                     </td>
                     <td>
                       <span class="badge badge-secondary text-xs">{{ item.producto.tipoArticulo }}</span>
@@ -773,6 +815,168 @@ interface ItemSeleccionMultiple {
           >
             <app-icon name="check" [size]="16" />
             <span>Agregar Seleccionados a la Factura ({{ totalSeleccionadosMultiple }})</span>
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    <!-- MODAL ALTA RÁPIDA DE ARTÍCULO EN FACTURA -->
+    @if (modalNuevoArticuloRapidoAbierto()) {
+      <app-modal
+        [isOpen]="modalNuevoArticuloRapidoAbierto()"
+        title="+ Alta Rápida de Artículo en Catálogo"
+        size="lg"
+        [closeOnBackdrop]="false"
+        (close)="cerrarModalNuevoArticuloRapido()"
+      >
+        <div body class="modal-form-content">
+          <div class="info-alert-box mb-3">
+            <app-icon name="info" [size]="18" />
+            <div class="text-xs">
+              El artículo se registrará en el catálogo maestro y quedará vinculado automáticamente como proveedor a
+              <strong>{{ proveedorActual()?.razonSocial || 'el proveedor seleccionado' }}</strong> con el costo pactado.
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="nuevoNombre">Nombre del Artículo *</label>
+              <input
+                id="nuevoNombre"
+                type="text"
+                class="form-control"
+                placeholder="Ej: Café Expresso Premium"
+                [(ngModel)]="formNuevoArticulo.nombre"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoTipo">Tipo de Artículo *</label>
+              <select
+                id="nuevoTipo"
+                class="form-control"
+                [(ngModel)]="formNuevoArticulo.tipoArticulo"
+              >
+                <option value="VENTA_DIRECTA">Venta Directa (Bebida, Envasado, Cafetería)</option>
+                <option value="INSUMO">Insumo / Materia Prima</option>
+                <option value="ENVASE">Envase (Pote, Cucurucho, Vaso)</option>
+                <option value="SABOR">Sabor de Helado</option>
+                <option value="TOPPING">Topping / Agregado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid-3 mt-3">
+            <div class="form-group">
+              <label class="form-label" for="nuevoCodBarra">Código de Barra / SKU</label>
+              <input
+                id="nuevoCodBarra"
+                type="text"
+                class="form-control font-mono"
+                placeholder="Ej: 7840001099"
+                [(ngModel)]="formNuevoArticulo.codigoBarra"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoUnidad">Unidad de Medida</label>
+              <select
+                id="nuevoUnidad"
+                class="form-control"
+                [(ngModel)]="formNuevoArticulo.unidadMedida"
+              >
+                <option value="UNIDAD">Unidad (Un)</option>
+                <option value="KG">Kilogramo (Kg)</option>
+                <option value="LITRO">Litro (Lt)</option>
+                <option value="GRAMO">Gramo (g)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="nuevoIva">Tipo de IVA</label>
+              <select
+                id="nuevoIva"
+                class="form-control"
+                [(ngModel)]="formNuevoArticulo.tipoIva"
+              >
+                <option value="IVA_10">IVA 10% (General)</option>
+                <option value="IVA_5">IVA 5% (Canasta / Alimentos)</option>
+                <option value="EXENTA">Exenta</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- SECCIÓN COSTO Y PRECIO DE VENTA INTELIGENTE -->
+          <div class="pricing-card mt-3">
+            <div class="d-flex justify-content-between align-center mb-2">
+              <span class="font-bold text-sm text-primary">Costo de Compra & Margen de Venta</span>
+              <div class="d-flex gap-1">
+                <button type="button" class="margin-btn" (click)="aplicarMargenRapido(15)">15%</button>
+                <button type="button" class="margin-btn" (click)="aplicarMargenRapido(20)">20%</button>
+                <button type="button" class="margin-btn" (click)="aplicarMargenRapido(30)">30%</button>
+                <button type="button" class="margin-btn" (click)="aplicarMargenRapido(50)">50%</button>
+              </div>
+            </div>
+
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label class="form-label" for="nuevoCosto">Costo Compra Proveedor (Gs.) *</label>
+                <input
+                  id="nuevoCosto"
+                  type="number"
+                  min="0"
+                  step="500"
+                  class="form-control font-bold"
+                  [(ngModel)]="formNuevoArticulo.costoCompra"
+                  (ngModelChange)="recalcularPrecioVentaArticuloRapido()"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="nuevoMargen">% Margen Ganancia</label>
+                <input
+                  id="nuevoMargen"
+                  type="number"
+                  step="1"
+                  class="form-control"
+                  [(ngModel)]="formNuevoArticulo.margenPorcentaje"
+                  (ngModelChange)="recalcularPrecioVentaArticuloRapido()"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="nuevoPrecioVenta">Precio Venta Sugerido (Gs.) *</label>
+                <input
+                  id="nuevoPrecioVenta"
+                  type="number"
+                  min="0"
+                  step="500"
+                  class="form-control font-bold text-primary"
+                  [(ngModel)]="formNuevoArticulo.precioVenta"
+                  (ngModelChange)="recalcularMargenArticuloRapido()"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div footer class="modal-actions-footer">
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevoArticuloRapido()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="guardandoNuevoArticulo() || !formNuevoArticulo.nombre.trim()"
+            (click)="guardarNuevoArticuloRapido()"
+          >
+            @if (guardandoNuevoArticulo()) {
+              <span class="spinner-sm"></span> Guardando Artículo...
+            } @else {
+              <app-icon name="check" [size]="16" />
+              <span>Guardar e Insertar en Factura</span>
+            }
           </button>
         </div>
       </app-modal>
@@ -1210,6 +1414,18 @@ interface ItemSeleccionMultiple {
     .d-block { display: block; }
     .mb-1 { margin-bottom: 0.25rem; }
     .text-center { text-align: center; }
+    .info-alert-box { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 0.85rem; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 0.375rem; }
+    .pricing-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.85rem; }
+    .margin-btn { font-size: 0.75rem; padding: 0.2rem 0.5rem; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.25rem; cursor: pointer; }
+    .margin-btn:hover { background: #0284c7; color: #ffffff; border-color: #0284c7; }
+    .badge-success { background: #dcfce7; color: #15803d; font-weight: 600; border-radius: 0.25rem; padding: 0.15rem 0.45rem; }
+    .btn-pill { border: 1px solid #cbd5e1; background: #ffffff; color: #475569; padding: 0.3rem 0.75rem; font-size: 0.75rem; border-radius: 9999px; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+    .btn-pill:hover { border-color: #0284c7; color: #0284c7; }
+    .btn-pill.active { background: #0284c7; color: #ffffff; border-color: #0284c7; font-weight: 600; }
+    .btn-link { background: none; border: none; cursor: pointer; text-decoration: underline; }
+    .cursor-pointer { cursor: pointer; }
+    .flex-wrap { flex-wrap: wrap; }
+    .gap-1 { gap: 0.25rem; }
     .form-group {
       display: flex;
       flex-direction: column;
@@ -1304,14 +1520,19 @@ export class ComprasComponent implements OnInit {
   // Modal Selección Múltiple en Bloque
   public readonly modalSeleccionMultipleAbierto = signal<boolean>(false);
   public readonly filtroBusquedaMultiple = signal<string>('');
+  public readonly filtroSoloProveedorMultiple = signal<boolean>(false);
   public itemsSeleccionMultiple: ItemSeleccionMultiple[] = [];
 
   get itemsFiltradosMultiple(): ItemSeleccionMultiple[] {
+    let list = this.itemsSeleccionMultiple;
+    if (this.filtroSoloProveedorMultiple()) {
+      list = list.filter(i => i.suministradoPorProveedor);
+    }
     const query = this.filtroBusquedaMultiple().trim().toLowerCase();
     if (!query) {
-      return this.itemsSeleccionMultiple;
+      return list;
     }
-    return this.itemsSeleccionMultiple.filter(item =>
+    return list.filter(item =>
       item.producto.nombre.toLowerCase().includes(query) ||
       (item.producto.codigoBarra && item.producto.codigoBarra.toLowerCase().includes(query)) ||
       (item.producto.tipoArticulo && item.producto.tipoArticulo.toLowerCase().includes(query))
@@ -1321,6 +1542,57 @@ export class ComprasComponent implements OnInit {
   get totalSeleccionadosMultiple(): number {
     return this.itemsSeleccionMultiple.filter(i => i.seleccionado).length;
   }
+
+  get totalArticulosProveedorMultiple(): number {
+    return this.itemsSeleccionMultiple.filter(i => i.suministradoPorProveedor).length;
+  }
+
+  // Filtrado y agrupación por proveedor actual
+  public readonly proveedorActual = computed(() => {
+    const pid = this.formNuevaCompra.proveedorId;
+    if (!pid) return null;
+    return this.proveedoresService.proveedores().find(p => p.id === pid) || null;
+  });
+
+  public readonly articulosDelProveedorActual = computed(() => {
+    const pid = this.formNuevaCompra.proveedorId;
+    if (!pid) return [];
+    return this.productosService.productos().filter(p =>
+      p.proveedores && p.proveedores.some(pv => pv.proveedorId === pid)
+    );
+  });
+
+  public readonly otrosArticulosDelCatalogo = computed(() => {
+    const pid = this.formNuevaCompra.proveedorId;
+    if (!pid) return this.productosService.productos();
+    return this.productosService.productos().filter(p =>
+      !p.proveedores || !p.proveedores.some(pv => pv.proveedorId === pid)
+    );
+  });
+
+  getCostoPactado(prod: Producto): number {
+    const pid = this.formNuevaCompra.proveedorId;
+    if (pid && prod.proveedores) {
+      const v = prod.proveedores.find(pv => pv.proveedorId === pid);
+      if (v && v.costoCompra) return v.costoCompra;
+    }
+    return prod.precioCosto || 0;
+  }
+
+  // Modal Alta Rápida de Artículo
+  public readonly modalNuevoArticuloRapidoAbierto = signal<boolean>(false);
+  public readonly guardandoNuevoArticulo = signal<boolean>(false);
+
+  public formNuevoArticulo: {
+    nombre: string;
+    tipoArticulo: TipoArticulo;
+    codigoBarra: string;
+    unidadMedida: UnidadMedida;
+    tipoIva: TipoIva;
+    costoCompra: number;
+    margenPorcentaje: number;
+    precioVenta: number;
+  } = this.getFormNuevoArticuloInicial();
 
   // Formulario Nueva Compra
   public formNuevaCompra: {
@@ -1486,10 +1758,14 @@ export class ComprasComponent implements OnInit {
 
     this.itemsSeleccionMultiple = prods.map(p => {
       let costo = p.precioCosto || 0;
+      let suministrado = false;
       if (provId && p.proveedores) {
         const vinculo = p.proveedores.find(pv => pv.proveedorId === provId);
-        if (vinculo && vinculo.costoCompra) {
-          costo = vinculo.costoCompra;
+        if (vinculo) {
+          suministrado = true;
+          if (vinculo.costoCompra) {
+            costo = vinculo.costoCompra;
+          }
         }
       }
       return {
@@ -1497,11 +1773,13 @@ export class ComprasComponent implements OnInit {
         seleccionado: false,
         cantidad: 1,
         costoUnitario: costo,
-        tipoIva: p.tipoIva || 'IVA_10'
+        tipoIva: p.tipoIva || 'IVA_10',
+        suministradoPorProveedor: suministrado
       };
     });
 
     this.filtroBusquedaMultiple.set('');
+    this.filtroSoloProveedorMultiple.set(false);
     this.modalSeleccionMultipleAbierto.set(true);
   }
 
@@ -1530,6 +1808,106 @@ export class ComprasComponent implements OnInit {
     this.itemsCargados.update(list => [...list, ...nuevosItems]);
     this.toast.success(`Se agregaron ${nuevosItems.length} artículos a la factura.`);
     this.modalSeleccionMultipleAbierto.set(false);
+  }
+
+  // Métodos para Alta Rápida de Artículo dentro de la Factura
+  private getFormNuevoArticuloInicial() {
+    return {
+      nombre: '',
+      tipoArticulo: 'VENTA_DIRECTA' as TipoArticulo,
+      codigoBarra: '',
+      unidadMedida: 'UNIDAD' as UnidadMedida,
+      tipoIva: 'IVA_10' as TipoIva,
+      costoCompra: 0,
+      margenPorcentaje: 30,
+      precioVenta: 0
+    };
+  }
+
+  abrirModalNuevoArticuloRapido(): void {
+    this.formNuevoArticulo = this.getFormNuevoArticuloInicial();
+    if (this.codigoBarraInput?.trim()) {
+      this.formNuevoArticulo.codigoBarra = this.codigoBarraInput.trim();
+    }
+    this.recalcularPrecioVentaArticuloRapido();
+    this.modalNuevoArticuloRapidoAbierto.set(true);
+  }
+
+  cerrarModalNuevoArticuloRapido(): void {
+    this.modalNuevoArticuloRapidoAbierto.set(false);
+  }
+
+  recalcularPrecioVentaArticuloRapido(): void {
+    const costo = Number(this.formNuevoArticulo.costoCompra) || 0;
+    const margen = Number(this.formNuevoArticulo.margenPorcentaje) || 0;
+    this.formNuevoArticulo.precioVenta = Math.round(costo * (1 + margen / 100));
+  }
+
+  recalcularMargenArticuloRapido(): void {
+    const costo = Number(this.formNuevoArticulo.costoCompra) || 0;
+    const venta = Number(this.formNuevoArticulo.precioVenta) || 0;
+    if (costo > 0 && venta >= costo) {
+      this.formNuevoArticulo.margenPorcentaje = Math.round(((venta - costo) / costo) * 100);
+    }
+  }
+
+  aplicarMargenRapido(porcentaje: number): void {
+    this.formNuevoArticulo.margenPorcentaje = porcentaje;
+    this.recalcularPrecioVentaArticuloRapido();
+  }
+
+  guardarNuevoArticuloRapido(): void {
+    if (!this.formNuevoArticulo.nombre.trim()) {
+      this.toast.warning('Ingresa el nombre del artículo.');
+      return;
+    }
+
+    this.guardandoNuevoArticulo.set(true);
+    const provId = this.formNuevaCompra.proveedorId;
+
+    const payload: ProductoRequest = {
+      nombre: this.formNuevoArticulo.nombre.trim(),
+      tipoArticulo: this.formNuevoArticulo.tipoArticulo,
+      codigoBarra: this.formNuevoArticulo.codigoBarra.trim() || undefined,
+      unidadMedida: this.formNuevoArticulo.unidadMedida,
+      tipoIva: this.formNuevoArticulo.tipoIva,
+      precioCosto: this.formNuevoArticulo.costoCompra || 0,
+      precioVenta: this.formNuevoArticulo.precioVenta || 0,
+      stock: 0,
+      stockMinimo: 5,
+      activo: true,
+      proveedores: provId ? [
+        {
+          proveedorId: provId,
+          costoCompra: this.formNuevoArticulo.costoCompra || 0,
+          esPrincipal: true
+        }
+      ] : []
+    };
+
+    this.productosService.crear(payload).subscribe({
+      next: (nuevoProd) => {
+        this.guardandoNuevoArticulo.set(false);
+        this.modalNuevoArticuloRapidoAbierto.set(false);
+        // Seleccionar automáticamente el artículo recién creado en la factura de compra
+        this.onProductoSeleccionadoChange(nuevoProd.id);
+        this.itemEnCarga.costoUnitario = this.formNuevoArticulo.costoCompra || 0;
+        this.itemEnCarga.tipoIva = this.formNuevoArticulo.tipoIva;
+        this.toast.success(`Artículo "${nuevoProd.nombre}" creado e incorporado al comprobante.`);
+        // Enfocar cantidad
+        setTimeout(() => {
+          const cantidadInput = document.getElementById('itemCantidad') as HTMLInputElement | null;
+          if (cantidadInput) {
+            cantidadInput.focus();
+            cantidadInput.select();
+          }
+        }, 100);
+      },
+      error: (err) => {
+        this.guardandoNuevoArticulo.set(false);
+        this.toast.error(err.error?.mensaje || 'Error al crear el artículo nuevo.');
+      }
+    });
   }
 
   onProductoSeleccionadoChange(productoId: number): void {
