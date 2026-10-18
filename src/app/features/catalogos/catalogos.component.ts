@@ -35,6 +35,7 @@ export interface ProductoMaestroFormModel {
   sku: string;
   precioVenta: number;
   precioCosto: number;
+  margenPorcentaje: number;
   tipoIva: TipoIva;
   stock: number;
   stockMinimo: number;
@@ -1070,35 +1071,82 @@ export interface ProductoMaestroFormModel {
             />
           </div>
 
-          <div class="form-row-3">
-            <div class="form-group">
-              <label class="form-label" for="maestroUnidad">Unidad de Medida *</label>
-              <select id="maestroUnidad" class="form-control" [(ngModel)]="productoMaestroForm.unidadMedida">
-                <option value="UNIDAD">Unidades (UNID)</option>
-                <option value="KG">Kilogramos (KG)</option>
-                <option value="LITRO">Litros (L)</option>
-                <option value="GRAMO">Gramos (G)</option>
-              </select>
+          <!-- BLOQUE DE PRECIOS Y CÁLCULO DE MARGEN COMERCIAL -->
+          <div class="pricing-calculator-card">
+            <div class="pricing-card-header">
+              <div class="d-flex align-center gap-2">
+                <app-icon name="trending-up" [size]="16" />
+                <span class="pricing-card-title">Precios y Margen de Ganancia</span>
+              </div>
+              @if (productoMaestroForm.precioCosto && productoMaestroForm.precioVenta) {
+                <span class="profit-badge" [class.profit-positive]="calcularGananciaNeta() >= 0" [class.profit-negative]="calcularGananciaNeta() < 0">
+                  Ganancia: {{ calcularGananciaNeta() >= 0 ? '+' : '' }}{{ calcularGananciaNeta() | appCurrency }} ({{ productoMaestroForm.margenPorcentaje }}%)
+                </span>
+              }
             </div>
-            <div class="form-group">
-              <label class="form-label" for="maestroPrecioVenta">Precio Venta (Gs.) *</label>
-              <input
-                id="maestroPrecioVenta"
-                type="number"
-                step="500"
-                class="form-control font-bold text-primary"
-                [(ngModel)]="productoMaestroForm.precioVenta"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="maestroPrecioCosto">Precio Costo Base (Gs.)</label>
-              <input
-                id="maestroPrecioCosto"
-                type="number"
-                step="500"
-                class="form-control"
-                [(ngModel)]="productoMaestroForm.precioCosto"
-              />
+
+            <div class="form-row-4">
+              <div class="form-group">
+                <label class="form-label" for="maestroUnidad">Unidad Medida *</label>
+                <select id="maestroUnidad" class="form-control" [(ngModel)]="productoMaestroForm.unidadMedida">
+                  <option value="UNIDAD">Unidades (UNID)</option>
+                  <option value="KG">Kilogramos (KG)</option>
+                  <option value="LITRO">Litros (L)</option>
+                  <option value="GRAMO">Gramos (G)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="maestroPrecioCosto">Precio Costo (Gs.)</label>
+                <input
+                  id="maestroPrecioCosto"
+                  type="number"
+                  step="500"
+                  class="form-control"
+                  placeholder="0"
+                  [(ngModel)]="productoMaestroForm.precioCosto"
+                  (ngModelChange)="onCostoOMargenChange()"
+                />
+              </div>
+
+              <div class="form-group">
+                <div class="d-flex justify-content-between align-center mb-1">
+                  <label class="form-label m-0" for="maestroMargen">% Margen</label>
+                  <div class="quick-margins">
+                    <button type="button" class="btn-margin-chip" [class.active-margin]="productoMaestroForm.margenPorcentaje === 15" (click)="aplicarMargenRapido(15)">15%</button>
+                    <button type="button" class="btn-margin-chip" [class.active-margin]="productoMaestroForm.margenPorcentaje === 20" (click)="aplicarMargenRapido(20)">20%</button>
+                    <button type="button" class="btn-margin-chip" [class.active-margin]="productoMaestroForm.margenPorcentaje === 30" (click)="aplicarMargenRapido(30)">30%</button>
+                    <button type="button" class="btn-margin-chip" [class.active-margin]="productoMaestroForm.margenPorcentaje === 50" (click)="aplicarMargenRapido(50)">50%</button>
+                  </div>
+                </div>
+                <div class="input-with-suffix">
+                  <input
+                    id="maestroMargen"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="1000"
+                    class="form-control"
+                    placeholder="20"
+                    [(ngModel)]="productoMaestroForm.margenPorcentaje"
+                    (ngModelChange)="onCostoOMargenChange()"
+                  />
+                  <span class="input-suffix">%</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label font-bold text-primary" for="maestroPrecioVenta">Precio Venta (Gs.) *</label>
+                <input
+                  id="maestroPrecioVenta"
+                  type="number"
+                  step="500"
+                  class="form-control font-bold text-primary highlight-input"
+                  placeholder="Ej. 12000"
+                  [(ngModel)]="productoMaestroForm.precioVenta"
+                  (ngModelChange)="onPrecioVentaChange()"
+                />
+              </div>
             </div>
           </div>
 
@@ -1733,6 +1781,108 @@ export interface ProductoMaestroFormModel {
       color: #b45309;
       font-weight: 700;
     }
+
+    /* ESTILOS CALCULADORA DE PRECIO Y MARGEN */
+    .pricing-calculator-card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.5rem;
+      padding: 0.875rem;
+    }
+    .pricing-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .pricing-card-title {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--text-main, #0f172a);
+    }
+    .profit-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .profit-positive {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+    .profit-negative {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+    .form-row-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.1fr 1.2fr;
+      gap: 0.875rem;
+    }
+    @media (max-width: 768px) {
+      .form-row-4 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 480px) {
+      .form-row-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+    .quick-margins {
+      display: flex;
+      gap: 0.25rem;
+    }
+    .btn-margin-chip {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.6875rem;
+      padding: 0.1rem 0.35rem;
+      cursor: pointer;
+      color: #475569;
+      font-weight: 600;
+      transition: all 0.1s;
+    }
+    .btn-margin-chip:hover {
+      background: #e0f2fe;
+      border-color: #0284c7;
+      color: #0284c7;
+    }
+    .active-margin {
+      background: #0284c7 !important;
+      border-color: #0284c7 !important;
+      color: #ffffff !important;
+    }
+    .input-with-suffix {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-suffix {
+      position: absolute;
+      right: 0.75rem;
+      color: var(--text-muted, #94a3b8);
+      font-weight: 700;
+      font-size: 0.875rem;
+      pointer-events: none;
+    }
+    .highlight-input {
+      background: #f0fdf4 !important;
+      border-color: #86efac !important;
+      font-size: 1rem !important;
+    }
+    .highlight-input:focus {
+      border-color: #22c55e !important;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2) !important;
+    }
+    .justify-content-between { justify-content: space-between; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .m-0 { margin: 0; }
   `]
 })
 export class CatalogosComponent implements OnInit {
@@ -2143,6 +2293,7 @@ export class CatalogosComponent implements OnInit {
       sku: '',
       precioVenta: 10000,
       precioCosto: 0,
+      margenPorcentaje: 20,
       tipoIva: 'IVA_10',
       stock: 20,
       stockMinimo: 5,
@@ -2195,6 +2346,13 @@ export class CatalogosComponent implements OnInit {
       esPrincipal: pv.esPrincipal
     }));
 
+    const costo = Number(prod.precioCosto) || 0;
+    const venta = Number(prod.precioVenta) || 0;
+    let margen = 20;
+    if (costo > 0 && venta > 0) {
+      margen = Math.round(((venta - costo) / costo) * 100 * 10) / 10;
+    }
+
     this.productoMaestroForm = {
       nombre: prod.nombre,
       descripcion: prod.descripcion || '',
@@ -2204,6 +2362,7 @@ export class CatalogosComponent implements OnInit {
       sku: prod.sku || '',
       precioVenta: prod.precioVenta,
       precioCosto: prod.precioCosto || 0,
+      margenPorcentaje: margen,
       tipoIva: prod.tipoIva || 'IVA_10',
       stock: prod.stock,
       stockMinimo: prod.stockMinimo,
@@ -2223,6 +2382,34 @@ export class CatalogosComponent implements OnInit {
     this.modalMaestroAbierto.set(true);
   }
 
+  onCostoOMargenChange(): void {
+    const costo = Number(this.productoMaestroForm.precioCosto) || 0;
+    const margen = Number(this.productoMaestroForm.margenPorcentaje) || 0;
+    if (costo > 0) {
+      this.productoMaestroForm.precioVenta = Math.round(costo * (1 + margen / 100));
+    }
+  }
+
+  onPrecioVentaChange(): void {
+    const costo = Number(this.productoMaestroForm.precioCosto) || 0;
+    const venta = Number(this.productoMaestroForm.precioVenta) || 0;
+    if (costo > 0) {
+      const m = ((venta - costo) / costo) * 100;
+      this.productoMaestroForm.margenPorcentaje = Math.round(m * 10) / 10;
+    }
+  }
+
+  aplicarMargenRapido(porcentaje: number): void {
+    this.productoMaestroForm.margenPorcentaje = porcentaje;
+    this.onCostoOMargenChange();
+  }
+
+  calcularGananciaNeta(): number {
+    const costo = Number(this.productoMaestroForm.precioCosto) || 0;
+    const venta = Number(this.productoMaestroForm.precioVenta) || 0;
+    return venta - costo;
+  }
+
   agregarProveedorAlFormulario(): void {
     if (!this.nuevoVinculoProveedorId) {
       this.toast.warning('Selecciona un proveedor para vincular.');
@@ -2240,6 +2427,10 @@ export class CatalogosComponent implements OnInit {
 
     if (esPrincipal) {
       this.productoMaestroForm.proveedoresList.forEach(p => p.esPrincipal = false);
+      if (this.nuevoVinculoCosto && (!this.productoMaestroForm.precioCosto || this.productoMaestroForm.precioCosto === 0)) {
+        this.productoMaestroForm.precioCosto = this.nuevoVinculoCosto;
+        this.onCostoOMargenChange();
+      }
     }
 
     this.productoMaestroForm.proveedoresList.push({
@@ -2268,6 +2459,11 @@ export class CatalogosComponent implements OnInit {
     this.productoMaestroForm.proveedoresList.forEach((p, idx) => {
       p.esPrincipal = idx === index;
     });
+    const provPrincipal = this.productoMaestroForm.proveedoresList[index];
+    if (provPrincipal?.costoCompra && (!this.productoMaestroForm.precioCosto || this.productoMaestroForm.precioCosto === 0)) {
+      this.productoMaestroForm.precioCosto = provPrincipal.costoCompra;
+      this.onCostoOMargenChange();
+    }
   }
 
   guardarProductoMaestro(): void {
