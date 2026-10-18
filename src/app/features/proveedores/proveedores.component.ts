@@ -123,6 +123,14 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                       <button
                         type="button"
                         class="btn-icon"
+                        title="Registrar Factura de Compra"
+                        (click)="registrarCompraProveedor(p)"
+                      >
+                        <app-icon name="file-text" [size]="16" />
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-icon"
                         title="Ver productos suministrados"
                         (click)="verProductosProveedor(p)"
                       >
@@ -389,6 +397,10 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             Cerrar
           </button>
           @if (proveedorSeleccionado(); as prov) {
+            <button type="button" class="btn btn-secondary" (click)="registrarCompraProveedor(prov)">
+              <app-icon name="file-text" [size]="14" />
+              <span>Registrar Compra</span>
+            </button>
             <button type="button" class="btn btn-primary" (click)="irACatalogoFiltrado(prov.id)">
               <app-icon name="external-link" [size]="14" />
               <span>Ver en Catálogo Maestro</span>
@@ -946,6 +958,11 @@ export class ProveedoresComponent implements OnInit {
   irACrearProductoConProveedor(proveedorId: number): void {
     this.cerrarModalProductos();
     this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId, tab: 'maestro', accion: 'crear' } });
+  }
+
+  registrarCompraProveedor(proveedor: Proveedor): void {
+    this.cerrarModalProductos();
+    this.router.navigate(['/compras'], { queryParams: { proveedorId: proveedor.id } });
   }
 
   private initForm(): void {

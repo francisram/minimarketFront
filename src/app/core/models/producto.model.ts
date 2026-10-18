@@ -1,4 +1,5 @@
 import { TipoIva } from './tipo-iva.model';
+export type { TipoIva };
 
 export type TipoArticulo = 'VENTA_DIRECTA' | 'ENVASE' | 'SABOR' | 'TOPPING' | 'INSUMO';
 

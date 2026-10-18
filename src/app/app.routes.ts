@@ -51,6 +51,11 @@ export const routes: Routes = [
         canActivate: [permissionGuard('proveedores')]
       },
       {
+        path: 'compras',
+        loadComponent: () => import('./features/compras/compras.component').then(m => m.ComprasComponent),
+        canActivate: [permissionGuard('compras')]
+      },
+      {
         path: 'impresoras',
         loadComponent: () => import('./features/impresoras/impresoras.component').then(m => m.ImpresorasComponent),
         canActivate: [adminGuard]
