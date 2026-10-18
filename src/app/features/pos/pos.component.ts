@@ -64,27 +64,48 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
           </div>
         }
 
-        <!-- BARRA SUPERIOR DE PESTAÑAS -->
-        <div class="pos-tabs">
-          <button 
-            type="button" 
-            class="tab-btn" 
-            [class.active]="tabActiva() === 'HELADOS'" 
-            (click)="tabActiva.set('HELADOS')"
-          >
-            <app-icon name="ice-cream" [size]="20" />
-            <span>Helados Artesanales</span>
-          </button>
-          <button 
-            type="button" 
-            class="tab-btn" 
-            [class.active]="tabActiva() === 'PRODUCTOS'" 
-            (click)="tabActiva.set('PRODUCTOS')"
-          >
-            <app-icon name="coffee" [size]="20" />
-            <span>Bebidas y Cafetería</span>
-            <span class="tab-badge">{{ posService.productosSimplesActivos().length }}</span>
-          </button>
+        <!-- BARRA SUPERIOR: PESTAÑAS Y ESCÁNER RÁPIDO DE CÓDIGO DE BARRAS -->
+        <div class="pos-top-bar">
+          <div class="pos-tabs">
+            <button 
+              type="button" 
+              class="tab-btn" 
+              [class.active]="tabActiva() === 'HELADOS'" 
+              (click)="tabActiva.set('HELADOS')"
+            >
+              <app-icon name="ice-cream" [size]="20" />
+              <span>Helados Artesanales</span>
+            </button>
+            <button 
+              type="button" 
+              class="tab-btn" 
+              [class.active]="tabActiva() === 'PRODUCTOS'" 
+              (click)="tabActiva.set('PRODUCTOS')"
+            >
+              <app-icon name="coffee" [size]="20" />
+              <span>Bebidas y Cafetería</span>
+              <span class="tab-badge">{{ posService.productosSimplesActivos().length }}</span>
+            </button>
+          </div>
+
+          <!-- ESCÁNER RÁPIDO DE CÓDIGO DE BARRA (LECTOR / PISTOLA USB) -->
+          <div class="scanner-bar-container">
+            <div class="scanner-box">
+              <app-icon name="scan-barcode" [size]="18" extraClass="scanner-icon" />
+              <input
+                type="text"
+                class="scanner-input"
+                placeholder="Escanear código de barra [Enter]..."
+                [(ngModel)]="codigoBarraInput"
+                (keydown.enter)="procesarEscaneoCodigoBarra($event)"
+              />
+              @if (codigoBarraInput) {
+                <button type="button" class="btn-clear-barcode" (click)="codigoBarraInput = ''">
+                  <app-icon name="x" [size]="14" />
+                </button>
+              }
+            </div>
+          </div>
         </div>
 
         <!-- ==================== VISTA 1: ARMADO DE HELADOS ==================== -->
@@ -304,8 +325,9 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
               <app-icon name="search" [size]="18" />
               <input
                 type="text"
-                placeholder="Buscar bebidas, café, postres..."
+                placeholder="Buscar bebidas, café, postres o código de barra..."
                 [(ngModel)]="busquedaProducto"
+                (keydown.enter)="onBuscarProductoEnter()"
                 class="search-input"
               />
             </div>
@@ -325,6 +347,12 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                   </div>
                   <div class="prod-details">
                     <div class="prod-name">{{ prod.nombre }}</div>
+                    @if (prod.codigoBarra) {
+                      <div class="prod-barcode-badge">
+                        <app-icon name="barcode" [size]="12" />
+                        <span>{{ prod.codigoBarra }}</span>
+                      </div>
+                    }
                     <div class="prod-price">{{ prod.precio | appCurrency }}</div>
                   </div>
                   <button
@@ -1010,11 +1038,73 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       align-items: start;
     }
 
-    /* PESTAÑAS SUPERIORES */
+    /* PESTAÑAS SUPERIORES Y ESCÁNER RÁPIDO */
+    .pos-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
     .pos-tabs {
       display: flex;
       gap: 0.75rem;
-      margin-bottom: 1.25rem;
+    }
+
+    .scanner-bar-container {
+      flex: 1;
+      max-width: 380px;
+      min-width: 260px;
+    }
+
+    .scanner-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .scanner-icon {
+      position: absolute;
+      left: 0.75rem;
+      color: #0284c7;
+      pointer-events: none;
+    }
+
+    .scanner-input {
+      width: 100%;
+      padding: 0.65rem 2rem 0.65rem 2.4rem;
+      border-radius: var(--radius-lg);
+      border: 1.5px solid #0284c7;
+      background: #f0f9ff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #0f172a;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .scanner-input:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+    }
+
+    .btn-clear-barcode {
+      position: absolute;
+      right: 0.5rem;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 0.25rem;
+    }
+
+    .btn-clear-barcode:hover {
+      color: #0f172a;
     }
 
     .tab-btn {
@@ -1421,6 +1511,21 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       font-weight: 700;
       font-size: 0.9375rem;
       margin-bottom: 0.25rem;
+    }
+
+    .prod-barcode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-family: monospace;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: #475569;
+      background: var(--bg-subtle, #f1f5f9);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      margin-bottom: 0.4rem;
+      border: 1px solid var(--border-color, #e2e8f0);
     }
 
     .prod-price {
@@ -1905,6 +2010,7 @@ export class PosComponent implements OnInit {
   public readonly tabActiva = signal<'HELADOS' | 'PRODUCTOS'>('HELADOS');
   public readonly filtroCategoria = signal<string>('TODOS');
   public busquedaProducto: string = '';
+  public codigoBarraInput: string = '';
 
   public readonly modalCheckoutAbierto = signal<boolean>(false);
   public readonly modalAperturaRapidaAbierto = signal<boolean>(false);
@@ -1994,12 +2100,51 @@ export class PosComponent implements OnInit {
     return todos.filter(s => s.categoria === cat);
   });
 
-  // Filtrado de productos simples
+  // Filtrado de productos simples (por nombre o código de barra)
   public productosFiltrados(): ProductoSimple[] {
     const prods = this.posService.productosSimplesActivos();
     if (!this.busquedaProducto.trim()) return prods;
     const term = this.busquedaProducto.toLowerCase();
-    return prods.filter(p => p.nombre.toLowerCase().includes(term));
+    return prods.filter(p =>
+      p.nombre.toLowerCase().includes(term) ||
+      (p.codigoBarra && p.codigoBarra.toLowerCase().includes(term))
+    );
+  }
+
+  // Escaneo rápido de código de barra desde la barra superior del POS
+  procesarEscaneoCodigoBarra(event?: Event): void {
+    if (event) event.preventDefault();
+    const codigo = this.codigoBarraInput.trim();
+    if (!codigo) return;
+
+    this.posService.agregarPorCodigoBarra(codigo).subscribe({
+      next: (agregado) => {
+        if (agregado) {
+          this.codigoBarraInput = '';
+        }
+      }
+    });
+  }
+
+  // Búsqueda rápida al presionar Enter en el catálogo de productos simples
+  onBuscarProductoEnter(): void {
+    const term = this.busquedaProducto.trim();
+    if (!term) return;
+
+    const matchBarra = this.posService.productosSimplesActivos().find(
+      p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === term.toLowerCase()
+    );
+    if (matchBarra) {
+      this.agregarProducto(matchBarra);
+      this.busquedaProducto = '';
+      return;
+    }
+
+    const filtrados = this.productosFiltrados();
+    if (filtrados.length === 1) {
+      this.agregarProducto(filtrados[0]);
+      this.busquedaProducto = '';
+    }
   }
 
   esSaborSeleccionado(sabor: Sabor): boolean {

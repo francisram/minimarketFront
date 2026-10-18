@@ -1,4 +1,5 @@
 import { TipoIva } from './tipo-iva.model';
+import { Proveedor } from './proveedor.model';
 
 export interface ProductoSimple {
   id: number;
@@ -10,5 +11,7 @@ export interface ProductoSimple {
   stockMinimo?: number;
   activo: boolean;
   tipoIva?: TipoIva;
+  codigoBarra?: string | null;
+  proveedor?: Proveedor | null;
+  proveedorId?: number | null;
 }
-

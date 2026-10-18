@@ -34,6 +34,7 @@ export class MenuService {
     { clave: 'pedidos', nombre: 'Punto de Venta (POS)', ruta: '/pos', icono: 'shopping-cart' },
     { clave: 'monitor-pedidos', nombre: 'Monitor de Pedidos', ruta: '/pedidos', icono: 'clipboard-list' },
     { clave: 'clientes', nombre: 'Clientes', ruta: '/clientes', icono: 'users' },
+    { clave: 'proveedores', nombre: 'Proveedores', ruta: '/proveedores', icono: 'truck' },
     { clave: 'stock', nombre: 'Inventario & Stock', ruta: '/stock', icono: 'warehouse', adminOnly: true },
     { clave: 'auditoria', nombre: 'Auditoría & Conteo Físico', ruta: '/auditoria', icono: 'clipboard-check', adminOnly: true },
     { clave: 'reportes', nombre: 'Reportes y Analítica', ruta: '/reportes', icono: 'bar-chart-3', adminOnly: true },
@@ -69,7 +70,7 @@ export class MenuService {
       }
 
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
-      if (isAdminOrOwner && ['stock', 'auditoria', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'pedidos', 'backup'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'auditoria', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'proveedores', 'pedidos', 'backup'].includes(item.clave)) {
         return true;
       }
 

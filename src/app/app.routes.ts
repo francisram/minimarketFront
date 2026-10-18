@@ -46,6 +46,11 @@ export const routes: Routes = [
         canActivate: [permissionGuard('clientes')]
       },
       {
+        path: 'proveedores',
+        loadComponent: () => import('./features/proveedores/proveedores.component').then(m => m.ProveedoresComponent),
+        canActivate: [permissionGuard('proveedores')]
+      },
+      {
         path: 'impresoras',
         loadComponent: () => import('./features/impresoras/impresoras.component').then(m => m.ImpresorasComponent),
         canActivate: [adminGuard]

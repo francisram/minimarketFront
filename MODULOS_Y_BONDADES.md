@@ -17,7 +17,7 @@ Este sistema es una solución empresarial de alta disponibilidad diseñada espec
 
 ## 2. Catálogo Detallado de Módulos y sus Bondades
 
-El sistema cuenta con **18 módulos funcionales** en el menú de navegación, organizados en **6 grandes áreas de negocio**:
+El sistema cuenta con **19 módulos funcionales** en el menú de navegación, organizados en **6 grandes áreas de negocio**:
 
 ```mermaid
 mindmap
@@ -25,9 +25,10 @@ mindmap
     Ventas y Operaciones
       Dashboard
       Control de Caja
-      Punto de Venta POS
+      Punto de Venta POS & Lector Códigos
       Monitor de Pedidos
       Clientes
+      Proveedores
     Inventario y Stock
       Control de Stock & Kardex
       Auditoría & Conteo Físico
@@ -73,13 +74,14 @@ mindmap
 #### 3. Punto de Venta - POS (`/pos`)
 * **Propósito:** Terminal táctil ultra-rápida de ventas pensada para pantallas táctiles, tablets y computadoras de mostrador.
 * **Funcionalidades:**
+  * **Lector y Escáner de Código de Barras integrado:** Soporta pistolas lectoras USB/Bluetooth y teclado con tecla `Enter`. Al escanear un producto envasado o bebida, lo ingresa automáticamente al ticket de venta de manera instantánea.
   * Selección dinámica de presentaciones (potes de 1/4 kg, 1/2 kg, 1 kg, cucuruchos, vasitos).
   * Control del límite de sabores por presentación (ej.: máximo 3 gustos para 1/2 kg).
   * Agregado de toppings con precio diferencial.
   * Carrito ágil con soporte para múltiples medios de pago (Efectivo, Tarjetas, Transferencia/QR).
   * Emisión automática de ticket fiscal / comanda térmica al confirmar el cobro.
 * **Bondades para el Negocio:**
-  * **Velocidad de despacho en horas pico.** El cajero procesa una venta compleja en menos de 15 segundos sin equivocarse en la cantidad de gustos ni en el precio fraccionado.
+  * **Velocidad de despacho en horas pico.** El cajero procesa una venta compleja en menos de 15 segundos sin equivocarse en la cantidad de gustos ni en el precio fraccionado, y despacha artículos de minimarket con un simple disparo del lector láser.
 
 #### 4. Monitor de Pedidos (`/pedidos`)
 * **Propósito:** Seguimiento visual del flujo de pedidos desde el cobro hasta la entrega al cliente.
@@ -99,11 +101,20 @@ mindmap
 * **Bondades para el Negocio:**
   * Construcción de base de datos para marketing, promociones de cumpleaños, delivery recurrente y facturación personalizada.
 
+#### 6. Padrón y Gestión de Proveedores (`/proveedores`)
+* **Propósito:** Registro integral de empresas proveedoras, distribuidores y contactos comerciales de compras.
+* **Funcionalidades:**
+  * Alta y edición con RUC/identificación fiscal, razón social, persona de contacto/vendedor, teléfono, correo y depósito/dirección.
+  * Vinculación directa con el catálogo de productos: permite asociar múltiples productos a sus respectivos proveedores para trazabilidad de reposición y abastecimiento.
+  * Conmutación de estado activo/inactivo para mantener el padrón depurado.
+* **Bondades para el Negocio:**
+  * Centraliza la agenda de compras y reposición, permitiendo saber al instante a qué distribuidor pedir cada bebida, insumo o producto envasado sin depender de anotaciones externas.
+
 ---
 
 ### ÁREA 2: CONTROL DE INVENTARIO Y STOCK
 
-#### 6. Inventario & Stock (`/stock`)
+#### 7. Inventario & Stock (`/stock`)
 * **Propósito:** Control centralizado de existencias de materias primas y productos de reventa.
 * **Funcionalidades:**
   * Kardex detallado de movimientos (entradas por compra, salidas por venta, mermas).
@@ -112,7 +123,7 @@ mindmap
 * **Bondades para el Negocio:**
   * **Evita el quiebre de stock** en momentos de alta demanda y ofrece una radiografía exacta del capital inmovilizado en mercadería.
 
-#### 7. Auditoría & Conteo Físico (`/auditoria`)
+#### 8. Auditoría & Conteo Físico (`/auditoria`)
 * **Propósito:** Realización de tomas de inventario periódicas para contrastar stock real vs. stock teórico.
 * **Funcionalidades:**
   * Creación de sesiones de conteo físico por sectores o categorías.
@@ -125,7 +136,7 @@ mindmap
 
 ### ÁREA 3: CATÁLOGOS Y PRODUCTOS ESPECIALIZADOS
 
-#### 8. Catálogo de Sabores (`/catalogos/sabores`)
+#### 9. Catálogo de Sabores (`/catalogos/sabores`)
 * **Propósito:** Administración de la carta de gustos de helado.
 * **Funcionalidades:**
   * Alta, baja y modificación de sabores.
@@ -134,7 +145,7 @@ mindmap
 * **Bondades para el Negocio:**
   * Reflejo inmediato en el POS: los cajeros nunca venderán un gusto que no esté disponible en la vitrina.
 
-#### 9. Presentaciones y Potes (`/catalogos/presentaciones`)
+#### 10. Presentaciones y Potes (`/catalogos/presentaciones`)
 * **Propósito:** Parametrización de los envases y formatos de venta.
 * **Funcionalidades:**
   * Configuración de precio, peso estimado en gramos y cantidad máxima de gustos permitidos.
@@ -142,7 +153,7 @@ mindmap
 * **Bondades para el Negocio:**
   * Control estandarizado del modelo de precios y porciones para garantizar el margen de rentabilidad de cada envase.
 
-#### 10. Toppings y Agregados (`/catalogos/toppings`)
+#### 11. Toppings y Agregados (`/catalogos/toppings`)
 * **Propósito:** Gestión de salsas, coberturas y agregados para heladería y cafetería.
 * **Funcionalidades:**
   * Asignación de costo extra por agregado (chispas de chocolate, salsas calientes, frutos secos, obleas).
@@ -150,19 +161,21 @@ mindmap
 * **Bondades para el Negocio:**
   * Monetización del up-selling (venta cruzada) aumentando el ticket promedio por cliente.
 
-#### 11. Bebidas y Cafetería (`/catalogos/productos`)
+#### 12. Bebidas, Cafetería y Envasados (`/catalogos/productos`)
 * **Propósito:** Venta directa de artículos de cafetería, confitería y bebidas envasadas.
 * **Funcionalidades:**
-  * Código de barras, categoría, precio de costo, precio de venta e IVA aplicable.
+  * **Asignación de Proveedor:** Vinculación directa con el proveedor o distribuidor de cada producto para ordenamiento de compras y abastecimiento.
+  * **Código de Barras:** Registro de código EAN/alfanumérico para lectura inmediata con pistola láser/óptica en mostrador.
+  * Categoría, precio de venta, stock mínimo y control de IVA aplicable (10%, 5%, Exenta).
   * Integración directa con el descuento de stock unitario en cada venta.
 * **Bondades para el Negocio:**
-  * Permite al local operar como heladería y cafetería al mismo tiempo desde una única pantalla unificada.
+  * Permite al local operar como heladería, cafetería y minimarket al mismo tiempo desde una única pantalla unificada.
 
 ---
 
 ### ÁREA 4: ANALÍTICA Y REPORTES
 
-#### 12. Reportes y Analítica (`/reportes`)
+#### 13. Reportes y Analítica (`/reportes`)
 * **Propósito:** Inteligencia de negocio y reportes impositivos.
 * **Funcionalidades:**
   * **Reporte de Ventas:** Filtros por rango de fechas, medios de pago y operadores.
@@ -176,7 +189,7 @@ mindmap
 
 ### ÁREA 5: HARDWARE Y DISPOSITIVOS
 
-#### 13. Impresoras ESC/POS (`/impresoras`)
+#### 14. Impresoras ESC/POS (`/impresoras`)
 * **Propósito:** Integración directa con impresoras térmicas de tickets y comandas.
 * **Funcionalidades:**
   * Soporte para impresoras térmicas USB, de Red (Ethernet/Wi-Fi) o Bluetooth.
@@ -190,7 +203,7 @@ mindmap
 
 ### ÁREA 6: SEGURIDAD, ADMINISTRACIÓN Y SISTEMA
 
-#### 14. Usuarios (`/usuarios`)
+#### 15. Usuarios (`/usuarios`)
 * **Propósito:** Gestión de operadores que interactúan con el sistema.
 * **Funcionalidades:**
   * Alta de usuarios con asignación de roles.
@@ -199,7 +212,7 @@ mindmap
 * **Bondades:**
   * Trazabilidad completa: cada venta, apertura de caja o movimiento de stock tiene nombre y apellido.
 
-#### 15. Roles y Permisos (`/roles`)
+#### 16. Roles y Permisos (`/roles`)
 * **Propósito:** Control de acceso basado en roles (RBAC).
 * **Funcionalidades:**
   * Creación de roles personalizados (ej.: Administrador, Cajero, Encargado de Turno, Mozo).
@@ -207,7 +220,7 @@ mindmap
 * **Bondades:**
   * Protege la información confidencial de costos, reportes de facturación y configuraciones contra empleados no autorizados.
 
-#### 16. Licenciamiento & Planes (`/licencia`)
+#### 17. Licenciamiento & Planes (`/licencia`)
 * **Propósito:** Motor de activación y validación de licencias comerciales.
 * **Funcionalidades:**
   * Validación de clave de activación encriptada con fecha de vencimiento y plan contratado.
@@ -215,7 +228,7 @@ mindmap
 * **Bondades:**
   * **Convierte el sistema en un producto comercial listo para cobrar suscripción mensual (SaaS) o pagos anuales.**
 
-#### 17. Datos del Negocio (`/institucion`)
+#### 18. Datos del Negocio (`/institucion`)
 * **Propósito:** Personalización de la identidad de la marca en el sistema.
 * **Funcionalidades:**
   * Carga de Logotipo en base64 (se muestra en el encabezado del sistema y en los tickets impresos).
@@ -223,7 +236,7 @@ mindmap
 * **Bondades:**
   * Da aspecto profesional a los comprobantes de los clientes y adapta el sistema a la identidad visual de la heladería.
 
-#### 18. Copias de Seguridad (`/backup`)
+#### 19. Copias de Seguridad (`/backup`)
 * **Propósito:** Resguardo y recuperación de desastres de la base de datos PostgreSQL.
 * **Funcionalidades:**
   * Generación de respaldo completo con 1 solo clic.

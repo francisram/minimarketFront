@@ -8,6 +8,8 @@ import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
 import { Topping } from '../../core/models/topping.model';
 import { ProductoSimple } from '../../core/models/producto-simple.model';
+import { Proveedor } from '../../core/models/proveedor.model';
+import { ProveedoresService } from '../../core/services/proveedores.service';
 import { TipoIva, OPCIONES_TIPO_IVA } from '../../core/models/tipo-iva.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
@@ -324,6 +326,8 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <thead>
                 <tr>
                   <th>Producto</th>
+                  <th>Cód. Barra</th>
+                  <th>Proveedor</th>
                   <th>Categoría</th>
                   <th>Precio</th>
                   <th>Stock Actual</th>
@@ -337,6 +341,26 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 @for (prod of catalogosService.productosSimples(); track prod.id) {
                   <tr>
                     <td><strong>{{ prod.nombre }}</strong></td>
+                    <td>
+                      @if (prod.codigoBarra) {
+                        <span class="barcode-badge">
+                          <app-icon name="barcode" [size]="14" />
+                          <span>{{ prod.codigoBarra }}</span>
+                        </span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      @if (prod.proveedor) {
+                        <span class="supplier-tag">
+                          <app-icon name="truck" [size]="14" />
+                          <span>{{ prod.proveedor.razonSocial }}</span>
+                        </span>
+                      } @else {
+                        <span class="text-muted small">Sin asignar</span>
+                      }
+                    </td>
                     <td><span class="category-chip">{{ prod.categoria || 'BEBIDAS' }}</span></td>
                     <td class="text-primary font-bold">{{ prod.precio | appCurrency }}</td>
                     <td>
@@ -610,6 +634,33 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           </div>
           <div class="form-row-2">
             <div class="form-group">
+              <label class="form-label d-flex align-center gap-1" for="catProdCodigoBarra">
+                <app-icon name="barcode" [size]="14" />
+                <span>Código de Barra</span>
+              </label>
+              <input
+                id="catProdCodigoBarra"
+                type="text"
+                class="form-control"
+                placeholder="Ej. 7840001001"
+                [(ngModel)]="productoForm.codigoBarra"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label d-flex align-center gap-1" for="catProdProveedor">
+                <app-icon name="truck" [size]="14" />
+                <span>Proveedor Asignado</span>
+              </label>
+              <select id="catProdProveedor" class="form-control" [(ngModel)]="productoForm.proveedorId">
+                <option [ngValue]="null">-- Sin Proveedor Asignado --</option>
+                @for (prov of proveedoresService.proveedores(); track prov.id) {
+                  <option [ngValue]="prov.id">{{ prov.razonSocial }} ({{ prov.ruc }})</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
               <label class="form-label" for="catProdIva">Tasa de Impuesto (IVA) *</label>
               <select id="catProdIva" class="form-control" [(ngModel)]="productoForm.tipoIva">
                 @for (opc of opcionesIva; track opc.valor) {
@@ -750,10 +801,32 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     .badge-iva-10 { background: #e0f2fe; color: #0369a1; font-weight: 600; }
     .badge-iva-5 { background: #fef9c3; color: #854d0e; font-weight: 600; }
     .badge-iva-exenta { background: #f1f5f9; color: #475569; font-weight: 600; }
+    .barcode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.375rem;
+      background: #f1f5f9;
+      color: #334155;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 0.75rem;
+      border: 1px solid #e2e8f0;
+    }
+    .supplier-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.8125rem;
+      color: var(--text-main, #334155);
+      font-weight: 500;
+    }
   `]
 })
 export class CatalogosComponent implements OnInit {
   public readonly catalogosService = inject(CatalogosService);
+  public readonly proveedoresService = inject(ProveedoresService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
 
@@ -793,6 +866,7 @@ export class CatalogosComponent implements OnInit {
     this.catalogosService.cargarPresentaciones();
     this.catalogosService.cargarToppings();
     this.catalogosService.cargarProductosSimples();
+    this.proveedoresService.cargarProveedores();
   }
 
   // Sabor CRUD
@@ -975,7 +1049,9 @@ export class CatalogosComponent implements OnInit {
       stock: 30,
       stockMinimo: 5,
       activo: true,
-      tipoIva: 'IVA_10'
+      tipoIva: 'IVA_10',
+      codigoBarra: '',
+      proveedorId: null
     };
   }
 
@@ -984,7 +1060,9 @@ export class CatalogosComponent implements OnInit {
       this.productoEditando = prod;
       this.productoForm = {
         ...prod,
-        tipoIva: prod.tipoIva || 'IVA_10'
+        tipoIva: prod.tipoIva || 'IVA_10',
+        codigoBarra: prod.codigoBarra || '',
+        proveedorId: prod.proveedor?.id || prod.proveedorId || null
       };
     } else {
       this.productoEditando = null;
@@ -999,9 +1077,14 @@ export class CatalogosComponent implements OnInit {
       return;
     }
     this.guardandoItem.set(true);
+    const payload: Partial<ProductoSimple> = {
+      ...this.productoForm,
+      codigoBarra: this.productoForm.codigoBarra?.trim() || null,
+      proveedorId: this.productoForm.proveedorId || null
+    };
     const op$ = this.productoEditando?.id
-      ? this.catalogosService.actualizarProductoSimple(this.productoEditando.id, this.productoForm)
-      : this.catalogosService.crearProductoSimple(this.productoForm);
+      ? this.catalogosService.actualizarProductoSimple(this.productoEditando.id, payload)
+      : this.catalogosService.crearProductoSimple(payload);
 
     op$.subscribe({
       next: () => {

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, Observable, tap, catchError, of } from 'rxjs';
+import { forkJoin, Observable, tap, catchError, of, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Sabor } from '../models/sabor.model';
 import { Presentacion } from '../models/presentacion.model';
@@ -223,6 +223,36 @@ export class PosService {
       this.ticketItems.update(list => [...list, nuevoItem]);
       this.toast.success(`Agregado: ${producto.nombre}`);
     }
+  }
+
+  agregarPorCodigoBarra(codigo: string): Observable<boolean> {
+    if (!codigo || codigo.trim().length === 0) {
+      return of(false);
+    }
+    const codLimpio = codigo.trim();
+    const encontradoLocal = this.productosSimplesActivos().find(
+      p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === codLimpio.toLowerCase()
+    );
+
+    if (encontradoLocal) {
+      this.agregarProductoSimple(encontradoLocal, 1);
+      return of(true);
+    }
+
+    return this.http.get<ProductoSimple>(`${this.apiUrl}/api/productos-simples/codigo-barra/${encodeURIComponent(codLimpio)}`).pipe(
+      tap((prod) => {
+        if (prod && prod.activo) {
+          this.agregarProductoSimple(prod, 1);
+        } else if (prod && !prod.activo) {
+          this.toast.warning(`El producto "${prod.nombre}" está marcado como inactivo.`);
+        }
+      }),
+      map(() => true),
+      catchError(() => {
+        this.toast.warning(`No se encontró ningún producto con el código de barra "${codLimpio}".`);
+        return of(false);
+      })
+    );
   }
 
   // --- Gestión del Ticket ---

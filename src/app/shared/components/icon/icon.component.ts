@@ -267,6 +267,29 @@ import { Component, input } from '@angular/core';
         @case ('minimize') {
           <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
         }
+        @case ('truck') {
+          <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+          <path d="M15 18H9"/>
+          <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
+          <circle cx="17" cy="18" r="2"/>
+          <circle cx="7" cy="18" r="2"/>
+        }
+        @case ('barcode') {
+          <path d="M3 5v14"/>
+          <path d="M8 5v14"/>
+          <path d="M12 5v14"/>
+          <path d="M17 5v14"/>
+          <path d="M21 5v14"/>
+        }
+        @case ('scan-barcode') {
+          <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+          <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+          <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <path d="M7 8v8"/>
+          <path d="M12 8v8"/>
+          <path d="M17 8v8"/>
+        }
         @default {
           <circle cx="12" cy="12" r="10"/>
         }
