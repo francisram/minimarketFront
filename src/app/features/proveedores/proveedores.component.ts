@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProveedoresService } from '../../core/services/proveedores.service';
-import { CatalogosService } from '../../core/services/catalogos.service';
+import { ProductosService } from '../../core/services/productos.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Proveedor, ProveedorRequest } from '../../core/models/proveedor.model';
+import { Producto, ProveedorVinculado, TipoArticulo } from '../../core/models/producto.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
@@ -277,7 +278,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       <!-- MODAL DETALLE DE PRODUCTOS DEL PROVEEDOR -->
       <app-modal
         [isOpen]="modalProductosAbierto()"
-        [title]="'Productos suministrados: ' + (proveedorSeleccionado()?.razonSocial || '')"
+        [title]="'Artículos suministrados: ' + (proveedorSeleccionado()?.razonSocial || '')"
         size="lg"
         (close)="cerrarModalProductos()"
       >
@@ -294,18 +295,18 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <span class="text-muted">Teléfono:</span> <strong>{{ prov.telefono || '—' }}</strong>
               </div>
               <div class="info-pill">
-                <span class="text-muted">Total:</span> <strong>{{ productosDelProveedor().length }} productos</strong>
+                <span class="text-muted">Total:</span> <strong>{{ productosDelProveedor().length }} artículos vinculados</strong>
               </div>
             </div>
 
             @if (productosDelProveedor().length === 0) {
               <div class="empty-products-state">
                 <app-icon name="package" [size]="40" />
-                <h4 class="mt-2">Sin productos asociados</h4>
-                <p class="text-muted text-sm">Este proveedor aún no tiene productos vinculados en el catálogo.</p>
+                <h4 class="mt-2">Sin artículos vinculados</h4>
+                <p class="text-muted text-sm">Este proveedor aún no tiene productos, envases, sabores o insumos asociados en el catálogo maestro.</p>
                 <button type="button" class="btn btn-sm btn-primary mt-2" (click)="irACrearProductoConProveedor(prov.id)">
                   <app-icon name="plus" [size]="14" />
-                  <span>Vincular en Catálogo</span>
+                  <span>Vincular en Catálogo Maestro</span>
                 </button>
               </div>
             } @else {
@@ -313,18 +314,31 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <table class="data-table table-sm">
                   <thead>
                     <tr>
-                      <th>Producto</th>
-                      <th>Código de Barra</th>
-                      <th>Categoría</th>
-                      <th>Precio</th>
+                      <th>Artículo</th>
+                      <th>Tipo</th>
+                      <th>Cód. Barra</th>
+                      <th>Costo Compra</th>
+                      <th>Precio Venta</th>
+                      <th>Relación</th>
                       <th>Stock Actual</th>
                       <th>Estado</th>
                     </tr>
                   </thead>
                   <tbody>
                     @for (prod of productosDelProveedor(); track prod.id) {
+                      @let v = obtenerDatosVinculo(prod, prov.id);
                       <tr>
-                        <td><strong>{{ prod.nombre }}</strong></td>
+                        <td>
+                          <strong>{{ prod.nombre }}</strong>
+                          @if (prod.sku) {
+                            <span class="text-muted text-xs ms-1">({{ prod.sku }})</span>
+                          }
+                        </td>
+                        <td>
+                          <span class="badge" [ngClass]="obtenerClaseTipoArticulo(prod.tipoArticulo)">
+                            {{ obtenerTextoTipoArticulo(prod.tipoArticulo) }}
+                          </span>
+                        </td>
                         <td>
                           @if (prod.codigoBarra) {
                             <span class="barcode-badge">
@@ -335,11 +349,26 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                             <span class="text-muted">—</span>
                           }
                         </td>
-                        <td><span class="category-chip">{{ prod.categoria || 'BEBIDAS' }}</span></td>
-                        <td class="text-primary font-bold">{{ prod.precio | appCurrency }}</td>
+                        <td class="font-bold text-muted">
+                          {{ v?.costoCompra ? (v?.costoCompra | appCurrency) : '—' }}
+                        </td>
+                        <td class="text-primary font-bold">
+                          {{ prod.precioVenta | appCurrency }}
+                        </td>
+                        <td>
+                          @if (v?.esPrincipal) {
+                            <span class="badge badge-principal" title="Proveedor Principal para este artículo">
+                              ⭐ Principal
+                            </span>
+                          } @else {
+                            <span class="badge badge-secundario" title="Proveedor Secundario o Alternativo">
+                              Alternativo
+                            </span>
+                          }
+                        </td>
                         <td>
                           <span class="font-bold" [class.text-danger]="prod.stock <= 0">
-                            {{ prod.stock }} unid.
+                            {{ prod.stock }} {{ prod.unidadMedida ? prod.unidadMedida.toLowerCase() : 'unid' }}
                           </span>
                         </td>
                         <td>
@@ -362,7 +391,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           @if (proveedorSeleccionado(); as prov) {
             <button type="button" class="btn btn-primary" (click)="irACatalogoFiltrado(prov.id)">
               <app-icon name="external-link" [size]="14" />
-              <span>Ver en Catálogo de Productos</span>
+              <span>Ver en Catálogo Maestro</span>
             </button>
           }
         </div>
@@ -805,6 +834,24 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       color: #475569;
     }
 
+    .badge-principal {
+      background: #fef3c7;
+      color: #b45309;
+      font-weight: 700;
+    }
+    .badge-secundario {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .badge-tipo-directa { background: #e0f2fe; color: #0369a1; }
+    .badge-tipo-envase { background: #fce7f3; color: #be185d; }
+    .badge-tipo-sabor { background: #fef08a; color: #854d0e; }
+    .badge-tipo-topping { background: #ede9fe; color: #6d28d9; }
+    .badge-tipo-insumo { background: #dcfce7; color: #15803d; }
+    .badge-tipo-default { background: #f1f5f9; color: #475569; }
+    .text-xs { font-size: 0.75rem; }
+    .ms-1 { margin-left: 0.25rem; }
+
     .text-primary { color: var(--primary, #0284c7); }
     .font-bold { font-weight: 700; }
     .text-sm { font-size: 0.8125rem; }
@@ -815,7 +862,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 })
 export class ProveedoresComponent implements OnInit {
   protected readonly proveedoresService = inject(ProveedoresService);
-  protected readonly catalogosService = inject(CatalogosService);
+  protected readonly productosService = inject(ProductosService);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
@@ -832,8 +879,8 @@ export class ProveedoresComponent implements OnInit {
   productosDelProveedor = computed(() => {
     const prov = this.proveedorSeleccionado();
     if (!prov) return [];
-    return this.catalogosService.productosSimples().filter(
-      p => p.proveedor?.id === prov.id || p.proveedorId === prov.id
+    return this.productosService.productos().filter(
+      p => p.proveedores && p.proveedores.some(pv => pv.proveedorId === prov.id)
     );
   });
 
@@ -846,13 +893,39 @@ export class ProveedoresComponent implements OnInit {
   ngOnInit(): void {
     this.initForm();
     this.proveedoresService.cargarProveedores();
-    this.catalogosService.cargarProductosSimples();
+    this.productosService.cargarProductos();
   }
 
   obtenerCantidadProductos(proveedorId: number): number {
-    return this.catalogosService.productosSimples()
-      .filter(p => p.proveedor?.id === proveedorId || p.proveedorId === proveedorId)
+    return this.productosService.productos()
+      .filter(p => p.proveedores && p.proveedores.some(pv => pv.proveedorId === proveedorId))
       .length;
+  }
+
+  obtenerDatosVinculo(prod: Producto, provId: number): ProveedorVinculado | undefined {
+    return prod.proveedores?.find(pv => pv.proveedorId === provId);
+  }
+
+  obtenerTextoTipoArticulo(tipo?: TipoArticulo): string {
+    switch (tipo) {
+      case 'VENTA_DIRECTA': return 'Venta Directa';
+      case 'ENVASE': return 'Envase';
+      case 'SABOR': return 'Sabor';
+      case 'TOPPING': return 'Topping';
+      case 'INSUMO': return 'Insumo';
+      default: return tipo || 'Artículo';
+    }
+  }
+
+  obtenerClaseTipoArticulo(tipo?: TipoArticulo): string {
+    switch (tipo) {
+      case 'VENTA_DIRECTA': return 'badge-tipo-directa';
+      case 'ENVASE': return 'badge-tipo-envase';
+      case 'SABOR': return 'badge-tipo-sabor';
+      case 'TOPPING': return 'badge-tipo-topping';
+      case 'INSUMO': return 'badge-tipo-insumo';
+      default: return 'badge-tipo-default';
+    }
   }
 
   verProductosProveedor(proveedor: Proveedor): void {
@@ -867,12 +940,12 @@ export class ProveedoresComponent implements OnInit {
 
   irACatalogoFiltrado(proveedorId: number): void {
     this.cerrarModalProductos();
-    this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId } });
+    this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId, tab: 'maestro' } });
   }
 
   irACrearProductoConProveedor(proveedorId: number): void {
     this.cerrarModalProductos();
-    this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId } });
+    this.router.navigate(['/catalogos/productos'], { queryParams: { proveedorId, tab: 'maestro', accion: 'crear' } });
   }
 
   private initForm(): void {
