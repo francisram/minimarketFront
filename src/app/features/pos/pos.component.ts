@@ -20,6 +20,20 @@ import { Cliente } from '../../core/models/cliente.model';
 import { Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 
+export interface ItemCatalogoPOS {
+  idUnico: string;
+  tipo: 'HELADO' | 'PRODUCTO';
+  nombre: string;
+  categoria: string;
+  precio: number;
+  stock?: number;
+  stockMinimo?: number;
+  codigoBarra?: string | null;
+  detalles?: string;
+  icon: string;
+  rawItem: Presentacion | ProductoSimple;
+}
+
 @Component({
   selector: 'app-pos',
   standalone: true,
@@ -64,311 +78,150 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
           </div>
         }
 
-        <!-- BARRA SUPERIOR: PESTAÑAS Y ESCÁNER RÁPIDO DE CÓDIGO DE BARRAS -->
-        <div class="pos-top-bar">
-          <div class="pos-tabs">
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'HELADOS'" 
-              (click)="tabActiva.set('HELADOS')"
-            >
-              <app-icon name="ice-cream" [size]="20" />
-              <span>Helados Artesanales</span>
-            </button>
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'PRODUCTOS'" 
-              (click)="tabActiva.set('PRODUCTOS')"
-            >
-              <app-icon name="coffee" [size]="20" />
-              <span>Bebidas y Cafetería</span>
-              <span class="tab-badge">{{ posService.productosSimplesActivos().length }}</span>
-            </button>
-          </div>
+        <!-- BARRA DE CATEGORÍAS Y BÚSQUEDA / ESCÁNER -->
+        <div class="pos-catalog-header">
+          <!-- SELECTOR DE CATEGORÍA (DROPDOWN + BUSCADOR / ESCÁNER) -->
+          <div class="category-selection-row">
+            <div class="category-dropdown-group">
+              <label for="posCategoriaSelect" class="category-select-label">
+                <app-icon name="filter" [size]="16" />
+                <span>Categoría:</span>
+              </label>
+              <select
+                id="posCategoriaSelect"
+                class="form-select category-select"
+                [ngModel]="categoriaSeleccionada()"
+                (ngModelChange)="seleccionarCategoria($event)"
+              >
+                @for (cat of categoriasDisponibles(); track cat.id) {
+                  <option [value]="cat.id">
+                    {{ cat.nombre }} ({{ cat.count }})
+                  </option>
+                }
+              </select>
+            </div>
 
-          <!-- ESCÁNER RÁPIDO DE CÓDIGO DE BARRA (LECTOR / PISTOLA USB) -->
-          <div class="scanner-bar-container">
-            <div class="scanner-box">
-              <app-icon name="scan-barcode" [size]="18" extraClass="scanner-icon" />
+            <!-- ESCÁNER RÁPIDO Y BÚSQUEDA POR TEXTO O CÓDIGO DE BARRAS -->
+            <div class="search-scanner-box">
+              <app-icon name="search" [size]="18" extraClass="search-icon" />
               <input
                 type="text"
-                class="scanner-input"
-                placeholder="Escanear código de barra [Enter]..."
-                [(ngModel)]="codigoBarraInput"
-                (keydown.enter)="procesarEscaneoCodigoBarra($event)"
+                class="search-scanner-input"
+                placeholder="Buscar producto o escanear código de barra [Enter]..."
+                [(ngModel)]="busquedaTermino"
+                (keydown.enter)="onBuscarOEnter($event)"
               />
-              @if (codigoBarraInput) {
-                <button type="button" class="btn-clear-barcode" (click)="codigoBarraInput = ''">
+              @if (busquedaTermino) {
+                <button type="button" class="btn-clear-search" (click)="busquedaTermino = ''">
                   <app-icon name="x" [size]="14" />
                 </button>
               }
             </div>
           </div>
+
+          <!-- BOTONES CHIPS / TABS RÁPIDAS DE CATEGORÍA -->
+          <div class="category-chips-bar">
+            @for (cat of categoriasDisponibles(); track cat.id) {
+              <button
+                type="button"
+                class="category-chip-btn"
+                [class.active]="categoriaSeleccionada() === cat.id"
+                (click)="seleccionarCategoria(cat.id)"
+              >
+                <app-icon [name]="cat.icon" [size]="16" />
+                <span>{{ cat.nombre }}</span>
+                <span class="chip-count">{{ cat.count }}</span>
+              </button>
+            }
+          </div>
         </div>
 
-        <!-- ==================== VISTA 1: ARMADO DE HELADOS ==================== -->
-        @if (tabActiva() === 'HELADOS') {
-          <div class="builder-container">
-            <!-- PASO 1: SELECCIONAR PRESENTACIÓN -->
-            <section class="builder-section">
-              <div class="section-header">
-                <span class="step-badge">1</span>
-                <div>
-                  <h2 class="section-title">Elige el Tamaño / Envase</h2>
-                  <p class="section-desc">Selecciona la presentación para habilitar los sabores permitidos</p>
-                </div>
-              </div>
-
-              <div class="presentaciones-grid">
-                @for (pres of posService.presentacionesActivas(); track pres.id) {
-                  <div
-                    class="presentacion-card"
-                    [class.selected]="posService.selectedPresentacion()?.id === pres.id"
-                    [class.out-of-stock]="pres.stock !== undefined && pres.stock <= 0"
-                    (click)="posService.seleccionarPresentacion(pres)"
-                  >
-                    <div class="pres-icon">
-                      <app-icon name="cup-soda" [size]="24" />
-                    </div>
-                    <div class="pres-info">
-                      <div class="pres-name">{{ pres.nombre }}</div>
-                      <div class="pres-features">
-                        <span class="feature-tag">Hasta {{ pres.maxSabores }} sabores</span>
-                        @if (pres.pesoGramosAprox) {
-                          <span class="feature-tag">~{{ pres.pesoGramosAprox }}g</span>
-                        }
-                        @if (pres.stock !== undefined) {
-                          @if (pres.stock <= 0) {
-                            <span class="badge badge-cancelado">Sin envases</span>
-                          } @else if (pres.stockMinimo !== undefined && pres.stock <= pres.stockMinimo) {
-                            <span class="badge badge-warning" title="Pocos envases en stock">Pocos envases ({{ pres.stock }})</span>
-                          } @else {
-                            <span class="feature-tag">{{ pres.stock }} disp.</span>
-                          }
-                        }
-                      </div>
-                    </div>
-                    <div class="pres-price">{{ pres.precio | appCurrency }}</div>
-                  </div>
-                }
-              </div>
-            </section>
-
-            <!-- PASO 2: SELECCIONAR SABORES -->
-            <section class="builder-section" [class.disabled-section]="!posService.selectedPresentacion()">
-              <div class="section-header space-between">
-                <div class="d-flex align-center gap-2">
-                  <span class="step-badge">2</span>
-                  <div>
-                    <h2 class="section-title">Selecciona los Sabores</h2>
-                    <p class="section-desc">
-                      @if (posService.selectedPresentacion()) {
-                        Permite hasta {{ posService.maxSaboresPermitidos() }} sabor(es)
-                      } @else {
-                        Selecciona un envase arriba para habilitar sabores
-                      }
-                    </p>
-                  </div>
-                </div>
-
-                @if (posService.selectedPresentacion()) {
-                  <div class="flavor-counter" [class.counter-full]="!posService.puedeAgregarMasSabores()">
-                    <span class="counter-label">Seleccionados:</span>
-                    <strong class="counter-val">
-                      {{ posService.cantidadSaboresSeleccionados() }} / {{ posService.maxSaboresPermitidos() }}
-                    </strong>
-                  </div>
-                }
-              </div>
-
-              <!-- FILTROS POR CATEGORÍA -->
-              <div class="categoria-filters">
-                <button
-                  type="button"
-                  class="filter-chip"
-                  [class.active]="filtroCategoria() === 'TODOS'"
-                  (click)="filtroCategoria.set('TODOS')"
-                >
-                  Todos
-                </button>
-                <button
-                  type="button"
-                  class="filter-chip"
-                  [class.active]="filtroCategoria() === 'DULCE_DE_LECHE'"
-                  (click)="filtroCategoria.set('DULCE_DE_LECHE')"
-                >
-                  Dulce de Leche
-                </button>
-                <button
-                  type="button"
-                  class="filter-chip"
-                  [class.active]="filtroCategoria() === 'CHOCOLATE'"
-                  (click)="filtroCategoria.set('CHOCOLATE')"
-                >
-                  Chocolates
-                </button>
-                <button
-                  type="button"
-                  class="filter-chip"
-                  [class.active]="filtroCategoria() === 'FRUTAL'"
-                  (click)="filtroCategoria.set('FRUTAL')"
-                >
-                  Frutales
-                </button>
-                <button
-                  type="button"
-                  class="filter-chip"
-                  [class.active]="filtroCategoria() === 'CREMA'"
-                  (click)="filtroCategoria.set('CREMA')"
-                >
-                  Cremas
-                </button>
-              </div>
-
-              <!-- GRID DE SABORES -->
-              <div class="sabores-grid">
-                @for (sabor of saboresFiltrados(); track sabor.id) {
-                  <div
-                    class="sabor-card"
-                    [class.selected]="esSaborSeleccionado(sabor)"
-                    [class.unavailable]="!sabor.disponible || (sabor.stockKilos !== undefined && sabor.stockKilos <= 0)"
-                    (click)="onSaborClick(sabor)"
-                  >
-                    <div class="sabor-top">
-                      <span class="sabor-name">{{ sabor.nombre }}</span>
-                      @if (esSaborSeleccionado(sabor)) {
-                        <span class="check-indicator">
-                          <app-icon name="check" [size]="14" />
-                        </span>
-                      }
-                    </div>
-
-                    <!-- CHIPS DIETARIOS Y ALERTA DE STOCK DE HELADO -->
-                    <div class="diet-badges">
-                      @if (sabor.aptoCeliaco) {
-                        <span class="badge badge-celiaco" title="Apto para Celíacos (Sin TACC)">Sin TACC</span>
-                      }
-                      @if (sabor.esVegano) {
-                        <span class="badge badge-vegano" title="Apto Vegano">Vegano</span>
-                      }
-                      @if (sabor.sinAzucar) {
-                        <span class="badge badge-sinazucar" title="Sin Azúcar Agregada">Sin Azúcar</span>
-                      }
-                      @if (!sabor.disponible || (sabor.stockKilos !== undefined && sabor.stockKilos <= 0)) {
-                        <span class="badge badge-danger">Agotado</span>
-                      } @else if (sabor.stockKilos !== undefined && sabor.stockMinimoKilos !== undefined && sabor.stockKilos <= sabor.stockMinimoKilos) {
-                        <span class="badge badge-warning" title="Poco helado en bacha">Quedan {{ sabor.stockKilos }} kg</span>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </section>
-
-            <!-- PASO 3: TOPPINGS Y BOTÓN AGREGAR -->
-            <section class="builder-section" [class.disabled-section]="!posService.selectedPresentacion()">
-              <div class="section-header">
-                <span class="step-badge">3</span>
-                <div>
-                  <h2 class="section-title">Toppings y Agregados (Opcional)</h2>
-                  <p class="section-desc">Salsas, praliné, confites y adicionales</p>
-                </div>
-              </div>
-
-              <div class="toppings-list">
-                @for (topping of posService.toppingsDisponibles(); track topping.id) {
-                  <div
-                    class="topping-card"
-                    [class.selected]="esToppingSeleccionado(topping)"
-                    (click)="posService.toggleTopping(topping)"
-                  >
-                    <div class="d-flex align-center gap-2">
-                      <app-icon [name]="esToppingSeleccionado(topping) ? 'check' : 'plus'" [size]="16" />
-                      <span class="topping-name">{{ topping.nombre }}</span>
-                    </div>
-                    <span class="topping-price">+ {{ topping.precioExtra | appCurrency }}</span>
-                  </div>
-                }
-              </div>
-
-              <!-- BOTÓN FINALIZAR ARMADO DE HELADO -->
-              <div class="builder-submit-bar">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  (click)="posService.resetArmadoHelado()"
-                  [disabled]="!posService.selectedPresentacion()"
-                >
-                  Limpiar Selección
-                </button>
-
-                <button
-                  type="button"
-                  class="btn btn-primary btn-lg"
-                  (click)="agregarHelado()"
-                  [disabled]="!posService.selectedPresentacion() || posService.cantidadSaboresSeleccionados() === 0"
-                >
-                  <app-icon name="plus" [size]="20" />
-                  <span>Agregar al Ticket</span>
-                </button>
-              </div>
-            </section>
-          </div>
-        }
-
-        <!-- ==================== VISTA 2: PRODUCTOS SIMPLES ==================== -->
-        @if (tabActiva() === 'PRODUCTOS') {
-          <div class="simple-products-container">
-            <div class="search-bar">
-              <app-icon name="search" [size]="18" />
-              <input
-                type="text"
-                placeholder="Buscar bebidas, café, postres o código de barra..."
-                [(ngModel)]="busquedaProducto"
-                (keydown.enter)="onBuscarProductoEnter()"
-                class="search-input"
-              />
+        <!-- GRILLA UNIFICADA DE PRODUCTOS -->
+        <div class="catalog-container">
+          @if (posService.cargandoCatalogos()) {
+            <div class="catalog-loading">
+              <app-icon name="refresh" [size]="28" extraClass="spin-icon" />
+              <span>Cargando catálogo de productos...</span>
             </div>
-
-            <div class="productos-grid">
-              @for (prod of productosFiltrados(); track prod.id) {
-                <div 
-                  class="producto-card" 
-                  [class.out-of-stock]="prod.stock <= 0"
-                  (click)="agregarProducto(prod)"
+          } @else if (itemsCatalogoFiltrados().length === 0) {
+            <div class="catalog-empty">
+              <div class="empty-icon-circle">
+                <app-icon name="package" [size]="36" />
+              </div>
+              <h3>No se encontraron productos</h3>
+              <p class="text-muted">
+                No hay artículos disponibles para la categoría seleccionada
+                @if (busquedaTermino.trim()) {
+                  con el término "{{ busquedaTermino }}"
+                }.
+              </p>
+              @if (categoriaSeleccionada() !== 'TODOS' || busquedaTermino.trim()) {
+                <button type="button" class="btn btn-secondary btn-sm" (click)="resetFiltros()">
+                  Ver Todos los Productos
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="catalog-grid">
+              @for (item of itemsCatalogoFiltrados(); track item.idUnico) {
+                <div
+                  class="catalog-card"
+                  [class.out-of-stock]="item.stock !== undefined && item.stock <= 0"
+                  (click)="agregarItemAlTicket(item)"
                 >
-                  <div class="prod-badge-stock" [class.low-stock]="prod.stock > 0 && prod.stock <= 5">
-                    {{ prod.stock > 0 ? (prod.stock + ' disp.') : 'Sin stock' }}
+                  <!-- BADGE STOCK SUPERIOR -->
+                  <div class="card-badges-top">
+                    <span class="badge-cat">{{ item.categoria }}</span>
+                    @if (item.stock !== undefined) {
+                      @if (item.stock <= 0) {
+                        <span class="badge-stock-empty">Sin stock</span>
+                      } @else if (item.stockMinimo !== undefined && item.stock <= item.stockMinimo) {
+                        <span class="badge-stock-low">Poco stock ({{ item.stock }})</span>
+                      } @else {
+                        <span class="badge-stock-ok">{{ item.stock }} disp.</span>
+                      }
+                    }
                   </div>
-                  <div class="prod-icon-box">
-                    <app-icon name="coffee" [size]="32" />
+
+                  <!-- ICONO PRINCIPAL DEL PRODUCTO -->
+                  <div class="card-icon-wrapper" [class.icon-helado]="item.tipo === 'HELADO'">
+                    <app-icon [name]="item.icon" [size]="32" />
                   </div>
-                  <div class="prod-details">
-                    <div class="prod-name">{{ prod.nombre }}</div>
-                    @if (prod.codigoBarra) {
-                      <div class="prod-barcode-badge">
+
+                  <!-- DETALLES DEL PRODUCTO -->
+                  <div class="card-body">
+                    <h4 class="card-title" [title]="item.nombre">{{ item.nombre }}</h4>
+                    
+                    @if (item.detalles) {
+                      <div class="card-detail-text">{{ item.detalles }}</div>
+                    }
+
+                    @if (item.codigoBarra) {
+                      <div class="card-barcode-tag">
                         <app-icon name="barcode" [size]="12" />
-                        <span>{{ prod.codigoBarra }}</span>
+                        <span>{{ item.codigoBarra }}</span>
                       </div>
                     }
-                    <div class="prod-price">{{ prod.precio | appCurrency }}</div>
                   </div>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline prod-add-btn"
-                    [disabled]="prod.stock <= 0"
-                    (click)="$event.stopPropagation(); agregarProducto(prod)"
-                  >
-                    <app-icon name="plus" [size]="16" />
-                    <span>Agregar</span>
-                  </button>
+
+                  <!-- PRECIO Y BOTÓN ACCIÓN -->
+                  <div class="card-footer">
+                    <div class="card-price">{{ item.precio | appCurrency }}</div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-primary card-add-btn"
+                      [disabled]="item.stock !== undefined && item.stock <= 0"
+                      (click)="$event.stopPropagation(); agregarItemAlTicket(item)"
+                    >
+                      <app-icon name="plus" [size]="15" />
+                      <span>Agregar</span>
+                    </button>
+                  </div>
                 </div>
               }
             </div>
-          </div>
-        }
+          }
+        </div>
       </div>
 
       <!-- PANEL DERECHO: TICKET EN TIEMPO REAL -->
@@ -412,10 +265,12 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
                   </div>
 
                   @if (item.tipoItem === 'HELADO') {
-                    <div class="item-flavors">
-                      <strong>Sabores:</strong> {{ obtenerNombresSabores(item.sabores) }}
-                    </div>
-                    @if (item.toppings.length > 0) {
+                    @if (item.sabores && item.sabores.length > 0) {
+                      <div class="item-flavors">
+                        <strong>Sabores:</strong> {{ obtenerNombresSabores(item.sabores) }}
+                      </div>
+                    }
+                    @if (item.toppings && item.toppings.length > 0) {
                       <div class="item-toppings">
                         <strong>Toppings:</strong> {{ obtenerNombresToppings(item.toppings) }}
                       </div>
@@ -1038,60 +893,97 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       align-items: start;
     }
 
-    /* PESTAÑAS SUPERIORES Y ESCÁNER RÁPIDO */
-    .pos-top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
+    /* CABECERA DE CATÁLOGO Y FILTROS */
+    .pos-catalog-header {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
       margin-bottom: 1.25rem;
-      flex-wrap: wrap;
+      box-shadow: var(--shadow-sm);
     }
 
-    .pos-tabs {
+    .category-selection-row {
       display: flex;
-      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.875rem;
     }
 
-    .scanner-bar-container {
+    .category-dropdown-group {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 280px;
       flex: 1;
-      max-width: 380px;
-      min-width: 260px;
     }
 
-    .scanner-box {
+    .category-select-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .category-select {
+      flex: 1;
+      padding: 0.6rem 0.85rem;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border-color);
+      background-color: var(--bg-subtle);
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text-main);
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .category-select:focus, .category-select:hover {
+      border-color: var(--primary);
+      background-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+    }
+
+    .search-scanner-box {
       position: relative;
       display: flex;
       align-items: center;
-      width: 100%;
+      min-width: 320px;
+      flex: 1.2;
     }
 
-    .scanner-icon {
+    .search-icon {
       position: absolute;
-      left: 0.75rem;
-      color: #0284c7;
+      left: 0.85rem;
+      color: #64748b;
       pointer-events: none;
     }
 
-    .scanner-input {
+    .search-scanner-input {
       width: 100%;
-      padding: 0.65rem 2rem 0.65rem 2.4rem;
-      border-radius: var(--radius-lg);
-      border: 1.5px solid #0284c7;
-      background: #f0f9ff;
+      padding: 0.6rem 2.2rem 0.6rem 2.5rem;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border-color);
+      background: var(--bg-subtle);
       font-size: 0.875rem;
-      font-weight: 500;
-      color: #0f172a;
+      color: var(--text-main);
       outline: none;
       transition: all 0.2s;
     }
 
-    .scanner-input:focus {
+    .search-scanner-input:focus {
       background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
     }
 
-    .btn-clear-barcode {
+    .btn-clear-search {
       position: absolute;
       right: 0.5rem;
       background: none;
@@ -1103,417 +995,240 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       padding: 0.25rem;
     }
 
-    .btn-clear-barcode:hover {
+    .btn-clear-search:hover {
       color: #0f172a;
     }
 
-    .tab-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.25rem;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      font-weight: 600;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .tab-btn:hover {
-      background: var(--bg-subtle);
-      color: var(--text-main);
-    }
-
-    .tab-btn.active {
-      background: #0f172a;
-      color: #ffffff;
-      border-color: #0f172a;
-    }
-
-    .tab-badge {
-      background: rgba(255, 255, 255, 0.2);
-      padding: 0.1rem 0.45rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
-    }
-
-    /* ARMADOR */
-    .builder-container {
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-    }
-
-    .builder-section {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      transition: opacity 0.2s;
-    }
-
-    .disabled-section {
-      opacity: 0.5;
-      pointer-events: none;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.875rem;
-      margin-bottom: 1.125rem;
-    }
-
-    .section-header.space-between {
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .step-badge {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--primary);
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 0.875rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .section-title {
-      font-size: 1.05rem;
-      margin: 0;
-      color: var(--text-main);
-    }
-
-    .section-desc {
-      font-size: 0.8125rem;
-      color: var(--text-muted);
-      margin: 0;
-    }
-
-    .flavor-counter {
-      padding: 0.4rem 0.85rem;
-      background: var(--bg-subtle);
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      border: 1px solid var(--border-color);
-    }
-
-    .counter-full {
-      background: #fef2f2;
-      border-color: #fca5a5;
-      color: #991b1b;
-    }
-
-    .counter-label {
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .counter-val {
-      font-size: 0.9375rem;
-      font-weight: 700;
-    }
-
-    /* PRESENTACIONES GRID */
-    .presentaciones-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 0.875rem;
-    }
-
-    .presentacion-card {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 1rem;
-      border: 2px solid var(--border-color);
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      background: var(--bg-surface);
-    }
-
-    .presentacion-card:hover {
-      border-color: var(--primary);
-      background: #fffbeb;
-    }
-
-    .presentacion-card.selected {
-      border-color: var(--primary);
-      background: #fef3c7;
-      box-shadow: 0 0 0 2px var(--primary);
-    }
-
-    .pres-icon {
-      color: var(--primary);
-      margin-bottom: 0.5rem;
-    }
-
-    .pres-name {
-      font-weight: 700;
-      font-size: 0.95rem;
-      color: var(--text-main);
-      margin-bottom: 0.25rem;
-    }
-
-    .pres-features {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .feature-tag {
-      font-size: 0.72rem;
-      background: rgba(0, 0, 0, 0.05);
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      color: var(--text-muted);
-    }
-
-    .pres-price {
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: var(--primary);
-    }
-
-    /* FILTROS SABORES */
-    .categoria-filters {
+    /* BOTONES CHIPS / TABS RÁPIDAS DE CATEGORÍA */
+    .category-chips-bar {
       display: flex;
       gap: 0.5rem;
       overflow-x: auto;
-      padding-bottom: 0.5rem;
-      margin-bottom: 1rem;
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
+      scrollbar-width: thin;
     }
 
-    .filter-chip {
-      padding: 0.35rem 0.85rem;
-      font-size: 0.8125rem;
-      font-weight: 600;
+    .category-chip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.4rem 0.85rem;
       border-radius: 999px;
       border: 1px solid var(--border-color);
-      background: var(--bg-surface);
+      background: var(--bg-subtle);
       color: var(--text-muted);
+      font-size: 0.8125rem;
+      font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.15s;
+      transition: all 0.15s ease;
     }
 
-    .filter-chip.active {
-      background: var(--primary);
-      color: #ffffff;
-      border-color: var(--primary);
-    }
-
-    /* GRID SABORES */
-    .sabores-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 0.75rem;
-    }
-
-    .sabor-card {
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 0.85rem;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 90px;
-      transition: all 0.15s;
-      background: var(--bg-surface);
-    }
-
-    .sabor-card:hover:not(.unavailable) {
-      border-color: var(--border-focus);
-      background: #fafafa;
-    }
-
-    .sabor-card.selected {
-      border-color: var(--primary);
-      background: #fffbeb;
-      box-shadow: 0 0 0 1px var(--primary);
-    }
-
-    .sabor-card.unavailable {
-      opacity: 0.45;
-      cursor: not-allowed;
-      background: #f8fafc;
-    }
-
-    .sabor-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .sabor-name {
-      font-size: 0.875rem;
-      font-weight: 600;
+    .category-chip-btn:hover {
+      background: #ffffff;
+      border-color: var(--text-muted);
       color: var(--text-main);
     }
 
-    .check-indicator {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--primary);
+    .category-chip-btn.active {
+      background: #0f172a;
+      border-color: #0f172a;
       color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
     }
 
-    .diet-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem;
-    }
-
-    /* TOPPINGS */
-    .toppings-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.65rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .topping-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.65rem 0.85rem;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .topping-card:hover {
-      background: var(--bg-subtle);
-    }
-
-    .topping-card.selected {
-      border-color: var(--color-success);
-      background: #f0fdf4;
-      color: #166534;
-    }
-
-    .topping-name {
-      font-size: 0.8125rem;
-      font-weight: 600;
-    }
-
-    .topping-price {
-      font-size: 0.75rem;
+    .chip-count {
+      display: inline-block;
+      padding: 0.05rem 0.4rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: rgba(0, 0, 0, 0.08);
       font-weight: 700;
-      color: var(--primary);
     }
 
-    .builder-submit-bar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.875rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border-color);
+    .category-chip-btn.active .chip-count {
+      background: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
     }
 
-    /* PRODUCTOS SIMPLES */
-    .simple-products-container {
+    /* CONTENEDOR DEL CATÁLOGO DE PRODUCTOS */
+    .catalog-container {
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       padding: 1.25rem;
+      min-height: 480px;
     }
 
-    .search-bar {
+    .catalog-loading, .catalog-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 1rem;
+      text-align: center;
+      gap: 0.75rem;
+    }
+
+    .catalog-loading {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .empty-icon-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--bg-subtle);
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.65rem 1rem;
-      background: var(--bg-subtle);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      margin-bottom: 1.25rem;
+      justify-content: center;
+      color: #94a3b8;
+      margin-bottom: 0.5rem;
     }
 
-    .search-input {
-      border: none;
-      background: transparent;
-      outline: none;
-      width: 100%;
+    .catalog-empty h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0;
+      color: var(--text-main);
+    }
+
+    .catalog-empty p {
+      max-width: 400px;
       font-size: 0.875rem;
+      margin: 0;
     }
 
-    .productos-grid {
+    /* GRILLA DE TARJETAS DE PRODUCTOS */
+    .catalog-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
       gap: 1rem;
     }
 
-    .producto-card {
+    .catalog-card {
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
-      padding: 1.25rem 1rem;
-      text-align: center;
+      padding: 1rem;
+      background: var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       cursor: pointer;
       position: relative;
-      transition: all 0.15s;
-      background: var(--bg-surface);
+      transition: all 0.18s ease;
     }
 
-    .producto-card:hover:not(.out-of-stock) {
-      box-shadow: var(--shadow-md);
-      border-color: var(--border-focus);
+    .catalog-card:hover:not(.out-of-stock) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+      border-color: #3b82f6;
     }
 
-    .producto-card.out-of-stock {
-      opacity: 0.5;
+    .catalog-card.out-of-stock {
+      opacity: 0.55;
+      background: #fafafa;
       cursor: not-allowed;
     }
 
-    .prod-badge-stock {
-      position: absolute;
-      top: 0.65rem;
-      right: 0.65rem;
+    .card-badges-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.65rem;
+      gap: 0.5rem;
+    }
+
+    .badge-cat {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      color: #64748b;
+      background: var(--bg-subtle);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 110px;
+    }
+
+    .badge-stock-ok {
       font-size: 0.6875rem;
       font-weight: 700;
       padding: 0.15rem 0.45rem;
       border-radius: 999px;
-      background: #e2e8f0;
-      color: #475569;
+      background: #dcfce7;
+      color: #166534;
+      white-space: nowrap;
     }
 
-    .prod-badge-stock.low-stock {
+    .badge-stock-low {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
       background: #ffedd5;
       color: #9a3412;
+      white-space: nowrap;
     }
 
-    .prod-icon-box {
-      color: var(--primary);
-      margin: 0.5rem 0;
-    }
-
-    .prod-name {
+    .badge-stock-empty {
+      font-size: 0.6875rem;
       font-weight: 700;
-      font-size: 0.9375rem;
-      margin-bottom: 0.25rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: #fee2e2;
+      color: #991b1b;
+      white-space: nowrap;
     }
 
-    .prod-barcode-badge {
+    .card-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0.25rem 0 0.75rem 0;
+    }
+
+    .card-icon-wrapper.icon-helado {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .card-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 0.35rem 0;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-detail-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .card-barcode-tag {
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
@@ -1521,22 +1236,36 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
       font-size: 0.6875rem;
       font-weight: 600;
       color: #475569;
-      background: var(--bg-subtle, #f1f5f9);
+      background: var(--bg-subtle);
       padding: 0.1rem 0.35rem;
       border-radius: 4px;
-      margin-bottom: 0.4rem;
-      border: 1px solid var(--border-color, #e2e8f0);
+      border: 1px solid var(--border-color);
+      width: fit-content;
     }
 
-    .prod-price {
-      font-size: 1.1rem;
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .card-price {
+      font-size: 1.05rem;
       font-weight: 800;
-      color: var(--primary);
-      margin-bottom: 0.85rem;
+      color: var(--text-main);
+      white-space: nowrap;
     }
 
-    .prod-add-btn {
-      width: 100%;
+    .card-add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-weight: 600;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8125rem;
     }
 
     /* ASIDE: TICKET EN VIVO */
@@ -2007,10 +1736,8 @@ export class PosComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
 
-  public readonly tabActiva = signal<'HELADOS' | 'PRODUCTOS'>('HELADOS');
-  public readonly filtroCategoria = signal<string>('TODOS');
-  public busquedaProducto: string = '';
-  public codigoBarraInput: string = '';
+  public readonly categoriaSeleccionada = signal<string>('TODOS');
+  public busquedaTermino: string = '';
 
   public readonly modalCheckoutAbierto = signal<boolean>(false);
   public readonly modalAperturaRapidaAbierto = signal<boolean>(false);
@@ -2092,75 +1819,157 @@ export class PosComponent implements OnInit {
     });
   }
 
-  // Filtrado reactivo de sabores
-  public readonly saboresFiltrados = computed(() => {
-    const todos = this.posService.sabores();
-    const cat = this.filtroCategoria();
-    if (cat === 'TODOS') return todos;
-    return todos.filter(s => s.categoria === cat);
+  // Categorías disponibles unificadas (Helados + Categorías de Productos Simples)
+  public readonly categoriasDisponibles = computed<{ id: string; nombre: string; icon: string; count: number }[]>(() => {
+    const list: { id: string; nombre: string; icon: string; count: number }[] = [];
+    const presentaciones = this.posService.presentacionesActivas();
+    const productos = this.posService.productosSimplesActivos();
+
+    list.push({
+      id: 'TODOS',
+      nombre: 'Todas las Categorías',
+      icon: 'filter',
+      count: presentaciones.length + productos.length
+    });
+
+    if (presentaciones.length > 0) {
+      list.push({
+        id: 'HELADOS',
+        nombre: 'Helados & Envases',
+        icon: 'ice-cream',
+        count: presentaciones.length
+      });
+    }
+
+    const mapCategorias = new Map<string, number>();
+    for (const prod of productos) {
+      const cat = (prod.categoria && prod.categoria.trim()) ? prod.categoria.trim() : 'General';
+      mapCategorias.set(cat, (mapCategorias.get(cat) || 0) + 1);
+    }
+
+    const catsSorted = Array.from(mapCategorias.keys()).sort((a, b) => a.localeCompare(b));
+    for (const cat of catsSorted) {
+      list.push({
+        id: cat,
+        nombre: cat,
+        icon: this.obtenerIconoCategoria(cat),
+        count: mapCategorias.get(cat) || 0
+      });
+    }
+
+    return list;
   });
 
-  // Filtrado de productos simples (por nombre o código de barra)
-  public productosFiltrados(): ProductoSimple[] {
-    const prods = this.posService.productosSimplesActivos();
-    if (!this.busquedaProducto.trim()) return prods;
-    const term = this.busquedaProducto.toLowerCase();
-    return prods.filter(p =>
-      p.nombre.toLowerCase().includes(term) ||
-      (p.codigoBarra && p.codigoBarra.toLowerCase().includes(term))
+  // Catálogo unificado filtrado por categoría y término de búsqueda
+  public readonly itemsCatalogoFiltrados = computed<ItemCatalogoPOS[]>(() => {
+    const cat = this.categoriaSeleccionada();
+    const query = this.busquedaTermino.trim().toLowerCase();
+    const resultado: ItemCatalogoPOS[] = [];
+
+    // Presentaciones de helado
+    if (cat === 'TODOS' || cat === 'HELADOS') {
+      for (const pres of this.posService.presentacionesActivas()) {
+        resultado.push({
+          idUnico: `pres_${pres.id}`,
+          tipo: 'HELADO',
+          nombre: pres.nombre,
+          categoria: 'Helados',
+          precio: pres.precio,
+          stock: pres.stock,
+          stockMinimo: pres.stockMinimo,
+          detalles: pres.pesoGramosAprox ? `~${pres.pesoGramosAprox}g` : undefined,
+          icon: 'ice-cream',
+          rawItem: pres
+        });
+      }
+    }
+
+    // Productos simples
+    const productos = this.posService.productosSimplesActivos();
+    for (const prod of productos) {
+      const prodCat = (prod.categoria && prod.categoria.trim()) ? prod.categoria.trim() : 'General';
+      if (cat === 'TODOS' || cat === prodCat) {
+        resultado.push({
+          idUnico: `prod_${prod.id}`,
+          tipo: 'PRODUCTO',
+          nombre: prod.nombre,
+          categoria: prodCat,
+          precio: prod.precio,
+          stock: prod.stock,
+          stockMinimo: prod.stockMinimo,
+          codigoBarra: prod.codigoBarra,
+          icon: this.obtenerIconoCategoria(prodCat),
+          rawItem: prod
+        });
+      }
+    }
+
+    if (!query) {
+      return resultado;
+    }
+
+    return resultado.filter(item =>
+      item.nombre.toLowerCase().includes(query) ||
+      item.categoria.toLowerCase().includes(query) ||
+      (item.codigoBarra && item.codigoBarra.toLowerCase().includes(query))
     );
+  });
+
+  seleccionarCategoria(catId: string): void {
+    this.categoriaSeleccionada.set(catId);
   }
 
-  // Escaneo rápido de código de barra desde la barra superior del POS
-  procesarEscaneoCodigoBarra(event?: Event): void {
-    if (event) event.preventDefault();
-    const codigo = this.codigoBarraInput.trim();
-    if (!codigo) return;
+  resetFiltros(): void {
+    this.categoriaSeleccionada.set('TODOS');
+    this.busquedaTermino = '';
+  }
 
-    this.posService.agregarPorCodigoBarra(codigo).subscribe({
+  agregarItemAlTicket(item: ItemCatalogoPOS): void {
+    if (item.tipo === 'HELADO') {
+      this.posService.agregarPresentacionDirecta(item.rawItem as Presentacion);
+    } else {
+      this.posService.agregarProductoSimple(item.rawItem as ProductoSimple);
+    }
+  }
+
+  onBuscarOEnter(event?: Event): void {
+    if (event) event.preventDefault();
+    const query = this.busquedaTermino.trim();
+    if (!query) return;
+
+    // 1. Buscar coincidencia local por código de barra en productos simples
+    const matchBarra = this.posService.productosSimplesActivos().find(
+      p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === query.toLowerCase()
+    );
+    if (matchBarra) {
+      this.posService.agregarProductoSimple(matchBarra);
+      this.busquedaTermino = '';
+      return;
+    }
+
+    // 2. Búsqueda remota por código de barra con la API
+    this.posService.agregarPorCodigoBarra(query).subscribe({
       next: (agregado) => {
         if (agregado) {
-          this.codigoBarraInput = '';
+          this.busquedaTermino = '';
+        } else {
+          // 3. Si no fue código de barra, si el filtro tiene exactamente 1 resultado, agregarlo
+          const filtrados = this.itemsCatalogoFiltrados();
+          if (filtrados.length === 1) {
+            this.agregarItemAlTicket(filtrados[0]);
+            this.busquedaTermino = '';
+          }
         }
       }
     });
   }
 
-  // Búsqueda rápida al presionar Enter en el catálogo de productos simples
-  onBuscarProductoEnter(): void {
-    const term = this.busquedaProducto.trim();
-    if (!term) return;
-
-    const matchBarra = this.posService.productosSimplesActivos().find(
-      p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === term.toLowerCase()
-    );
-    if (matchBarra) {
-      this.agregarProducto(matchBarra);
-      this.busquedaProducto = '';
-      return;
-    }
-
-    const filtrados = this.productosFiltrados();
-    if (filtrados.length === 1) {
-      this.agregarProducto(filtrados[0]);
-      this.busquedaProducto = '';
-    }
-  }
-
-  esSaborSeleccionado(sabor: Sabor): boolean {
-    return this.posService.selectedSabores().some(s => s.id === sabor.id);
-  }
-
-  esToppingSeleccionado(topping: Topping): boolean {
-    return this.posService.selectedToppings().some(t => t.id === topping.id);
-  }
-
-  onSaborClick(sabor: Sabor): void {
-    this.posService.toggleSabor(sabor);
-  }
-
-  agregarHelado(): void {
-    this.posService.agregarHeladoAlTicket();
+  obtenerIconoCategoria(categoria: string): string {
+    const cat = (categoria || '').toLowerCase();
+    if (cat.includes('helado') || cat.includes('pote') || cat.includes('cucurucho')) return 'ice-cream';
+    if (cat.includes('cafe') || cat.includes('café') || cat.includes('desayuno')) return 'coffee';
+    if (cat.includes('bebida') || cat.includes('gaseosa') || cat.includes('agua') || cat.includes('jugo')) return 'cup-soda';
+    return 'package';
   }
 
   agregarProducto(prod: ProductoSimple): void {

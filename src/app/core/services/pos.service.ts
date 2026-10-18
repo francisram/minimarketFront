@@ -94,6 +94,43 @@ export class PosService {
     });
   }
 
+  // --- Venta Directa de Presentaciones de Helado (sin selección obligatoria de sabores) ---
+  agregarPresentacionDirecta(pres: Presentacion, cantidad: number = 1): void {
+    if (!pres.activo) {
+      this.toast.warning(`La presentación "${pres.nombre}" está inactiva.`);
+      return;
+    }
+    if (pres.stock !== undefined && pres.stock <= 0) {
+      this.toast.warning(`No hay envases o cucuruchos disponibles para "${pres.nombre}".`);
+      return;
+    }
+
+    const items = this.ticketItems();
+    const itemExistente = items.find(i => i.tipoItem === 'HELADO' && i.presentacion?.id === pres.id && (!i.sabores || i.sabores.length === 0));
+
+    if (itemExistente) {
+      if (pres.stock !== undefined && itemExistente.cantidad + cantidad > pres.stock) {
+        this.toast.warning(`Stock máximo de envases alcanzado (${pres.stock} unid).`);
+        return;
+      }
+      this.actualizarCantidad(itemExistente.idLocal, cantidad);
+    } else {
+      const nuevoItem: ItemTicketLocal = {
+        idLocal: Math.random().toString(36).substring(2, 9),
+        tipoItem: 'HELADO',
+        presentacion: pres,
+        sabores: [],
+        toppings: [],
+        cantidad: cantidad,
+        precioUnitario: pres.precio,
+        subtotal: pres.precio * cantidad,
+        tipoIva: pres.tipoIva || 'IVA_10'
+      };
+      this.ticketItems.update(list => [...list, nuevoItem]);
+      this.toast.success(`Agregado: ${pres.nombre}`);
+    }
+  }
+
   // --- Lógica de Armado de Helado ---
   seleccionarPresentacion(p: Presentacion): void {
     if (p.stock !== undefined && p.stock <= 0) {
@@ -266,6 +303,13 @@ export class PosService {
           if (item.tipoItem === 'PRODUCTO_SIMPLE' && item.productoSimple) {
             if (nuevaCantidad > item.productoSimple.stock) {
               this.toast.warning(`Stock máximo alcanzado (${item.productoSimple.stock} unid).`);
+              return item;
+            }
+          }
+          // Control de stock si es presentación de helado
+          if (item.tipoItem === 'HELADO' && item.presentacion && item.presentacion.stock !== undefined) {
+            if (nuevaCantidad > item.presentacion.stock) {
+              this.toast.warning(`Stock máximo de envases alcanzado (${item.presentacion.stock} unid).`);
               return item;
             }
           }
