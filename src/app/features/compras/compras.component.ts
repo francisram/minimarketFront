@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ComprasService } from '../../core/services/compras.service';
 import { ProveedoresService } from '../../core/services/proveedores.service';
 import { ProductosService } from '../../core/services/productos.service';
+import { ReporteExportService } from '../../core/services/reporte-export.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Compra, DetalleCompra, RegistroCompraRequest, RegistroDetalleCompraRequest, CondicionCompra, EstadoCompra } from '../../core/models/compra.model';
 import { Producto, TipoIva, TipoArticulo, UnidadMedida, ProductoRequest } from '../../core/models/producto.model';
@@ -46,6 +47,14 @@ interface ItemSeleccionMultiple {
           <p class="page-subtitle">Registro de comprobantes de proveedores, ingreso de mercadería a inventario y liquidación de IVA</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-secondary" (click)="exportarCsv()" [disabled]="comprasFiltradas().length === 0" title="Exportar compras filtradas a CSV / Excel">
+            <app-icon name="file-spreadsheet" [size]="18" />
+            <span>Exportar CSV</span>
+          </button>
+          <button class="btn btn-secondary" (click)="exportarPdf()" [disabled]="comprasFiltradas().length === 0" title="Descargar compras filtradas en PDF (A4)">
+            <app-icon name="file-text" [size]="18" />
+            <span>Descargar PDF</span>
+          </button>
           <button class="btn btn-primary" (click)="abrirModalNuevaCompra()">
             <app-icon name="plus" [size]="18" />
             <span>+ Registrar Factura de Compra</span>
@@ -1502,6 +1511,7 @@ export class ComprasComponent implements OnInit {
   public readonly productosService = inject(ProductosService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
+  private readonly exportService = inject(ReporteExportService);
 
   // Filtros
   public readonly filtroBuscar = signal<string>('');
@@ -2102,6 +2112,63 @@ export class ComprasComponent implements OnInit {
         this.toast.error(err.error?.mensaje || 'Error al registrar la factura de compra.');
       }
     });
+  }
+
+  exportarCsv(): void {
+    const list = this.comprasFiltradas();
+    if (list.length === 0) {
+      this.toast.warning('No hay compras para exportar.');
+      return;
+    }
+    const totales = this.calcularTotalesParaExport(list);
+    this.exportService.exportarComprasCsv(list, {}, totales);
+    this.toast.success('Listado de compras exportado a CSV.');
+  }
+
+  exportarPdf(): void {
+    const list = this.comprasFiltradas();
+    if (list.length === 0) {
+      this.toast.warning('No hay compras para exportar.');
+      return;
+    }
+    const totales = this.calcularTotalesParaExport(list);
+    try {
+      this.exportService.exportarComprasPdf(list, {}, totales);
+      this.toast.success('Listado de compras exportado a PDF.');
+    } catch (e) {
+      console.error('Error al exportar PDF de compras:', e);
+      this.toast.error('Ocurrió un error al generar el PDF de compras.');
+    }
+  }
+
+  private calcularTotalesParaExport(list: Compra[]) {
+    let totalCompras = 0;
+    let totalIva10 = 0;
+    let totalIva5 = 0;
+    let totalExenta = 0;
+    let totalCredito = 0;
+
+    for (const c of list) {
+      if (c.estado !== 'ANULADA') {
+        totalCompras += Number(c.total || 0);
+        totalIva10 += Number(c.totalIva10 || 0);
+        totalIva5 += Number(c.totalIva5 || 0);
+        totalExenta += Number(c.totalExenta || 0);
+        if (c.condicionCompra === 'CREDITO') {
+          totalCredito += Number(c.total || 0);
+        }
+      }
+    }
+
+    return {
+      totalCompras,
+      cantidadFacturas: list.filter(c => c.estado !== 'ANULADA').length,
+      totalIva: totalIva10 + totalIva5,
+      totalIva10,
+      totalIva5,
+      totalExenta,
+      totalCredito
+    };
   }
 
   private getFormNuevaCompraInicial() {

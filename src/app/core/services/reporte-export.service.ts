@@ -9,6 +9,7 @@ import {
   SesionCajaReporteDTO,
   ReporteCajasDTO
 } from '../models/reporte.model';
+import { Compra } from '../models/compra.model';
 
 @Injectable({
   providedIn: 'root'
@@ -1175,6 +1176,223 @@ export class ReporteExportService {
     doc.setFontSize(9);
     doc.setTextColor(colorBorde[0], colorBorde[1], colorBorde[2]);
     doc.text(val, x + 5, y + 10.5);
+  }
+
+  // =========================================================================
+  // COMPRAS A PROVEEDORES & LIBRO FISCAL: CSV & PDF (A4)
+  // =========================================================================
+
+  exportarComprasCsv(
+    compras: Compra[],
+    periodo: { inicio?: string; fin?: string },
+    totales?: {
+      totalCompras: number;
+      cantidadFacturas: number;
+      totalIva: number;
+      totalIva10: number;
+      totalIva5: number;
+      totalExenta: number;
+      totalCredito: number;
+    }
+  ): void {
+    const BOM = '\uFEFF';
+    const separador = ';';
+    const lineas: string[] = [];
+
+    const inst = this.institucionService.institucion();
+    lineas.push(`"REPORTE DETALLADO DE COMPRAS A PROVEEDORES - ${this.sanitizarCsv(inst.nombre || 'Minimarket & Heladería')}"`);
+    if (inst.ruc) lineas.push(`"RUC: ${this.sanitizarCsv(inst.ruc)}"`);
+    lineas.push(`"Período: ${periodo.inicio || 'Inicio'} al ${periodo.fin || 'Hoy'}"`);
+    lineas.push(`"Fecha de emisión: ${this.formatearFechaHora(new Date().toISOString())}"`);
+    lineas.push('');
+
+    const headers = [
+      'ID Compra',
+      'Fecha Emisión',
+      'Fecha Vencimiento',
+      'N° Factura',
+      'Timbrado',
+      'RUC Proveedor',
+      'Razón Social Proveedor',
+      'Condición Compra',
+      'Monto Exentas (Gs.)',
+      'IVA 5% (Gs.)',
+      'IVA 10% (Gs.)',
+      'Crédito Fiscal IVA Total (Gs.)',
+      'Total Factura (Gs.)',
+      'Estado',
+      'Registrado Por',
+      'Observación'
+    ];
+    lineas.push(headers.map(h => `"${h}"`).join(separador));
+
+    for (const c of compras) {
+      const totalIvaFactura = (Number(c.totalIva10) || 0) + (Number(c.totalIva5) || 0);
+      const fila = [
+        c.id.toString(),
+        this.formatearFecha(c.fechaEmision),
+        c.fechaVencimiento ? this.formatearFecha(c.fechaVencimiento) : '—',
+        c.numeroFactura || '',
+        c.timbrado || '',
+        this.sanitizarCsv(c.proveedorRuc || ''),
+        this.sanitizarCsv(c.proveedorRazonSocial || ''),
+        c.condicionCompra || 'CONTADO',
+        Math.round(c.totalExenta || 0).toString(),
+        Math.round(c.totalIva5 || 0).toString(),
+        Math.round(c.totalIva10 || 0).toString(),
+        Math.round(totalIvaFactura).toString(),
+        Math.round(c.total || 0).toString(),
+        c.estado || 'REGISTRADA',
+        this.sanitizarCsv(c.usuario || 'Sistema'),
+        this.sanitizarCsv(c.observacion || '')
+      ];
+      lineas.push(fila.map(f => `"${f}"`).join(separador));
+    }
+
+    if (totales) {
+      lineas.push('');
+      lineas.push(`"CANTIDAD FACTURAS"${separador}"${totales.cantidadFacturas}"`);
+      lineas.push(`"TOTAL EXENTAS (Gs.)"${separador}"${Math.round(totales.totalExenta)}"`);
+      lineas.push(`"TOTAL IVA 5% (Gs.)"${separador}"${Math.round(totales.totalIva5)}"`);
+      lineas.push(`"TOTAL IVA 10% (Gs.)"${separador}"${Math.round(totales.totalIva10)}"`);
+      lineas.push(`"TOTAL CRÉDITO FISCAL IVA (Gs.)"${separador}"${Math.round(totales.totalIva)}"`);
+      lineas.push(`"TOTAL COMPRAS A CRÉDITO (Gs.)"${separador}"${Math.round(totales.totalCredito)}"`);
+      lineas.push(`"GRAN TOTAL FACTURADO COMPRAS (Gs.)"${separador}"${Math.round(totales.totalCompras)}"`);
+    }
+
+    const contenido = BOM + lineas.join('\r\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const nombreArchivo = `reporte_compras_proveedores_${this.limpiarFechaArchivo(periodo.inicio)}_${this.limpiarFechaArchivo(periodo.fin)}.csv`;
+    this.descargarBlob(blob, nombreArchivo);
+  }
+
+  exportarComprasPdf(
+    compras: Compra[],
+    periodo: { inicio?: string; fin?: string },
+    totales: {
+      totalCompras: number;
+      cantidadFacturas: number;
+      totalIva: number;
+      totalIva10: number;
+      totalIva5: number;
+      totalExenta: number;
+      totalCredito: number;
+    }
+  ): void {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const titulo = 'REPORTE DE COMPRAS A PROVEEDORES & LIBRO FISCAL IVA';
+    const periodoTexto = `Período: ${periodo.inicio ? this.formatearFecha(periodo.inicio) : 'Inicio'} al ${periodo.fin ? this.formatearFecha(periodo.fin) : 'Hoy'}`;
+
+    const startY = this.dibujarEncabezadoA4(doc, titulo, periodoTexto, 'landscape');
+
+    const kpiY = startY + 2;
+    this.dibujarKpiBox(doc, 14, kpiY, 65, 14, 'TOTAL COMPRAS (Gs.)', this.formatearGuaranies(totales.totalCompras), [30, 58, 138]);
+    this.dibujarKpiBox(doc, 82, kpiY, 65, 14, 'CRÉDITO FISCAL IVA', this.formatearGuaranies(totales.totalIva), [15, 118, 110]);
+    this.dibujarKpiBox(doc, 150, kpiY, 65, 14, 'COMPRAS A CRÉDITO', this.formatearGuaranies(totales.totalCredito), [180, 83, 9]);
+    this.dibujarKpiBox(doc, 218, kpiY, 65, 14, 'COMPROBANTES', `${totales.cantidadFacturas} facturas`, [71, 85, 105]);
+
+    const tableStartY = kpiY + 18;
+    const tableData = compras.map((c, i) => {
+      const ivaTotal = (Number(c.totalIva10) || 0) + (Number(c.totalIva5) || 0);
+      return [
+        (i + 1).toString(),
+        this.formatearFecha(c.fechaEmision),
+        c.numeroFactura || '',
+        c.timbrado || '—',
+        `${c.proveedorRazonSocial || '—'}\n(${c.proveedorRuc || ''})`,
+        c.condicionCompra || 'CONTADO',
+        this.formatearNumero(c.totalExenta),
+        this.formatearNumero(c.totalIva5),
+        this.formatearNumero(c.totalIva10),
+        this.formatearNumero(ivaTotal),
+        this.formatearNumero(c.total),
+        c.estado || 'REGISTRADA'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [[
+        '#',
+        'Fecha',
+        'N° Factura',
+        'Timbrado',
+        'Proveedor (RUC / Razón Social)',
+        'Condición',
+        'Exentas (Gs.)',
+        'IVA 5% (Gs.)',
+        'IVA 10% (Gs.)',
+        'Total IVA',
+        'Total (Gs.)',
+        'Estado'
+      ]],
+      body: tableData,
+      foot: [[
+        '',
+        '',
+        '',
+        'TOTALES',
+        `${totales.cantidadFacturas} facturas`,
+        '',
+        this.formatearNumero(totales.totalExenta),
+        this.formatearNumero(totales.totalIva5),
+        this.formatearNumero(totales.totalIva10),
+        this.formatearGuaranies(totales.totalIva),
+        this.formatearGuaranies(totales.totalCompras),
+        ''
+      ]],
+      theme: 'grid',
+      styles: {
+        fontSize: 7.2,
+        cellPadding: 1.6,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1
+      },
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        halign: 'center'
+      },
+      footStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        halign: 'right'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },
+        1: { halign: 'center', cellWidth: 18 },
+        2: { halign: 'center', cellWidth: 26 },
+        3: { halign: 'center', cellWidth: 18 },
+        4: { halign: 'left', cellWidth: 50 },
+        5: { halign: 'center', cellWidth: 18 },
+        6: { halign: 'right', cellWidth: 22 },
+        7: { halign: 'right', cellWidth: 20 },
+        8: { halign: 'right', cellWidth: 22 },
+        9: { halign: 'right', cellWidth: 24, fontStyle: 'bold' },
+        10: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
+        11: { halign: 'center', cellWidth: 15 }
+      },
+      margin: { left: 14, right: 14, bottom: 15 },
+      didDrawPage: () => {
+        this.dibujarPiePaginaA4(doc, 'landscape');
+      }
+    });
+
+    const nombreArchivo = `reporte_compras_proveedores_${this.limpiarFechaArchivo(periodo.inicio)}_${this.limpiarFechaArchivo(periodo.fin)}.pdf`;
+    doc.save(nombreArchivo);
   }
 
   private descargarBlob(blob: Blob, nombreArchivo: string): void {

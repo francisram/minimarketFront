@@ -14,6 +14,9 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
 import { ReporteExportService } from '../../core/services/reporte-export.service';
 import { InventarioService } from '../../core/services/inventario.service';
 import { TipoMovimientoStock, TipoItemStock, TomaInventario } from '../../core/models/stock.model';
+import { ComprasService } from '../../core/services/compras.service';
+import { ProveedoresService } from '../../core/services/proveedores.service';
+import { Compra } from '../../core/models/compra.model';
 import {
   DashboardReporteDTO,
   ReporteVentasDTO,
@@ -27,7 +30,7 @@ import {
   PedidoResumenReporteDTO
 } from '../../core/models/reporte.model';
 
-type TabReporte = 'dashboard' | 'ventas' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones' | 'talonarios' | 'inventario';
+type TabReporte = 'dashboard' | 'ventas' | 'compras' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones' | 'talonarios' | 'inventario';
 
 interface DonutSegment {
   label: string;
@@ -69,6 +72,17 @@ interface DonutSegment {
               <span>Exportar CSV</span>
             </button>
             <button type="button" class="btn btn-primary" (click)="exportarVentasPdf()" [disabled]="descargandoPdf()" title="Descargar reporte detallado de ventas en PDF tamaño A4">
+              <app-icon name="file-text" [size]="16" />
+              <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
+            </button>
+          }
+
+          @if (tabActiva() === 'compras') {
+            <button type="button" class="btn btn-outline" (click)="exportarComprasCsv()" [disabled]="comprasFiltradasReporte().length === 0" title="Descargar compras a proveedores en formato CSV / Excel">
+              <app-icon name="file-spreadsheet" [size]="16" />
+              <span>Exportar CSV</span>
+            </button>
+            <button type="button" class="btn btn-primary" (click)="exportarComprasPdf()" [disabled]="descargandoPdf() || comprasFiltradasReporte().length === 0" title="Descargar reporte detallado de compras en PDF tamaño A4">
               <app-icon name="file-text" [size]="16" />
               <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
             </button>
@@ -201,6 +215,15 @@ interface DonutSegment {
         >
           <app-icon name="shopping-cart" [size]="18" />
           <span>Ventas Detalladas</span>
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="tabActiva() === 'compras'"
+          (click)="cambiarTab('compras')"
+        >
+          <app-icon name="truck" [size]="18" />
+          <span>Compras a Proveedores</span>
         </button>
         <button
           type="button"
@@ -714,6 +737,217 @@ interface DonutSegment {
                     </div>
                   </div>
                 }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ============================================================= -->
+        <!-- PESTAÑA COMPRAS A PROVEEDORES & LIBRO FISCAL -->
+        <!-- ============================================================= -->
+        @if (tabActiva() === 'compras') {
+          <div class="tab-content compras-tab">
+            <!-- FILTROS ESPECÍFICOS DE COMPRAS -->
+            <div class="filters-card">
+              <div class="filters-grid">
+                <!-- PRESETS DE FECHA -->
+                <div class="filter-group">
+                  <label class="filter-label">Período:</label>
+                  <div class="preset-buttons">
+                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'hoy'" (click)="aplicarPreset('hoy')">Hoy</button>
+                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'ayer'" (click)="aplicarPreset('ayer')">Ayer</button>
+                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === '7dias'" (click)="aplicarPreset('7dias')">7 días</button>
+                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'esteMes'" (click)="aplicarPreset('esteMes')">Este mes</button>
+                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'mesAnterior'" (click)="aplicarPreset('mesAnterior')">Mes anterior</button>
+                  </div>
+                </div>
+
+                <!-- FECHAS PERSONALIZADAS -->
+                <div class="filter-group-row">
+                  <div class="filter-group">
+                    <label class="filter-label" for="compraFechaDesde">Desde:</label>
+                    <input
+                      id="compraFechaDesde"
+                      type="date"
+                      class="form-control"
+                      [(ngModel)]="fechaInicio"
+                      (change)="onCambioFechaManual(); cargarCompras()"
+                    />
+                  </div>
+                  <div class="filter-group">
+                    <label class="filter-label" for="compraFechaHasta">Hasta:</label>
+                    <input
+                      id="compraFechaHasta"
+                      type="date"
+                      class="form-control"
+                      [(ngModel)]="fechaFin"
+                      (change)="onCambioFechaManual(); cargarCompras()"
+                    />
+                  </div>
+                </div>
+
+                <!-- PROVEEDOR -->
+                <div class="filter-group">
+                  <label class="filter-label" for="filtroProv">Proveedor:</label>
+                  <select
+                    id="filtroProv"
+                    class="form-control"
+                    [(ngModel)]="filtroComprasProveedorId"
+                    (change)="cargarCompras()"
+                  >
+                    <option value="TODOS">Todos los Proveedores</option>
+                    @for (prov of proveedoresService.proveedores(); track prov.id) {
+                      <option [value]="prov.id">{{ prov.razonSocial }} ({{ prov.ruc }})</option>
+                    }
+                  </select>
+                </div>
+
+                <!-- CONDICIÓN -->
+                <div class="filter-group">
+                  <label class="filter-label" for="filtroCond">Condición:</label>
+                  <select id="filtroCond" class="form-control" [(ngModel)]="filtroComprasCondicion">
+                    <option value="TODOS">Todas (Contado / Crédito)</option>
+                    <option value="CONTADO">Contado</option>
+                    <option value="CREDITO">Crédito</option>
+                  </select>
+                </div>
+
+                <!-- ESTADO -->
+                <div class="filter-group">
+                  <label class="filter-label" for="filtroEst">Estado:</label>
+                  <select id="filtroEst" class="form-control" [(ngModel)]="filtroComprasEstado">
+                    <option value="TODOS">Todos los Estados</option>
+                    <option value="REGISTRADA">Registrada</option>
+                    <option value="ANULADA">Anulada</option>
+                  </select>
+                </div>
+
+                <!-- BÚSQUEDA LIBRE -->
+                <div class="filter-group span-full">
+                  <div class="search-input-wrapper">
+                    <app-icon name="search" [size]="16" class="search-icon" />
+                    <input
+                      type="text"
+                      class="form-control search-input"
+                      placeholder="Buscar por N° Factura, Timbrado, RUC o Nombre del Proveedor..."
+                      [(ngModel)]="busquedaCompras"
+                    />
+                    @if (busquedaCompras) {
+                      <button type="button" class="btn-clear" (click)="busquedaCompras = ''">
+                        <app-icon name="x" [size]="14" />
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- KPIS DE COMPRAS -->
+            <div class="fiscal-kpi-grid mt-3">
+              <div class="fiscal-card">
+                <span class="fiscal-label">Total Compras Facturadas</span>
+                <strong class="fiscal-val text-primary">{{ kpisComprasReporte().totalCompras | appCurrency }}</strong>
+                <span class="fiscal-sub">{{ kpisComprasReporte().cantidadFacturas }} facturas activas</span>
+              </div>
+              <div class="fiscal-card">
+                <span class="fiscal-label">Crédito Fiscal IVA Total</span>
+                <strong class="fiscal-val text-success">{{ kpisComprasReporte().totalIva | appCurrency }}</strong>
+                <span class="fiscal-sub">IVA 10%: {{ kpisComprasReporte().totalIva10 | appCurrency }} | IVA 5%: {{ kpisComprasReporte().totalIva5 | appCurrency }}</span>
+              </div>
+              <div class="fiscal-card">
+                <span class="fiscal-label">Compras a Crédito</span>
+                <strong class="fiscal-val text-warning">{{ kpisComprasReporte().totalCredito | appCurrency }}</strong>
+                <span class="fiscal-sub">Exentas: {{ kpisComprasReporte().totalExenta | appCurrency }}</span>
+              </div>
+              <div class="fiscal-card">
+                <span class="fiscal-label">Facturas del Período</span>
+                <strong class="fiscal-val">{{ comprasFiltradasReporte().length }}</strong>
+                <span class="fiscal-sub">@if (kpisComprasReporte().totalAnuladas > 0) { {{ kpisComprasReporte().totalAnuladas }} anuladas } @else { 0 anuladas }</span>
+              </div>
+            </div>
+
+            <!-- TABLA DE COMPRAS -->
+            @if (comprasFiltradasReporte().length === 0) {
+              <div class="empty-state-card mt-3">
+                <app-icon name="truck" [size]="48" class="text-muted" />
+                <h3 class="m-0 font-bold">No se encontraron facturas de compra</h3>
+                <p class="text-sm text-muted m-0">No hay comprobantes de compra registrados en el rango de fechas o filtros seleccionados.</p>
+              </div>
+            } @else {
+              <div class="table-card mt-3">
+                <div class="table-responsive">
+                  <table class="report-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 45px; text-align: center;">#</th>
+                        <th>Fecha Emisión</th>
+                        <th>N° Factura</th>
+                        <th>Timbrado</th>
+                        <th>Proveedor</th>
+                        <th>Condición</th>
+                        <th class="text-right">Exentas</th>
+                        <th class="text-right">IVA 5%</th>
+                        <th class="text-right">IVA 10%</th>
+                        <th class="text-right">Total Factura</th>
+                        <th class="text-center">Estado</th>
+                        <th style="width: 80px; text-align: center;">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (c of comprasFiltradasReporte(); track c.id; let idx = $index) {
+                        <tr [class.row-anulada]="c.estado === 'ANULADA'">
+                          <td class="text-center text-muted text-xs">{{ idx + 1 }}</td>
+                          <td>
+                            <div class="font-mono text-xs font-bold">{{ c.fechaEmision | date:'dd/MM/yyyy' }}</div>
+                            @if (c.fechaVencimiento && c.condicionCompra === 'CREDITO') {
+                              <div class="text-xs text-muted">Vto: {{ c.fechaVencimiento | date:'dd/MM/yyyy' }}</div>
+                            }
+                          </td>
+                          <td class="font-mono font-bold">{{ c.numeroFactura }}</td>
+                          <td class="font-mono text-xs text-muted">{{ c.timbrado || '—' }}</td>
+                          <td>
+                            <div class="font-bold">{{ c.proveedorRazonSocial }}</div>
+                            <div class="text-xs text-muted font-mono">RUC: {{ c.proveedorRuc }}</div>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-primary]="c.condicionCompra === 'CONTADO'" [class.badge-warning]="c.condicionCompra === 'CREDITO'">
+                              {{ c.condicionCompra }}
+                            </span>
+                          </td>
+                          <td class="text-right font-mono">{{ c.totalExenta | appCurrency }}</td>
+                          <td class="text-right font-mono text-xs">{{ c.totalIva5 | appCurrency }}</td>
+                          <td class="text-right font-mono text-xs">{{ c.totalIva10 | appCurrency }}</td>
+                          <td class="text-right font-mono font-bold text-primary">{{ c.total | appCurrency }}</td>
+                          <td class="text-center">
+                            <span class="badge" [class.badge-success]="c.estado === 'REGISTRADA'" [class.badge-danger]="c.estado === 'ANULADA'">
+                              {{ c.estado }}
+                            </span>
+                          </td>
+                          <td class="text-center">
+                            <button
+                              type="button"
+                              class="btn-icon-sm"
+                              (click)="verDetalleCompraModal(c)"
+                              title="Ver detalle de artículos de la factura"
+                            >
+                              <app-icon name="eye" [size]="16" />
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="6" class="font-bold text-right">TOTALES DEL PERÍODO:</td>
+                        <td class="text-right font-mono font-bold">{{ kpisComprasReporte().totalExenta | appCurrency }}</td>
+                        <td class="text-right font-mono font-bold text-xs">{{ kpisComprasReporte().totalIva5 | appCurrency }}</td>
+                        <td class="text-right font-mono font-bold text-xs">{{ kpisComprasReporte().totalIva10 | appCurrency }}</td>
+                        <td class="text-right font-mono font-bold text-primary">{{ kpisComprasReporte().totalCompras | appCurrency }}</td>
+                        <td colspan="2"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             }
           </div>
@@ -2109,6 +2343,77 @@ interface DonutSegment {
           </button>
         </div>
       </app-modal>
+
+      <!-- MODAL DETALLE DE COMPRA EN REPORTES -->
+      @if (modalDetalleCompraAbierto() && compraSeleccionadaModal()) {
+        <app-modal
+          [isOpen]="modalDetalleCompraAbierto()"
+          title="Detalle de Factura de Compra de Proveedor"
+          size="lg"
+          (close)="cerrarDetalleCompraModal()"
+        >
+          <div body class="p-3">
+            <div class="d-flex justify-content-between align-center mb-3 flex-wrap gap-2">
+              <div>
+                <h3 class="m-0 font-bold">{{ compraSeleccionadaModal()!.proveedorRazonSocial }}</h3>
+                <div class="text-xs text-muted font-mono">RUC: {{ compraSeleccionadaModal()!.proveedorRuc }}</div>
+              </div>
+              <div class="text-right">
+                <div class="font-mono font-bold text-primary">Factura N° {{ compraSeleccionadaModal()!.numeroFactura }}</div>
+                <div class="text-xs text-muted">Timbrado: {{ compraSeleccionadaModal()!.timbrado || '—' }} | Emisión: {{ compraSeleccionadaModal()!.fechaEmision | date:'dd/MM/yyyy' }}</div>
+              </div>
+            </div>
+
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Artículo</th>
+                    <th style="width: 80px;" class="text-right">Cant.</th>
+                    <th style="width: 120px;" class="text-right">Costo Unit.</th>
+                    <th style="width: 80px;" class="text-center">IVA</th>
+                    <th style="width: 130px;" class="text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (d of compraSeleccionadaModal()!.detalles; track d.id || d.productoId) {
+                    <tr>
+                      <td>
+                        <div class="font-bold">{{ d.productoNombre }}</div>
+                        @if (d.codigoBarra) {
+                          <div class="text-xs font-mono text-muted">Cód: {{ d.codigoBarra }}</div>
+                        }
+                      </td>
+                      <td class="text-right font-mono">{{ d.cantidad }} {{ d.unidadMedida || 'Un' }}</td>
+                      <td class="text-right font-mono">{{ d.costoUnitario | appCurrency }}</td>
+                      <td class="text-center">
+                        <span class="badge badge-secondary text-xs">{{ d.tipoIva }}</span>
+                      </td>
+                      <td class="text-right font-mono font-bold">{{ d.subtotal | appCurrency }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-center mt-3 pt-2" style="border-top: 1px solid #e2e8f0;">
+              <div class="text-xs text-muted">
+                Liquidación IVA: 10% ({{ compraSeleccionadaModal()!.totalIva10 | appCurrency }}) | 5% ({{ compraSeleccionadaModal()!.totalIva5 | appCurrency }}) | Exenta ({{ compraSeleccionadaModal()!.totalExenta | appCurrency }})
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-muted">Total Comprobante:</span>
+                <div class="font-mono font-bold text-xl text-primary">{{ compraSeleccionadaModal()!.total | appCurrency }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div footer class="modal-actions-footer">
+            <button type="button" class="btn btn-secondary" (click)="cerrarDetalleCompraModal()">
+              Cerrar
+            </button>
+          </div>
+        </app-modal>
+      }
     </div>
   `,
   styles: [`
@@ -3424,6 +3729,46 @@ interface DonutSegment {
       color: #7e22ce;
       border: 1px solid #e9d5ff;
     }
+    .row-anulada {
+      background: #fef2f2 !important;
+      opacity: 0.75;
+    }
+    .row-anulada td {
+      text-decoration: line-through;
+    }
+    .row-anulada td:last-child {
+      text-decoration: none;
+    }
+    .btn-icon-sm {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 0.375rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-icon-sm:hover {
+      background: var(--bg-hover);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .empty-state-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      text-align: center;
+      gap: 0.75rem;
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      border: 1.5px dashed var(--border-color);
+    }
   `]
 })
 export class ReportesComponent implements OnInit {
@@ -3434,12 +3779,72 @@ export class ReportesComponent implements OnInit {
   public readonly institucionService = inject(InstitucionService);
   public readonly exportService = inject(ReporteExportService);
   public readonly inventarioService = inject(InventarioService);
+  public readonly comprasService = inject(ComprasService);
+  public readonly proveedoresService = inject(ProveedoresService);
 
   // Estados principales
   public readonly tabActiva = signal<TabReporte>('dashboard');
   public readonly cargando = signal<boolean>(false);
   public readonly descargandoCsv = signal<boolean>(false);
   public readonly descargandoPdf = signal<boolean>(false);
+
+  // Compras a Proveedores
+  public filtroComprasProveedorId: string = 'TODOS';
+  public filtroComprasCondicion: string = 'TODOS';
+  public filtroComprasEstado: string = 'TODOS';
+  public busquedaCompras: string = '';
+  public readonly modalDetalleCompraAbierto = signal<boolean>(false);
+  public readonly compraSeleccionadaModal = signal<Compra | null>(null);
+
+  public readonly comprasFiltradasReporte = computed(() => {
+    let list = this.comprasService.compras();
+    const cond = this.filtroComprasCondicion;
+    const est = this.filtroComprasEstado;
+    const prov = this.filtroComprasProveedorId;
+    const busq = this.busquedaCompras.trim().toLowerCase();
+
+    if (prov !== 'TODOS') {
+      const pid = Number(prov);
+      list = list.filter(c => c.proveedorId === pid);
+    }
+    if (cond !== 'TODOS') {
+      list = list.filter(c => c.condicionCompra === cond);
+    }
+    if (est !== 'TODOS') {
+      list = list.filter(c => c.estado === est);
+    }
+    if (busq) {
+      list = list.filter(c =>
+        (c.numeroFactura && c.numeroFactura.toLowerCase().includes(busq)) ||
+        (c.timbrado && c.timbrado.toLowerCase().includes(busq)) ||
+        (c.proveedorRazonSocial && c.proveedorRazonSocial.toLowerCase().includes(busq)) ||
+        (c.proveedorRuc && c.proveedorRuc.toLowerCase().includes(busq))
+      );
+    }
+    return list;
+  });
+
+  public readonly kpisComprasReporte = computed(() => {
+    const list = this.comprasFiltradasReporte();
+    const activas = list.filter(c => c.estado === 'REGISTRADA');
+    const totalCompras = activas.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
+    const totalIva10 = activas.reduce((acc, c) => acc + (Number(c.totalIva10) || 0), 0);
+    const totalIva5 = activas.reduce((acc, c) => acc + (Number(c.totalIva5) || 0), 0);
+    const totalExenta = activas.reduce((acc, c) => acc + (Number(c.totalExenta) || 0), 0);
+    const totalCredito = activas.filter(c => c.condicionCompra === 'CREDITO')
+      .reduce((acc, c) => acc + (Number(c.total) || 0), 0);
+
+    return {
+      totalCompras,
+      totalIva: totalIva10 + totalIva5,
+      totalIva10,
+      totalIva5,
+      totalExenta,
+      totalCredito,
+      cantidadFacturas: activas.length,
+      totalAnuladas: list.filter(c => c.estado === 'ANULADA').length
+    };
+  });
 
   // Inventario & Kardex
   public readonly subtabInventario = signal<'kardex' | 'valorizacion' | 'auditorias'>('kardex');
@@ -3762,6 +4167,8 @@ export class ReportesComponent implements OnInit {
       this.cargarDashboard();
     } else if (tab === 'ventas' || tab === 'reimpresiones') {
       this.cargarVentas();
+    } else if (tab === 'compras') {
+      this.cargarCompras();
     } else if (tab === 'libro-iva') {
       this.cargarLibroIva();
     } else if (tab === 'cajas') {
@@ -3773,6 +4180,52 @@ export class ReportesComponent implements OnInit {
     } else if (tab === 'inventario') {
       this.cargarInventario();
     }
+  }
+
+  cargarCompras(): void {
+    const provId = this.filtroComprasProveedorId !== 'TODOS' ? Number(this.filtroComprasProveedorId) : null;
+    this.comprasService.cargarCompras(provId, this.fechaInicio || null, this.fechaFin || null, this.busquedaCompras || null);
+    this.proveedoresService.cargarProveedores();
+  }
+
+  exportarComprasCsv(): void {
+    const list = this.comprasFiltradasReporte();
+    if (list.length === 0) {
+      this.toast.warning('No hay compras para exportar en el período seleccionado.');
+      return;
+    }
+    const totales = this.kpisComprasReporte();
+    this.exportService.exportarComprasCsv(list, { inicio: this.fechaInicio, fin: this.fechaFin }, totales);
+    this.toast.success('Reporte de compras en CSV descargado exitosamente.');
+  }
+
+  exportarComprasPdf(): void {
+    const list = this.comprasFiltradasReporte();
+    if (list.length === 0) {
+      this.toast.warning('No hay compras para exportar en el período seleccionado.');
+      return;
+    }
+    this.descargandoPdf.set(true);
+    try {
+      const totales = this.kpisComprasReporte();
+      this.exportService.exportarComprasPdf(list, { inicio: this.fechaInicio, fin: this.fechaFin }, totales);
+      this.toast.success('Reporte de compras en PDF descargado exitosamente.');
+    } catch (err) {
+      console.error('Error al generar PDF de compras:', err);
+      this.toast.error('Ocurrió un error al generar el archivo PDF de compras.');
+    } finally {
+      this.descargandoPdf.set(false);
+    }
+  }
+
+  verDetalleCompraModal(compra: Compra): void {
+    this.compraSeleccionadaModal.set(compra);
+    this.modalDetalleCompraAbierto.set(true);
+  }
+
+  cerrarDetalleCompraModal(): void {
+    this.modalDetalleCompraAbierto.set(false);
+    this.compraSeleccionadaModal.set(null);
   }
 
   cambiarSubtabInventario(subtab: 'kardex' | 'valorizacion' | 'auditorias'): void {
