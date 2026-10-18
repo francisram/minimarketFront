@@ -409,6 +409,35 @@ interface ItemFormCompra {
           <!-- SELECCIONAR ARTÍCULO -->
           <div class="section-title">2. Agregar Artículos a la Factura</div>
           <div class="item-builder-card">
+            <!-- BUSCADOR / ESCÁNER POR CÓDIGO DE BARRA -->
+            <div class="barcode-scanner-bar mb-3">
+              <div class="scanner-box">
+                <app-icon name="scan-barcode" [size]="18" extraClass="scanner-icon" />
+                <input
+                  id="barcodeInputCompra"
+                  type="text"
+                  class="scanner-input font-mono"
+                  placeholder="Escanear con pistola lectora o escribir código de barra [Enter]..."
+                  [(ngModel)]="codigoBarraInput"
+                  (keydown.enter)="buscarPorCodigoBarra($event)"
+                />
+                @if (codigoBarraInput) {
+                  <button type="button" class="btn-clear-barcode" (click)="limpiarCodigoBarra()" title="Limpiar">
+                    <app-icon name="x" [size]="14" />
+                  </button>
+                }
+              </div>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                (click)="buscarPorCodigoBarra()"
+                title="Buscar artículo por código de barra"
+              >
+                <app-icon name="search" [size]="14" />
+                <span>Buscar</span>
+              </button>
+            </div>
+
             <div class="form-grid-4">
               <div class="form-group span-2">
                 <label class="form-label" for="itemSelectProducto">Artículo del Catálogo Maestro *</label>
@@ -436,6 +465,7 @@ interface ItemFormCompra {
                   min="0.01"
                   class="form-control font-bold"
                   [(ngModel)]="itemEnCarga.cantidad"
+                  (keydown.enter)="agregarItemALaFactura()"
                 />
               </div>
 
@@ -448,6 +478,7 @@ interface ItemFormCompra {
                   min="0"
                   class="form-control font-bold"
                   [(ngModel)]="itemEnCarga.costoUnitario"
+                  (keydown.enter)="agregarItemALaFactura()"
                 />
               </div>
             </div>
@@ -891,6 +922,56 @@ interface ItemFormCompra {
       gap: 0.75rem;
     }
 
+    /* ESCÁNER CÓDIGO DE BARRA */
+    .barcode-scanner-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .scanner-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+    .scanner-icon {
+      position: absolute;
+      left: 0.75rem;
+      color: #0284c7;
+      pointer-events: none;
+    }
+    .scanner-input {
+      width: 100%;
+      padding: 0.55rem 2rem 0.55rem 2.4rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #0284c7;
+      background: #f0f9ff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #0f172a;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .scanner-input:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+    }
+    .btn-clear-barcode {
+      position: absolute;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem;
+    }
+    .btn-clear-barcode:hover {
+      color: #0f172a;
+    }
+
     /* COMUNES */
     .btn {
       display: inline-flex;
@@ -944,6 +1025,8 @@ interface ItemFormCompra {
     .gap-3 { gap: 0.75rem; }
     .mt-3 { margin-top: 0.75rem; }
     .mt-4 { margin-top: 1rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
     .ml-2 { margin-left: 0.5rem; }
     .m-0 { margin: 0; }
     .loading-state, .empty-state {
@@ -1024,6 +1107,9 @@ export class ComprasComponent implements OnInit {
   };
 
   public readonly itemsCargados = signal<ItemFormCompra[]>([]);
+
+  // Búsqueda rápida por código de barra / lector óptico
+  public codigoBarraInput: string = '';
 
   // Computed métricas
   public readonly totalAcumuladoCompras = computed(() => {
@@ -1119,7 +1205,16 @@ export class ComprasComponent implements OnInit {
       costoUnitario: 0,
       tipoIva: 'IVA_10'
     };
+    this.codigoBarraInput = '';
     this.modalNuevaCompraAbierto.set(true);
+
+    // Auto-focus en el campo de código de barra al abrir el modal
+    setTimeout(() => {
+      const barcodeInput = document.getElementById('barcodeInputCompra') as HTMLInputElement | null;
+      if (barcodeInput) {
+        barcodeInput.focus();
+      }
+    }, 150);
   }
 
   cerrarModalNuevaCompra(): void {
@@ -1130,6 +1225,7 @@ export class ComprasComponent implements OnInit {
     this.itemEnCarga.productoId = productoId;
     const prod = this.productosService.productos().find(p => p.id === productoId);
     if (prod) {
+      this.codigoBarraInput = prod.codigoBarra || '';
       this.itemEnCarga.tipoIva = prod.tipoIva || 'IVA_10';
       // Buscar si el proveedor seleccionado tiene un costo pactado con este producto
       if (this.formNuevaCompra.proveedorId && prod.proveedores) {
@@ -1143,9 +1239,67 @@ export class ComprasComponent implements OnInit {
     }
   }
 
+  buscarPorCodigoBarra(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+    }
+    const cod = (this.codigoBarraInput || '').trim();
+    if (!cod) {
+      this.toast.warning('Ingresa o escanea un código de barra.');
+      return;
+    }
+
+    // 1. Buscar en memoria local de productos
+    const prodLocal = this.productosService.productos().find(
+      p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === cod.toLowerCase()
+    );
+
+    if (prodLocal) {
+      this.seleccionarProductoEncontrado(prodLocal);
+      return;
+    }
+
+    // 2. Si no se encontró en memoria, consultar al backend por código de barra
+    this.productosService.buscarPorCodigoBarra(cod).subscribe({
+      next: (prodRemoto) => {
+        if (prodRemoto) {
+          this.seleccionarProductoEncontrado(prodRemoto);
+        } else {
+          this.toast.error(`No se encontró ningún artículo con código: ${cod}`);
+        }
+      },
+      error: () => {
+        this.toast.error(`No se encontró ningún artículo con el código de barra "${cod}".`);
+      }
+    });
+  }
+
+  private seleccionarProductoEncontrado(prod: Producto): void {
+    this.onProductoSeleccionadoChange(prod.id);
+    this.codigoBarraInput = prod.codigoBarra || '';
+    this.toast.success(`Artículo identificado: [${prod.tipoArticulo}] ${prod.nombre}`);
+
+    // Enfocar automáticamente el campo de cantidad para carga rápida
+    setTimeout(() => {
+      const cantidadInput = document.getElementById('itemCantidad') as HTMLInputElement | null;
+      if (cantidadInput) {
+        cantidadInput.focus();
+        cantidadInput.select();
+      }
+    }, 60);
+  }
+
+  limpiarCodigoBarra(): void {
+    this.codigoBarraInput = '';
+    const barcodeInput = document.getElementById('barcodeInputCompra') as HTMLInputElement | null;
+    if (barcodeInput) {
+      barcodeInput.focus();
+    }
+  }
+
   agregarItemALaFactura(): void {
     if (!this.itemEnCarga.productoId) {
-      this.toast.warning('Selecciona un artículo del catálogo.');
+      this.toast.warning('Selecciona o escanea un artículo del catálogo.');
       return;
     }
     if (!this.itemEnCarga.cantidad || this.itemEnCarga.cantidad <= 0) {
@@ -1175,13 +1329,22 @@ export class ComprasComponent implements OnInit {
 
     this.itemsCargados.update(list => [...list, nuevoItem]);
 
-    // Reset item selector
+    // Reset item selector y campo de código de barra
     this.itemEnCarga = {
       productoId: null,
       cantidad: 1,
       costoUnitario: 0,
       tipoIva: 'IVA_10'
     };
+    this.codigoBarraInput = '';
+
+    // Re-enfocar el campo de código de barra para la siguiente lectura
+    setTimeout(() => {
+      const barcodeInput = document.getElementById('barcodeInputCompra') as HTMLInputElement | null;
+      if (barcodeInput) {
+        barcodeInput.focus();
+      }
+    }, 60);
   }
 
   quitarItemDeLaFactura(index: number): void {
