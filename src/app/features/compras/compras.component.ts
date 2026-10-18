@@ -24,6 +24,14 @@ interface ItemFormCompra {
   subtotal: number;
 }
 
+interface ItemSeleccionMultiple {
+  producto: Producto;
+  seleccionado: boolean;
+  cantidad: number;
+  costoUnitario: number;
+  tipoIva: TipoIva;
+}
+
 @Component({
   selector: 'app-compras',
   standalone: true,
@@ -321,31 +329,48 @@ interface ItemFormCompra {
         [isOpen]="modalNuevaCompraAbierto()"
         title="Registrar Factura de Compra de Proveedor"
         size="xl"
-        (close)="cerrarModalNuevaCompra()"
+        [closeOnBackdrop]="false"
+        (close)="solicitarCerrarModalNuevaCompra()"
       >
         <div body class="modal-form-content">
           <!-- CABECERA -->
           <div class="section-title">1. Datos del Comprobante</div>
           <div class="form-grid-3">
             <div class="form-group">
-              <label class="form-label" for="compraProveedor">Proveedor *</label>
-              <select id="compraProveedor" class="form-control" [(ngModel)]="formNuevaCompra.proveedorId">
+              <label class="form-label" for="compraProveedor">
+                Proveedor <span class="text-danger font-bold">* Obligatorio</span>
+              </label>
+              <select
+                id="compraProveedor"
+                class="form-control"
+                [class.is-invalid]="formSubmitted() && !formNuevaCompra.proveedorId"
+                [(ngModel)]="formNuevaCompra.proveedorId"
+              >
                 <option [ngValue]="null" disabled>-- Selecciona un proveedor --</option>
                 @for (p of proveedoresService.proveedores(); track p.id) {
                   <option [ngValue]="p.id">{{ p.razonSocial }} (RUC: {{ p.ruc }})</option>
                 }
               </select>
+              @if (formSubmitted() && !formNuevaCompra.proveedorId) {
+                <span class="error-msg">Debes seleccionar el proveedor emisor.</span>
+              }
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="compraFactura">N° Factura *</label>
+              <label class="form-label" for="compraFactura">
+                N° Factura <span class="text-danger font-bold">* Obligatorio</span>
+              </label>
               <input
                 id="compraFactura"
                 type="text"
                 class="form-control font-mono"
+                [class.is-invalid]="formSubmitted() && (!formNuevaCompra.numeroFactura || !formNuevaCompra.numeroFactura.trim())"
                 placeholder="001-001-0001234"
                 [(ngModel)]="formNuevaCompra.numeroFactura"
               />
+              @if (formSubmitted() && (!formNuevaCompra.numeroFactura || !formNuevaCompra.numeroFactura.trim())) {
+                <span class="error-msg">El número de factura es obligatorio.</span>
+              }
             </div>
 
             <div class="form-group">
@@ -363,13 +388,19 @@ interface ItemFormCompra {
 
           <div class="form-grid-3 mt-3">
             <div class="form-group">
-              <label class="form-label" for="compraFechaEmision">Fecha de Emisión *</label>
+              <label class="form-label" for="compraFechaEmision">
+                Fecha de Emisión <span class="text-danger font-bold">* Obligatorio</span>
+              </label>
               <input
                 id="compraFechaEmision"
                 type="date"
                 class="form-control"
+                [class.is-invalid]="formSubmitted() && !formNuevaCompra.fechaEmision"
                 [(ngModel)]="formNuevaCompra.fechaEmision"
               />
+              @if (formSubmitted() && !formNuevaCompra.fechaEmision) {
+                <span class="error-msg">La fecha de emisión es obligatoria.</span>
+              }
             </div>
 
             <div class="form-group">
@@ -382,13 +413,19 @@ interface ItemFormCompra {
 
             @if (formNuevaCompra.condicionCompra === 'CREDITO') {
               <div class="form-group">
-                <label class="form-label" for="compraFechaVenc">Fecha de Vencimiento</label>
+                <label class="form-label" for="compraFechaVenc">
+                  Fecha de Vencimiento <span class="text-danger font-bold">* Obligatorio</span>
+                </label>
                 <input
                   id="compraFechaVenc"
                   type="date"
                   class="form-control"
+                  [class.is-invalid]="formSubmitted() && !formNuevaCompra.fechaVencimiento"
                   [(ngModel)]="formNuevaCompra.fechaVencimiento"
                 />
+                @if (formSubmitted() && !formNuevaCompra.fechaVencimiento) {
+                  <span class="error-msg">La fecha de vencimiento es requerida a crédito.</span>
+                }
               </div>
             } @else {
               <div class="form-group">
@@ -407,7 +444,19 @@ interface ItemFormCompra {
           <hr class="form-divider" />
 
           <!-- SELECCIONAR ARTÍCULO -->
-          <div class="section-title">2. Agregar Artículos a la Factura</div>
+          <div class="d-flex justify-content-between align-center mb-2">
+            <div class="section-title m-0">2. Agregar Artículos a la Factura</div>
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              (click)="abrirModalSeleccionMultiple()"
+              title="Seleccionar y agregar múltiples artículos del catálogo en bloque"
+            >
+              <app-icon name="package" [size]="15" />
+              <span>+ Cargar Múltiples Artículos en Bloque</span>
+            </button>
+          </div>
+
           <div class="item-builder-card">
             <!-- BUSCADOR / ESCÁNER POR CÓDIGO DE BARRA -->
             <div class="barcode-scanner-bar mb-3">
@@ -447,7 +496,7 @@ interface ItemFormCompra {
                   [ngModel]="itemEnCarga.productoId"
                   (ngModelChange)="onProductoSeleccionadoChange($event)"
                 >
-                  <option [ngValue]="null" disabled>-- Busca o selecciona un artículo --</option>
+                  <option [ngValue]="null" disabled>-- Busca o selecciona un artículo individual --</option>
                   @for (prod of productosService.productos(); track prod.id) {
                     <option [ngValue]="prod.id">
                       [{{ prod.tipoArticulo }}] {{ prod.nombre }} @if (prod.codigoBarra) { ({{ prod.codigoBarra }}) }
@@ -507,32 +556,54 @@ interface ItemFormCompra {
             </div>
           </div>
 
-          <!-- LISTA DE ITEMS CARGADOS -->
+          <!-- SECCIÓN 3: ARTÍCULOS INCLUIDOS EN LA FACTURA -->
+          <div class="section-title d-flex justify-content-between align-center mt-4">
+            <div class="d-flex align-center gap-2">
+              <span>3. Artículos Incluidos en la Factura</span>
+              <span class="badge badge-primary">{{ itemsCargados().length }} {{ itemsCargados().length === 1 ? 'artículo' : 'artículos' }}</span>
+            </div>
+            @if (itemsCargados().length > 0) {
+              <button
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                (click)="abrirModalSeleccionMultiple()"
+              >
+                <app-icon name="plus" [size]="14" />
+                <span>+ Agregar Más en Bloque</span>
+              </button>
+            }
+          </div>
+
           @if (itemsCargados().length > 0) {
-            <div class="table-container-sm mt-3">
+            <div class="table-container-sm mt-2">
               <table class="data-table">
                 <thead>
                   <tr>
+                    <th style="width: 40px;">#</th>
                     <th>Artículo</th>
                     <th>Cant.</th>
                     <th>Costo Unitario</th>
                     <th>IVA</th>
                     <th class="text-right">Subtotal</th>
-                    <th class="text-right">Quitar</th>
+                    <th class="text-right" style="width: 60px;">Quitar</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (it of itemsCargados(); track $index) {
                     <tr>
+                      <td class="text-muted text-xs text-center">{{ $index + 1 }}</td>
                       <td>
                         <span class="font-medium">{{ it.productoNombre }}</span>
+                        @if (it.codigoBarra) {
+                          <span class="text-xs text-muted font-mono ml-2">({{ it.codigoBarra }})</span>
+                        }
                       </td>
-                      <td>{{ it.cantidad }} {{ it.unidadMedida || 'UNID' }}</td>
+                      <td><strong>{{ it.cantidad }}</strong> {{ it.unidadMedida || 'UNID' }}</td>
                       <td>{{ it.costoUnitario | appCurrency }}</td>
                       <td><span class="badge-iva">{{ it.tipoIva }}</span></td>
-                      <td class="text-right font-bold">{{ it.subtotal | appCurrency }}</td>
+                      <td class="text-right font-bold text-primary">{{ it.subtotal | appCurrency }}</td>
                       <td class="text-right">
-                        <button class="btn-action btn-danger" (click)="quitarItemDeLaFactura($index)">
+                        <button class="btn-action btn-danger" (click)="quitarItemDeLaFactura($index)" title="Eliminar artículo de la factura">
                           <app-icon name="trash" [size]="14" />
                         </button>
                       </td>
@@ -546,7 +617,7 @@ interface ItemFormCompra {
             <div class="totales-summary-card">
               <div class="d-flex justify-content-between align-center">
                 <div class="text-xs text-muted">
-                  * Al confirmar el registro, el stock de estos artículos aumentará automáticamente en el sistema y se generará el movimiento en Kardex.
+                  * Al confirmar el registro de esta factura, el stock de estos <strong>{{ itemsCargados().length }} artículo(s)</strong> aumentará automáticamente en el sistema y se generará el movimiento en Kardex.
                 </div>
                 <div class="total-box">
                   <span class="total-label">TOTAL FACTURA:</span>
@@ -554,12 +625,32 @@ interface ItemFormCompra {
                 </div>
               </div>
             </div>
+          } @else {
+            <div class="empty-items-box mt-2">
+              <app-icon name="package" [size]="28" extraClass="text-muted" />
+              <div class="empty-items-text">
+                <strong class="d-block mb-1">Esta factura admite múltiples artículos</strong>
+                <p class="m-0 text-xs text-muted">
+                  Puedes ir acumulando todos los productos que componen el comprobante usando el lector de código de barra, el selector individual o cargándolos masivamente del catálogo.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                (click)="abrirModalSeleccionMultiple()"
+              >
+                <app-icon name="package" [size]="14" />
+                <span>+ Cargar Múltiples del Catálogo</span>
+              </button>
+            </div>
           }
 
         </div>
 
         <div footer class="modal-actions-footer">
-          <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaCompra()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" (click)="solicitarCerrarModalNuevaCompra()">
+            Cancelar
+          </button>
           <button
             type="button"
             class="btn btn-primary"
@@ -570,8 +661,118 @@ interface ItemFormCompra {
               <span class="spinner-sm"></span> Guardando e Ingresando Stock...
             } @else {
               <app-icon name="check" [size]="16" />
-              <span>Confirmar e Ingresar Stock</span>
+              <span>Confirmar e Ingresar Stock ({{ itemsCargados().length }} artículos)</span>
             }
+          </button>
+        </div>
+      </app-modal>
+    }
+
+    <!-- MODAL SELECCIÓN MÚLTIPLE DE ARTÍCULOS -->
+    @if (modalSeleccionMultipleAbierto()) {
+      <app-modal
+        [isOpen]="modalSeleccionMultipleAbierto()"
+        title="Cargar Múltiples Artículos en Bloque"
+        size="xl"
+        [closeOnBackdrop]="false"
+        (close)="cerrarModalSeleccionMultiple()"
+      >
+        <div body class="modal-form-content">
+          <div class="d-flex justify-content-between align-center mb-3">
+            <p class="m-0 text-sm text-muted">
+              Tilda los artículos que deseas incluir en la factura, ajusta cantidades o costos y presiona "Agregar Seleccionados".
+            </p>
+            <div class="search-box-sm">
+              <app-icon name="search" [size]="16" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o código..."
+                [ngModel]="filtroBusquedaMultiple()"
+                (ngModelChange)="filtroBusquedaMultiple.set($event)"
+              />
+            </div>
+          </div>
+
+          <div class="table-container-sm" style="max-height: 420px; overflow-y: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">Sel.</th>
+                  <th>Artículo</th>
+                  <th>Tipo</th>
+                  <th>Cód. Barra</th>
+                  <th style="width: 110px;">Cant.</th>
+                  <th style="width: 140px;">Costo Unit. (Gs.)</th>
+                  <th style="width: 100px;">IVA</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of itemsFiltradosMultiple; track item.producto.id) {
+                  <tr [class.row-selected]="item.seleccionado">
+                    <td class="text-center">
+                      <input
+                        type="checkbox"
+                        [(ngModel)]="item.seleccionado"
+                      />
+                    </td>
+                    <td>
+                      <div class="font-medium">{{ item.producto.nombre }}</div>
+                    </td>
+                    <td>
+                      <span class="badge badge-secondary text-xs">{{ item.producto.tipoArticulo }}</span>
+                    </td>
+                    <td class="font-mono text-xs">
+                      {{ item.producto.codigoBarra || '-' }}
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.5"
+                        class="form-control form-control-sm font-bold"
+                        [(ngModel)]="item.cantidad"
+                        [disabled]="!item.seleccionado"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        class="form-control form-control-sm font-bold"
+                        [(ngModel)]="item.costoUnitario"
+                        [disabled]="!item.seleccionado"
+                      />
+                    </td>
+                    <td>
+                      <select
+                        class="form-control form-control-sm"
+                        [(ngModel)]="item.tipoIva"
+                        [disabled]="!item.seleccionado"
+                      >
+                        <option value="IVA_10">10%</option>
+                        <option value="IVA_5">5%</option>
+                        <option value="EXENTA">Exenta</option>
+                      </select>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div footer class="modal-actions-footer">
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalSeleccionMultiple()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="agregarSeleccionadosALaFactura()"
+          >
+            <app-icon name="check" [size]="16" />
+            <span>Agregar Seleccionados a la Factura ({{ totalSeleccionadosMultiple }})</span>
           </button>
         </div>
       </app-modal>
@@ -989,9 +1190,26 @@ interface ItemFormCompra {
     .btn-primary:hover { background: #0369a1; }
     .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
     .btn-secondary:hover { background: #e2e8f0; }
+    .btn-outline-primary { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
+    .btn-outline-primary:hover { background: #e0f2fe; border-color: #7dd3fc; }
     .btn-outline-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-outline-danger:hover { background: #fee2e2; }
     .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8125rem; }
+    .text-danger { color: #dc2626; }
+    .is-invalid { border-color: #dc2626 !important; background-color: #fef2f2 !important; }
+    .error-msg { font-size: 0.75rem; color: #dc2626; font-weight: 500; margin-top: 0.15rem; }
+    .badge-primary { background: #0284c7; color: #ffffff; border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 600; }
+    .badge-secondary { background: #f1f5f9; color: #334155; border-radius: 0.35rem; padding: 0.15rem 0.45rem; font-size: 0.75rem; }
+    .empty-items-box { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 0.5rem; }
+    .empty-items-text { flex: 1; }
+    .row-selected { background: #f0f9ff !important; }
+    .search-box-sm { position: relative; display: flex; align-items: center; min-width: 260px; }
+    .search-box-sm input { width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.2rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8125rem; }
+    .search-box-sm app-icon { position: absolute; left: 0.65rem; color: #94a3b8; }
+    .form-control-sm { padding: 0.35rem 0.5rem; font-size: 0.8125rem; }
+    .d-block { display: block; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .text-center { text-align: center; }
     .form-group {
       display: flex;
       flex-direction: column;
@@ -1081,6 +1299,28 @@ export class ComprasComponent implements OnInit {
 
   public readonly modalNuevaCompraAbierto = signal<boolean>(false);
   public readonly guardandoCompra = signal<boolean>(false);
+  public readonly formSubmitted = signal<boolean>(false);
+
+  // Modal Selección Múltiple en Bloque
+  public readonly modalSeleccionMultipleAbierto = signal<boolean>(false);
+  public readonly filtroBusquedaMultiple = signal<string>('');
+  public itemsSeleccionMultiple: ItemSeleccionMultiple[] = [];
+
+  get itemsFiltradosMultiple(): ItemSeleccionMultiple[] {
+    const query = this.filtroBusquedaMultiple().trim().toLowerCase();
+    if (!query) {
+      return this.itemsSeleccionMultiple;
+    }
+    return this.itemsSeleccionMultiple.filter(item =>
+      item.producto.nombre.toLowerCase().includes(query) ||
+      (item.producto.codigoBarra && item.producto.codigoBarra.toLowerCase().includes(query)) ||
+      (item.producto.tipoArticulo && item.producto.tipoArticulo.toLowerCase().includes(query))
+    );
+  }
+
+  get totalSeleccionadosMultiple(): number {
+    return this.itemsSeleccionMultiple.filter(i => i.seleccionado).length;
+  }
 
   // Formulario Nueva Compra
   public formNuevaCompra: {
@@ -1194,6 +1434,7 @@ export class ComprasComponent implements OnInit {
   }
 
   abrirModalNuevaCompra(proveedorIdInicial?: number): void {
+    this.formSubmitted.set(false);
     this.formNuevaCompra = this.getFormNuevaCompraInicial();
     if (proveedorIdInicial) {
       this.formNuevaCompra.proveedorId = proveedorIdInicial;
@@ -1217,8 +1458,78 @@ export class ComprasComponent implements OnInit {
     }, 150);
   }
 
-  cerrarModalNuevaCompra(): void {
+  solicitarCerrarModalNuevaCompra(): void {
+    const tieneArticulos = this.itemsCargados().length > 0;
+    const tieneCampos = Boolean(this.formNuevaCompra.numeroFactura?.trim()) ||
+      Boolean(this.formNuevaCompra.timbrado?.trim()) ||
+      (this.formNuevaCompra.proveedorId !== null);
+
+    if (tieneArticulos || tieneCampos) {
+      const cant = this.itemsCargados().length;
+      const mensaje = cant > 0
+        ? `Tienes ${cant} artículo(s) cargado(s) en esta factura.\n¿Estás seguro de que deseas cancelar y salir?\nSe descartarán todos los artículos y datos no guardados.`
+        : '¿Estás seguro de que deseas salir sin registrar la factura de compra?';
+      if (!confirm(mensaje)) {
+        return;
+      }
+    }
     this.modalNuevaCompraAbierto.set(false);
+  }
+
+  cerrarModalNuevaCompra(): void {
+    this.solicitarCerrarModalNuevaCompra();
+  }
+
+  abrirModalSeleccionMultiple(): void {
+    const prods = this.productosService.productos();
+    const provId = this.formNuevaCompra.proveedorId;
+
+    this.itemsSeleccionMultiple = prods.map(p => {
+      let costo = p.precioCosto || 0;
+      if (provId && p.proveedores) {
+        const vinculo = p.proveedores.find(pv => pv.proveedorId === provId);
+        if (vinculo && vinculo.costoCompra) {
+          costo = vinculo.costoCompra;
+        }
+      }
+      return {
+        producto: p,
+        seleccionado: false,
+        cantidad: 1,
+        costoUnitario: costo,
+        tipoIva: p.tipoIva || 'IVA_10'
+      };
+    });
+
+    this.filtroBusquedaMultiple.set('');
+    this.modalSeleccionMultipleAbierto.set(true);
+  }
+
+  cerrarModalSeleccionMultiple(): void {
+    this.modalSeleccionMultipleAbierto.set(false);
+  }
+
+  agregarSeleccionadosALaFactura(): void {
+    const seleccionados = this.itemsSeleccionMultiple.filter(i => i.seleccionado && i.cantidad > 0);
+    if (seleccionados.length === 0) {
+      this.toast.warning('Marca las casillas de al menos un artículo para agregarlo a la factura.');
+      return;
+    }
+
+    const nuevosItems: ItemFormCompra[] = seleccionados.map(sel => ({
+      productoId: sel.producto.id,
+      productoNombre: sel.producto.nombre,
+      codigoBarra: sel.producto.codigoBarra,
+      unidadMedida: sel.producto.unidadMedida,
+      cantidad: sel.cantidad,
+      costoUnitario: sel.costoUnitario,
+      tipoIva: sel.tipoIva,
+      subtotal: Math.round(sel.cantidad * sel.costoUnitario)
+    }));
+
+    this.itemsCargados.update(list => [...list, ...nuevosItems]);
+    this.toast.success(`Se agregaron ${nuevosItems.length} artículos a la factura.`);
+    this.modalSeleccionMultipleAbierto.set(false);
   }
 
   onProductoSeleccionadoChange(productoId: number): void {
@@ -1352,24 +1663,31 @@ export class ComprasComponent implements OnInit {
   }
 
   guardarFacturaCompra(): void {
+    this.formSubmitted.set(true);
+
     if (!this.formNuevaCompra.proveedorId) {
-      this.toast.warning('Selecciona el proveedor de la factura.');
+      this.toast.warning('El Proveedor es un campo obligatorio.');
       return;
     }
     if (!this.formNuevaCompra.numeroFactura || !this.formNuevaCompra.numeroFactura.trim()) {
-      this.toast.warning('Ingresa el número de factura del proveedor.');
+      this.toast.warning('El N° de Factura es un campo obligatorio.');
       return;
     }
     if (!this.formNuevaCompra.fechaEmision) {
-      this.toast.warning('Ingresa la fecha de emisión de la factura.');
+      this.toast.warning('La Fecha de Emisión es obligatoria.');
       return;
     }
+    if (this.formNuevaCompra.condicionCompra === 'CREDITO' && !this.formNuevaCompra.fechaVencimiento) {
+      this.toast.warning('Para compras a Crédito, la Fecha de Vencimiento es obligatoria.');
+      return;
+    }
+
     // Si el usuario seleccionó un artículo pero no presionó "+ Agregar Línea"
     if (this.itemEnCarga.productoId && this.itemEnCarga.cantidad > 0) {
       this.agregarItemALaFactura();
     }
     if (this.itemsCargados().length === 0) {
-      this.toast.warning('Debes agregar al menos un artículo a la factura usando el botón "+ Agregar Línea".');
+      this.toast.warning('Debes agregar al menos un artículo a la factura usando el botón "+ Agregar Línea" o "+ Cargar Múltiples".');
       return;
     }
 
@@ -1394,8 +1712,11 @@ export class ComprasComponent implements OnInit {
     this.comprasService.registrarCompra(payload).subscribe({
       next: () => {
         this.guardandoCompra.set(false);
+        this.formSubmitted.set(false);
         this.modalNuevaCompraAbierto.set(false);
-        // Refrescar inventario y productos por el nuevo stock
+        this.toast.success(`Factura N° ${payload.numeroFactura} registrada e ingresada al stock con éxito.`);
+        // Refrescar compras e inventario
+        this.comprasService.cargarCompras();
         this.productosService.cargarProductos();
       },
       error: (err) => {
