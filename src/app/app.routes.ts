@@ -71,6 +71,11 @@ export const routes: Routes = [
         canActivate: [permissionGuard('auditoria')]
       },
       {
+        path: 'bitacora',
+        loadComponent: () => import('./features/auditoria/bitacora.component').then(m => m.BitacoraComponent),
+        canActivate: [adminGuard]
+      },
+      {
         path: 'inventario',
         redirectTo: 'stock',
         pathMatch: 'full'

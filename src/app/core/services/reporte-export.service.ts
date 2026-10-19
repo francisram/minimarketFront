@@ -10,6 +10,7 @@ import {
   ReporteCajasDTO
 } from '../models/reporte.model';
 import { Compra } from '../models/compra.model';
+import { AuditoriaLog, FiltrosAuditoria, ResumenAuditoria } from '../models/auditoria.model';
 
 @Injectable({
   providedIn: 'root'
@@ -1392,6 +1393,161 @@ export class ReporteExportService {
     });
 
     const nombreArchivo = `reporte_compras_proveedores_${this.limpiarFechaArchivo(periodo.inicio)}_${this.limpiarFechaArchivo(periodo.fin)}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  // =========================================================================
+  // 8. BITÁCORA CENTRALIZADA DE AUDITORÍA: CSV & PDF (A4 LANDSCAPE)
+  // =========================================================================
+
+  exportarAuditoriaCsv(
+    logs: AuditoriaLog[],
+    filtros: FiltrosAuditoria,
+    resumen?: ResumenAuditoria | null
+  ): void {
+    const BOM = '\uFEFF';
+    const separador = ';';
+    const lineas: string[] = [];
+
+    const inst = this.institucionService.institucion();
+    lineas.push(`"BITÁCORA CENTRALIZADA DE AUDITORÍA - ${this.sanitizarCsv(inst.nombre || 'Minimarket & Heladería')}"`);
+    if (inst.ruc) lineas.push(`"RUC: ${this.sanitizarCsv(inst.ruc)}"`);
+    lineas.push(`"Período: ${filtros.fechaDesde || 'Inicio'} al ${filtros.fechaHasta || 'Hoy'}"`);
+    if (filtros.usuario && filtros.usuario !== 'TODOS') lineas.push(`"Filtro Usuario: ${this.sanitizarCsv(filtros.usuario)}"`);
+    if (filtros.modulo && filtros.modulo !== 'TODOS') lineas.push(`"Filtro Módulo: ${this.sanitizarCsv(filtros.modulo)}"`);
+    if (filtros.accion && filtros.accion !== 'TODOS') lineas.push(`"Filtro Acción: ${this.sanitizarCsv(filtros.accion)}"`);
+    lineas.push(`"Fecha de emisión: ${this.formatearFechaHora(new Date().toISOString())}"`);
+    lineas.push('');
+
+    const headers = [
+      '# ID',
+      'Fecha y Hora',
+      'Usuario',
+      'Módulo',
+      'Acción',
+      'Elemento / Comprobante',
+      'Detalle del Cambio',
+      'IP Origen'
+    ];
+    lineas.push(headers.map(h => `"${h}"`).join(separador));
+
+    for (const log of logs) {
+      const fila = [
+        log.id.toString(),
+        this.formatearFechaHora(log.fecha),
+        this.sanitizarCsv(log.usuario || 'sistema'),
+        this.sanitizarCsv(log.modulo || 'GENERAL'),
+        this.sanitizarCsv(log.accion || 'OPERACION'),
+        this.sanitizarCsv(log.entidadNombre || (log.entidadId ? `ID #${log.entidadId}` : '—')),
+        this.sanitizarCsv(log.detalle || ''),
+        log.ipOrigen || '—'
+      ];
+      lineas.push(fila.map(f => `"${f}"`).join(separador));
+    }
+
+    if (resumen) {
+      lineas.push('');
+      lineas.push(`"TOTAL EVENTOS REGISTRADOS"${separador}"${resumen.totalEventos}"`);
+      lineas.push(`"TOTAL MODIFICACIONES"${separador}"${resumen.totalModificaciones}"`);
+      lineas.push(`"TOTAL BAJAS / ANULACIONES"${separador}"${resumen.totalBajasOAnulaciones}"`);
+      lineas.push(`"USUARIOS ACTIVOS EN BITÁCORA"${separador}"${resumen.totalUsuarios}"`);
+    }
+
+    const contenido = BOM + lineas.join('\r\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const nombreArchivo = `bitacora_auditoria_${this.limpiarFechaArchivo(filtros.fechaDesde)}_${this.limpiarFechaArchivo(filtros.fechaHasta)}.csv`;
+    this.descargarBlob(blob, nombreArchivo);
+  }
+
+  exportarAuditoriaPdf(
+    logs: AuditoriaLog[],
+    filtros: FiltrosAuditoria,
+    resumen?: ResumenAuditoria | null
+  ): void {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const titulo = 'BITÁCORA CENTRALIZADA DE AUDITORÍA';
+    const periodoTexto = `Período: ${filtros.fechaDesde ? this.formatearFecha(filtros.fechaDesde) : 'Histórico completo'} al ${filtros.fechaHasta ? this.formatearFecha(filtros.fechaHasta) : 'Hoy'}` +
+      (filtros.usuario && filtros.usuario !== 'TODOS' ? ` | Usuario: ${filtros.usuario}` : '') +
+      (filtros.modulo && filtros.modulo !== 'TODOS' ? ` | Módulo: ${filtros.modulo}` : '');
+
+    const startY = this.dibujarEncabezadoA4(doc, titulo, periodoTexto, 'landscape');
+
+    const kpiY = startY + 2;
+    const totalEventos = resumen?.totalEventos ?? logs.length;
+    const totalMods = resumen?.totalModificaciones ?? logs.filter(l => l.accion === 'MODIFICACION').length;
+    const totalBajas = resumen?.totalBajasOAnulaciones ?? logs.filter(l => l.accion === 'ANULACION' || l.accion === 'ELIMINACION').length;
+    const totalUsers = resumen?.totalUsuarios ?? new Set(logs.map(l => l.usuario)).size;
+
+    this.dibujarKpiBox(doc, 14, kpiY, 62, 14, 'TOTAL REGISTROS', `${totalEventos} eventos`, [30, 41, 59]);
+    this.dibujarKpiBox(doc, 82, kpiY, 62, 14, 'USUARIOS CON ACTIVIDAD', `${totalUsers} usuarios`, [2, 132, 199]);
+    this.dibujarKpiBox(doc, 150, kpiY, 62, 14, 'MODIFICACIONES', `${totalMods} cambios`, [217, 119, 6]);
+    this.dibujarKpiBox(doc, 218, kpiY, 65, 14, 'BAJAS / ANULACIONES', `${totalBajas} operaciones`, [220, 38, 38]);
+
+    const tableStartY = kpiY + 18;
+    const tableData = logs.map((l, i) => [
+      (i + 1).toString(),
+      this.formatearFechaHora(l.fecha),
+      l.usuario || 'sistema',
+      l.modulo || 'GENERAL',
+      l.accion || 'OPERACION',
+      l.entidadNombre || (l.entidadId ? `#${l.entidadId}` : '—'),
+      l.detalle || '—',
+      l.ipOrigen || '127.0.0.1'
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [[
+        '#',
+        'Fecha y Hora',
+        'Usuario',
+        'Módulo',
+        'Acción',
+        'Elemento Afectado',
+        'Detalle del Cambio',
+        'IP'
+      ]],
+      body: tableData,
+      theme: 'plain',
+      styles: {
+        fontSize: 7.2,
+        cellPadding: 1.6,
+        textColor: [30, 41, 59],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1
+      },
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8 },
+        1: { halign: 'center', cellWidth: 26 },
+        2: { halign: 'center', cellWidth: 22, fontStyle: 'bold' },
+        3: { halign: 'center', cellWidth: 26 },
+        4: { halign: 'center', cellWidth: 24, fontStyle: 'bold' },
+        5: { halign: 'left', cellWidth: 38 },
+        6: { halign: 'left', cellWidth: 105 },
+        7: { halign: 'center', cellWidth: 20 }
+      },
+      margin: { left: 14, right: 14, bottom: 15 },
+      didDrawPage: () => {
+        this.dibujarPiePaginaA4(doc, 'landscape');
+      }
+    });
+
+    const nombreArchivo = `bitacora_auditoria_${this.limpiarFechaArchivo(filtros.fechaDesde)}_${this.limpiarFechaArchivo(filtros.fechaHasta)}.pdf`;
     doc.save(nombreArchivo);
   }
 

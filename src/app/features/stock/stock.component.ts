@@ -187,6 +187,14 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <app-icon name="clipboard-check" [size]="16" />
                 <span>Auditoría & Conteo Físico</span>
               </button>
+              <a
+                routerLink="/bitacora"
+                class="tab-btn link-tab"
+                title="Ver bitácora centralizada de cambios, precios, compras y stock"
+              >
+                <app-icon name="history" [size]="16" />
+                <span>Bitácora de Auditoría</span>
+              </a>
             }
           </div>
 
