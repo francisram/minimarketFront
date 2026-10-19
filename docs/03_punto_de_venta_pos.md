@@ -14,16 +14,24 @@ El **Punto de Venta (POS)** es el corazón operativo del mostrador de la helader
 La pantalla está organizada en dos áreas principales:
 
 ### Zona Izquierda: Catálogo Táctil y Búsqueda Multimodal
-1. **Buscador Rápido Multimodal (3 Opciones de Búsqueda)**:
-   * 🏷️ **Búsqueda por Código de Barras**: Con pistola lectora USB/inalámbrica o tecleando el código de barras del producto (EAN-13, etc.). Al escanear o presionar `Enter`, el artículo se agrega **automáticamente al ticket sin pasos adicionales**.
-   * 🔢 **Búsqueda por Código de Producto / ID**: Ingresa el código interno o ID numérico del artículo para localizarlo al instante.
+1. **Multiplicador de Cantidad Directo (`[Cant: 1]`)**:
+   * Ubicado a la izquierda inmediata del buscador y lector de código de barras.
+   * Por defecto tiene el valor `1`.
+   * Si el cliente compra varias unidades del mismo producto (ejemplo: 6 gaseosas o 12 alfajores), escribe la cantidad deseada (ej. `6`) en esta casilla.
+   * **Navegación ágil por teclado**: Al escribir la cantidad y pulsar `Enter`, el cursor salta automáticamente al buscador para escanear el código de barras sin usar el mouse.
+   * **Reinicio automático**: Una vez agregado el producto al ticket, el campo vuelve automáticamente a `1` para que las siguientes lecturas continúen de forma habitual.
+2. **Buscador Rápido Multimodal (3 Opciones de Búsqueda)**:
+   * 🏷️ **Búsqueda por Código de Barras**: Con pistola lectora USB/inalámbrica o tecleando el código de barras del producto (EAN-13, etc.). Al escanear o presionar `Enter`, el artículo se agrega **automáticamente al ticket con la cantidad indicada**.
+   * ⚡ **Atajo multiplicador en el buscador**: También puedes escribir directamente `6*codigo` o `6x codigo` en el buscador y presionar `Enter`; el sistema detectará automáticamente la cantidad y el código.
+   * 🔢 **Búsqueda por Código de Producto / ID**: Ingresa el código interno o ID numérico del artículo (ej. `#12`) para localizarlo al instante.
    * 🔍 **Búsqueda por Nombre / Descripción**: Escribe parte del nombre del producto (ej. *"Coca"*, *"Alfajor"*, *"Agua"*).
-2. **Pestañas de Categoría**:
+3. **Pestañas de Categoría**:
    * **Potes y Envases**: Muestra los formatos de helado disponibles (1/4 kg, 1/2 kg, 1 kg, cucuruchos, vasitos) con su precio y capacidad de sabores.
    * **Sabores en Bacha**: Lista de sabores disponibles en el local con control de stock.
    * **Toppings y Adicionales**: Salsas, confites, chips y agregados.
    * **Bebidas / Minimarket**: Artículos unitarios empaquetados.
-3. **Botón Rápido `+` en Artículos**: Cada tarjeta de producto cuenta con un botón directo `+` para añadir unidades a la orden con un solo toque.
+4. **Tarjetas de Producto en Catálogo**:
+   * Al hacer clic sobre cualquier tarjeta de producto o su botón `+`, se añade al ticket respetando la cantidad fijada en `[Cant: N]` y luego reinicia a `1`.
 
 ### Zona Derecha: Comanda / Orden en Curso
 1. **Selector de Cliente**: Permite buscar o asignar el cliente para la factura legal (por defecto: *"Consumidor Final"*).
@@ -40,10 +48,13 @@ La pantalla está organizada en dos áreas principales:
 ## 3. Procedimientos Paso a Paso
 
 ### Procedimiento A: Venta Rápida por Código de Barras o Código de Producto
-1. Ubica el cursor en el buscador superior del POS (o simplemente apunta la pistola lectora de código de barras).
-2. Escanea el código del producto (ejemplo: botella de gaseosa o snack).
-3. **Comportamiento automático**: El sistema identifica el producto por su código de barras o código interno y lo añade directamente a la comanda de la derecha, incrementando la cantidad si ya existía.
-4. Si ingresas el código de barras o ID manualmente con el teclado, presiona la tecla `Enter` para incorporarlo al ticket de inmediato.
+1. **Para 1 unidad**:
+   * Apunta la pistola lectora al código del producto o ingrésalo en el buscador y presiona `Enter`. Se agrega 1 unidad al ticket.
+2. **Para múltiples unidades (Ej. 6 unidades)**:
+   * **Método 1 (Casilla Cantidad)**: Haz clic en la casilla `Cant:`, escribe `6`, pulsa `Enter` (el foco se mueve al buscador) y escanea el código. Se sumarán 6 unidades en un solo paso y la casilla volverá a `1`.
+   * **Método 2 (Atajo en buscador)**: En el buscador escribe `6*` seguido del código de barras (ej. `6*7840001001`) o haz `Enter`.
+   * **Método 3 (Desde catálogo)**: Cambia `Cant:` a `6` y haz clic en la tarjeta del producto en pantalla.
+3. **Comportamiento automático**: El sistema identifica el producto, valida el stock disponible y lo añade directamente a la comanda de la derecha, incrementando la cantidad si ya existía.
 
 ---
 

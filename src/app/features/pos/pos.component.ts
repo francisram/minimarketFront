@@ -102,22 +102,41 @@ export interface ItemCatalogoPOS {
               </select>
             </div>
 
-            <!-- ESCÁNER RÁPIDO Y BÚSQUEDA POR TEXTO O CÓDIGO DE BARRAS -->
+            <!-- ESCÁNER RÁPIDO Y BÚSQUEDA POR TEXTO O CÓDIGO DE BARRAS CON MULTIPLICADOR DE CANTIDAD -->
             <div class="search-scanner-box">
-              <app-icon name="search" [size]="18" extraClass="search-icon" />
-              <input
-                type="text"
-                class="search-scanner-input"
-                placeholder="Buscar por nombre, código de barra o Cód/ID (#) [Enter]..."
-                [ngModel]="busquedaTermino()"
-                (ngModelChange)="busquedaTermino.set($event)"
-                (keydown.enter)="onBuscarOEnter($event)"
-              />
-              @if (busquedaTermino()) {
-                <button type="button" class="btn-clear-search" (click)="busquedaTermino.set('')">
-                  <app-icon name="x" [size]="14" />
-                </button>
-              }
+              <div class="qty-multiplier-wrapper" title="Cantidad a agregar (por defecto: 1)">
+                <span class="qty-multiplier-label">Cant:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  step="1"
+                  class="qty-multiplier-input"
+                  [ngModel]="cantidadAgregar()"
+                  (ngModelChange)="onCambioCantidadAgregar($event)"
+                  (focus)="$any($event.target).select()"
+                  (keydown.enter)="$event.preventDefault(); searchInput.focus(); searchInput.select()"
+                  aria-label="Cantidad a agregar"
+                />
+              </div>
+
+              <div class="search-input-inner">
+                <app-icon name="search" [size]="18" extraClass="search-icon" />
+                <input
+                  #searchInput
+                  type="text"
+                  class="search-scanner-input"
+                  placeholder="Buscar por nombre, código de barra o Cód/ID (#) [Enter]..."
+                  [ngModel]="busquedaTermino()"
+                  (ngModelChange)="busquedaTermino.set($event)"
+                  (keydown.enter)="onBuscarOEnter($event)"
+                />
+                @if (busquedaTermino()) {
+                  <button type="button" class="btn-clear-search" (click)="busquedaTermino.set('')">
+                    <app-icon name="x" [size]="14" />
+                  </button>
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -1172,8 +1191,64 @@ export interface ItemCatalogoPOS {
       position: relative;
       display: flex;
       align-items: center;
-      min-width: 320px;
-      flex: 1.2;
+      gap: 0.5rem;
+      min-width: 340px;
+      flex: 1.3;
+    }
+
+    .qty-multiplier-wrapper {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0 0.5rem;
+      height: 38px;
+      gap: 0.35rem;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .qty-multiplier-wrapper:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+      background: #ffffff;
+    }
+
+    .qty-multiplier-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      user-select: none;
+    }
+
+    .qty-multiplier-input {
+      width: 44px;
+      border: none;
+      background: transparent;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      text-align: center;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+
+    .qty-multiplier-input::-webkit-outer-spin-button,
+    .qty-multiplier-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .search-input-inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
     }
 
     .search-icon {
@@ -1181,11 +1256,13 @@ export interface ItemCatalogoPOS {
       left: 0.85rem;
       color: #64748b;
       pointer-events: none;
+      z-index: 2;
     }
 
     .search-scanner-input {
       width: 100%;
-      padding: 0.6rem 2.2rem 0.6rem 2.5rem;
+      height: 38px;
+      padding: 0.5rem 2.2rem 0.5rem 2.5rem;
       border-radius: var(--radius-md);
       border: 1.5px solid var(--border-color);
       background: var(--bg-subtle);
@@ -1197,8 +1274,8 @@ export interface ItemCatalogoPOS {
 
     .search-scanner-input:focus {
       background: #ffffff;
-      border-color: #0284c7;
-      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
     }
 
     .btn-clear-search {
@@ -2386,8 +2463,22 @@ export class PosComponent implements OnInit {
 
   public readonly categoriaSeleccionada = signal<string>('TODOS');
   public readonly busquedaTermino = signal<string>('');
+  public readonly cantidadAgregar = signal<number>(1);
   public readonly selectorSaboresActivo = signal<boolean>(false);
   public readonly filtroCategoriaSabor = signal<string>('TODOS');
+
+  onCambioCantidadAgregar(val: any): void {
+    const num = Number(val);
+    if (!isNaN(num) && num > 0) {
+      this.cantidadAgregar.set(Math.floor(num));
+    } else {
+      this.cantidadAgregar.set(1);
+    }
+  }
+
+  resetCantidadAgregar(): void {
+    this.cantidadAgregar.set(1);
+  }
 
   public readonly modalCheckoutAbierto = signal<boolean>(false);
   public readonly modalAperturaRapidaAbierto = signal<boolean>(false);
@@ -2628,14 +2719,16 @@ export class PosComponent implements OnInit {
     this.busquedaTermino.set('');
   }
 
-  agregarItemAlTicket(item: ItemCatalogoPOS): void {
+  agregarItemAlTicket(item: ItemCatalogoPOS, cant?: number): void {
+    const cantidad = cant !== undefined && cant > 0 ? cant : (this.cantidadAgregar() || 1);
     if (item.tipo === 'HELADO') {
-      this.posService.agregarPresentacionDirecta(item.rawItem as Presentacion);
+      this.posService.agregarPresentacionDirecta(item.rawItem as Presentacion, cantidad);
     } else if (item.tipo === 'TOPPING') {
-      this.posService.agregarToppingDirecto(item.rawItem as Topping);
+      this.posService.agregarToppingDirecto(item.rawItem as Topping, cantidad);
     } else {
-      this.posService.agregarProductoSimple(item.rawItem as ProductoSimple);
+      this.posService.agregarProductoSimple(item.rawItem as ProductoSimple, cantidad);
     }
+    this.resetCantidadAgregar();
   }
 
   // Métodos y filtros para la ventana opcional de selección de sabores
@@ -2704,9 +2797,20 @@ export class PosComponent implements OnInit {
 
   onBuscarOEnter(event?: Event): void {
     if (event) event.preventDefault();
-    const query = this.busquedaTermino().trim();
+    let query = this.busquedaTermino().trim();
     if (!query) return;
 
+    // 0. Detectar si el cajero escribió el formato clásico multiplicador: ej. "5*código" o "5x código"
+    const matchMult = query.match(/^(\d+)\s*[*xX]\s*(.+)$/);
+    if (matchMult) {
+      const cantMult = parseInt(matchMult[1], 10);
+      if (cantMult > 0) {
+        this.cantidadAgregar.set(cantMult);
+        query = matchMult[2].trim();
+      }
+    }
+
+    const cantidad = this.cantidadAgregar() || 1;
     const qNorm = this.normalizarTexto(query);
     const qClean = qNorm.replace(/[^a-z0-9]/g, '');
 
@@ -2715,7 +2819,8 @@ export class PosComponent implements OnInit {
       p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === query.toLowerCase()
     );
     if (matchBarra) {
-      this.posService.agregarProductoSimple(matchBarra);
+      this.posService.agregarProductoSimple(matchBarra, cantidad);
+      this.resetCantidadAgregar();
       this.busquedaTermino.set('');
       return;
     }
@@ -2728,7 +2833,7 @@ export class PosComponent implements OnInit {
       item => item.codigoBarra && item.codigoBarra.trim().toLowerCase() === query.toLowerCase()
     );
     if (matchBarraCat) {
-      this.agregarItemAlTicket(matchBarraCat);
+      this.agregarItemAlTicket(matchBarraCat, cantidad);
       this.busquedaTermino.set('');
       return;
     }
@@ -2741,7 +2846,7 @@ export class PosComponent implements OnInit {
       return codNorm === qNorm || (qClean && codClean === qClean);
     });
     if (matchCodigoItem) {
-      this.agregarItemAlTicket(matchCodigoItem);
+      this.agregarItemAlTicket(matchCodigoItem, cantidad);
       this.busquedaTermino.set('');
       return;
     }
@@ -2752,7 +2857,7 @@ export class PosComponent implements OnInit {
       return idStr === qClean || `#${idStr}` === query;
     });
     if (matchesPorId.length === 1) {
-      this.agregarItemAlTicket(matchesPorId[0]);
+      this.agregarItemAlTicket(matchesPorId[0], cantidad);
       this.busquedaTermino.set('');
       return;
     }
@@ -2762,14 +2867,14 @@ export class PosComponent implements OnInit {
       item => this.normalizarTexto(item.nombre) === qNorm
     );
     if (matchExactoNombre) {
-      this.agregarItemAlTicket(matchExactoNombre);
+      this.agregarItemAlTicket(matchExactoNombre, cantidad);
       this.busquedaTermino.set('');
       return;
     }
 
     // 2e. Si el filtro arrojó exactamente 1 producto único en total
     if (filtrados.length === 1) {
-      this.agregarItemAlTicket(filtrados[0]);
+      this.agregarItemAlTicket(filtrados[0], cantidad);
       this.busquedaTermino.set('');
       return;
     }
@@ -2782,9 +2887,10 @@ export class PosComponent implements OnInit {
 
     // 3. Si no hay ningún resultado en el catálogo en pantalla (filtrados.length === 0),
     // consultar al backend por código de barra / código de producto
-    this.posService.agregarPorCodigoBarra(query).subscribe({
+    this.posService.agregarPorCodigoBarra(query, cantidad).subscribe({
       next: (agregado) => {
         if (agregado) {
+          this.resetCantidadAgregar();
           this.busquedaTermino.set('');
         } else {
           this.toast.warning(`No se encontró ningún producto que coincida con "${query}".`);

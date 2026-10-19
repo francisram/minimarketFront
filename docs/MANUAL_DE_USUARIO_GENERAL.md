@@ -102,13 +102,18 @@ Un día habitual de operación sigue este flujo estándar:
 * **Acceso**: Menú Lateral > **Punto de Venta (POS)** (`/pos`).
 
 ### Funcionalidades Destacadas:
-1. **Búsqueda Multimodal (3 Vías de Entrada)**:
-   * 🏷️ **Código de Barras**: Con pistola lectora USB o tecleado manual. Al escanear o presionar `Enter`, el producto se agrega **automáticamente al ticket** de forma transparente.
+1. **Multiplicador de Cantidad Rápido (`[Cant: 1]`)**:
+   * Casilla editable ubicada junto al buscador/lector de código de barras.
+   * Permite indicar la cantidad deseada antes de escanear o seleccionar un producto (ej. ingresar `6` para agregar 6 unidades al instante).
+   * Al pulsar `Enter` en la casilla, el cursor pasa automáticamente al buscador de código de barras.
+   * Tras agregar el producto, se restablece automáticamente a `1`.
+2. **Búsqueda Multimodal (3 Vías de Entrada)**:
+   * 🏷️ **Código de Barras**: Con pistola lectora USB o tecleado manual. Al escanear o presionar `Enter`, el producto se agrega **automáticamente al ticket** con la cantidad indicada. Admite también atajo directo como `6*codigo` o `6x codigo`.
    * 🔢 **Código de Producto / ID**: Permite buscar artículos por su ID numérico o código interno de inventario.
    * 🔍 **Nombre / Descripción**: Búsqueda incremental por texto libre.
-2. **Botón Rápido `+`**: Cada tarjeta de producto incorpora un botón compacto `+` para sumar unidades directamente al pedido con un solo toque.
-3. **Potes de Helado y Sabores**: Asignación interactiva de sabores según la capacidad del pote térmico con bloqueo visual de bachas agotadas.
-4. **Cobro Multimedio**:
+3. **Botón Rápido `+` en Artículos**: Cada tarjeta de producto incorpora un botón compacto `+` y permite añadir al ticket respetando la cantidad indicada en `[Cant: N]`.
+4. **Potes de Helado y Sabores**: Asignación interactiva de sabores según la capacidad del pote térmico con bloqueo visual de bachas agotadas.
+5. **Cobro Multimedio**:
    * Efectivo con cálculo de vuelto.
    * Tarjetas de débito/crédito con **obligatoriedad de ingresar el N° de Voucher / Cupón POS** para habilitar la confirmación.
    * Pagos con QR y transferencias bancarias.

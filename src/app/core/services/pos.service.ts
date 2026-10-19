@@ -272,25 +272,29 @@ export class PosService {
         this.toast.warning(`Solo hay ${producto.stock} unidad(es) disponibles en stock.`);
         return;
       }
-      this.actualizarCantidad(itemExistente.idLocal, 1);
+      this.actualizarCantidad(itemExistente.idLocal, cantidad);
     } else {
+      if (cantidad > producto.stock) {
+        this.toast.warning(`Solo hay ${producto.stock} unidad(es) disponibles en stock.`);
+        return;
+      }
       const nuevoItem: ItemTicketLocal = {
         idLocal: Math.random().toString(36).substring(2, 9),
         tipoItem: 'PRODUCTO_SIMPLE',
         productoSimple: producto,
         sabores: [],
         toppings: [],
-        cantidad: 1,
+        cantidad: cantidad,
         precioUnitario: producto.precio,
-        subtotal: producto.precio,
+        subtotal: producto.precio * cantidad,
         tipoIva: producto.tipoIva || 'IVA_10'
       };
       this.ticketItems.update(list => [...list, nuevoItem]);
-      this.toast.success(`Agregado: ${producto.nombre}`);
+      this.toast.success(`Agregado: ${producto.nombre} (${cantidad} un.)`);
     }
   }
 
-  agregarPorCodigoBarra(codigo: string): Observable<boolean> {
+  agregarPorCodigoBarra(codigo: string, cantidad: number = 1): Observable<boolean> {
     if (!codigo || codigo.trim().length === 0) {
       return of(false);
     }
@@ -300,14 +304,14 @@ export class PosService {
     );
 
     if (encontradoLocal) {
-      this.agregarProductoSimple(encontradoLocal, 1);
+      this.agregarProductoSimple(encontradoLocal, cantidad);
       return of(true);
     }
 
     return this.http.get<ProductoSimple>(`${this.apiUrl}/api/productos-simples/codigo-barra/${encodeURIComponent(codLimpio)}`).pipe(
       tap((prod) => {
         if (prod && prod.activo) {
-          this.agregarProductoSimple(prod, 1);
+          this.agregarProductoSimple(prod, cantidad);
         } else if (prod && !prod.activo) {
           this.toast.warning(`El producto "${prod.nombre}" está marcado como inactivo.`);
         }
