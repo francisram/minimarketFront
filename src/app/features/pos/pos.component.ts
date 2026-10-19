@@ -2745,6 +2745,16 @@ export class PosComponent implements OnInit {
     // 2. Obtener los productos que coinciden con la búsqueda actual
     const filtrados = this.itemsCatalogoFiltrados();
 
+    // 2a. Si hay coincidencia exacta por código de barra en el catálogo
+    const matchBarraCat = filtrados.find(
+      item => item.codigoBarra && item.codigoBarra.trim().toLowerCase() === query.toLowerCase()
+    );
+    if (matchBarraCat) {
+      this.agregarItemAlTicket(matchBarraCat);
+      this.busquedaTermino.set('');
+      return;
+    }
+
     // 2a. Si hay coincidencia exacta de nombre
     const matchExactoNombre = filtrados.find(
       item => this.normalizarTexto(item.nombre) === qNorm
