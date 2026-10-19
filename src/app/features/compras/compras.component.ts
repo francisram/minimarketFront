@@ -1841,6 +1841,13 @@ export class ComprasComponent implements OnInit {
     }
     this.recalcularPrecioVentaArticuloRapido();
     this.modalNuevoArticuloRapidoAbierto.set(true);
+    setTimeout(() => {
+      const inputNombre = document.getElementById('nuevoNombre') as HTMLInputElement | null;
+      if (inputNombre) {
+        inputNombre.focus();
+        inputNombre.select();
+      }
+    }, 150);
   }
 
   cerrarModalNuevoArticuloRapido(): void {
@@ -1964,11 +1971,13 @@ export class ComprasComponent implements OnInit {
         if (prodRemoto) {
           this.seleccionarProductoEncontrado(prodRemoto);
         } else {
-          this.toast.error(`No se encontró ningún artículo con código: ${cod}`);
+          this.toast.info(`El código "${cod}" no existe en el catálogo. Abriendo alta rápida...`);
+          this.abrirModalNuevoArticuloRapido();
         }
       },
       error: () => {
-        this.toast.error(`No se encontró ningún artículo con el código de barra "${cod}".`);
+        this.toast.info(`El código "${cod}" no existe en el catálogo. Abriendo alta rápida...`);
+        this.abrirModalNuevoArticuloRapido();
       }
     });
   }
