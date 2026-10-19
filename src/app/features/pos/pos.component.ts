@@ -2554,14 +2554,27 @@ export class PosComponent implements OnInit {
     return list;
   });
 
+  private normalizarTexto(texto?: string | null): string {
+    if (!texto) return '';
+    return texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
   // Catálogo unificado filtrado por categoría y término de búsqueda
   public readonly itemsCatalogoFiltrados = computed<ItemCatalogoPOS[]>(() => {
     const cat = this.categoriaSeleccionada();
-    const query = this.busquedaTermino.trim().toLowerCase();
+    const query = this.busquedaTermino.trim();
+    const qNorm = this.normalizarTexto(query);
     const resultado: ItemCatalogoPOS[] = [];
 
+    // Si hay un término de búsqueda, buscar en todo el catálogo; si no, respetar categoría activa
+    const aplicarFiltroCat = !qNorm;
+
     // Presentaciones de helado
-    if (cat === 'TODOS' || cat === 'HELADOS') {
+    if (!aplicarFiltroCat || cat === 'TODOS' || cat === 'HELADOS') {
       for (const pres of this.posService.presentacionesActivas()) {
         resultado.push({
           idUnico: `pres_${pres.id}`,
@@ -2579,7 +2592,7 @@ export class PosComponent implements OnInit {
     }
 
     // Toppings y agregados
-    if (cat === 'TODOS' || cat === 'TOPPINGS') {
+    if (!aplicarFiltroCat || cat === 'TODOS' || cat === 'TOPPINGS') {
       for (const top of this.posService.toppingsDisponibles()) {
         resultado.push({
           idUnico: `top_${top.id}`,
@@ -2598,7 +2611,7 @@ export class PosComponent implements OnInit {
     const productos = this.posService.productosSimplesActivos();
     for (const prod of productos) {
       const prodCat = (prod.categoria && prod.categoria.trim()) ? prod.categoria.trim() : 'General';
-      if (cat === 'TODOS' || cat === prodCat) {
+      if (!aplicarFiltroCat || cat === 'TODOS' || cat === prodCat) {
         resultado.push({
           idUnico: `prod_${prod.id}`,
           tipo: 'PRODUCTO',
@@ -2614,15 +2627,16 @@ export class PosComponent implements OnInit {
       }
     }
 
-    if (!query) {
+    if (!qNorm) {
       return resultado;
     }
 
-    return resultado.filter(item =>
-      item.nombre.toLowerCase().includes(query) ||
-      item.categoria.toLowerCase().includes(query) ||
-      (item.codigoBarra && item.codigoBarra.toLowerCase().includes(query))
-    );
+    return resultado.filter(item => {
+      const nomNorm = this.normalizarTexto(item.nombre);
+      const catNorm = this.normalizarTexto(item.categoria);
+      const codNorm = this.normalizarTexto(item.codigoBarra);
+      return nomNorm.includes(qNorm) || catNorm.includes(qNorm) || (codNorm && codNorm.includes(qNorm));
+    });
   });
 
   seleccionarCategoria(catId: string): void {
@@ -2713,7 +2727,9 @@ export class PosComponent implements OnInit {
     const query = this.busquedaTermino.trim();
     if (!query) return;
 
-    // 1. Buscar coincidencia local por código de barra en productos simples
+    const qNorm = this.normalizarTexto(query);
+
+    // 1. ¿Hay coincidencia EXACTA por código de barra en productos simples locales?
     const matchBarra = this.posService.productosSimplesActivos().find(
       p => p.codigoBarra && p.codigoBarra.trim().toLowerCase() === query.toLowerCase()
     );
@@ -2723,18 +2739,40 @@ export class PosComponent implements OnInit {
       return;
     }
 
-    // 2. Búsqueda remota por código de barra con la API
+    // 2. Obtener los productos que coinciden con la búsqueda actual
+    const filtrados = this.itemsCatalogoFiltrados();
+
+    // 2a. Si hay coincidencia exacta de nombre
+    const matchExactoNombre = filtrados.find(
+      item => this.normalizarTexto(item.nombre) === qNorm
+    );
+    if (matchExactoNombre) {
+      this.agregarItemAlTicket(matchExactoNombre);
+      this.busquedaTermino = '';
+      return;
+    }
+
+    // 2b. Si el filtro arrojó exactamente 1 producto, agregarlo al ticket directamente
+    if (filtrados.length === 1) {
+      this.agregarItemAlTicket(filtrados[0]);
+      this.busquedaTermino = '';
+      return;
+    }
+
+    // 2c. Si hay múltiples productos (ej. "ca" coincide con Café y Salsa de Caramelo)
+    if (filtrados.length > 1) {
+      this.toast.info(`Se encontraron ${filtrados.length} productos con "${query}". Selecciona el que deseas en pantalla.`);
+      return;
+    }
+
+    // 3. Si no hay ningún resultado en el catálogo en pantalla (filtrados.length === 0),
+    // recién aquí consultar al backend por código de barra de lectora óptica
     this.posService.agregarPorCodigoBarra(query).subscribe({
       next: (agregado) => {
         if (agregado) {
           this.busquedaTermino = '';
         } else {
-          // 3. Si no fue código de barra, si el filtro tiene exactamente 1 resultado, agregarlo
-          const filtrados = this.itemsCatalogoFiltrados();
-          if (filtrados.length === 1) {
-            this.agregarItemAlTicket(filtrados[0]);
-            this.busquedaTermino = '';
-          }
+          this.toast.warning(`No se encontró ningún producto que coincida con "${query}".`);
         }
       }
     });

@@ -314,7 +314,6 @@ export class PosService {
       }),
       map(() => true),
       catchError(() => {
-        this.toast.warning(`No se encontró ningún producto con el código de barra "${codLimpio}".`);
         return of(false);
       })
     );
