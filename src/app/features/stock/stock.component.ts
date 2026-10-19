@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { StockService } from '../../core/services/stock.service';
 import { CatalogosService } from '../../core/services/catalogos.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -30,7 +30,7 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 @Component({
   selector: 'app-stock',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, RouterModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
   template: `
     <div class="stock-page">
       <!-- ENCABEZADO -->
@@ -1167,6 +1167,15 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
         (close)="cerrarModalMovimiento()"
       >
         <div body class="form-grid">
+          <!-- AVISO INFORMATIVO DE COMPRAS -->
+          <div class="compras-redirect-notice">
+            <app-icon name="info" [size]="18" />
+            <div class="notice-text">
+              <strong>Control de Almacén:</strong> Este formulario es para ajustes operativos (producción propia, mermas o recuento físico). Para compras con factura y crédito fiscal, utiliza el módulo oficial de 
+              <a routerLink="/compras" (click)="cerrarModalMovimiento()" class="link-compras">Compras a Proveedores</a>.
+            </div>
+          </div>
+
           <!-- TIPO DE ÍTEM -->
           <div class="form-group">
             <label class="form-label">Tipo de Artículo *</label>
@@ -1221,10 +1230,11 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               class="form-control"
               [(ngModel)]="movimientoTipoMov"
             >
-              <option value="ENTRADA_COMPRA">➕ Entrada por Compra a Proveedor</option>
-              <option value="ENTRADA_PRODUCCION">🍨 Entrada por Elaboración / Producción</option>
+              @if (movimientoTipoItem() === 'SABOR') {
+                <option value="ENTRADA_PRODUCCION">🍨 Entrada por Elaboración / Producción de Helado</option>
+              }
+              <option value="AJUSTE_INVENTARIO">📋 Ajuste por Conteo Físico / Regularización</option>
               <option value="SALIDA_MERMA">⚠️ Salida por Merma / Vencimiento / Rotura</option>
-              <option value="AJUSTE_INVENTARIO">📋 Ajuste por Conteo Físico</option>
             </select>
           </div>
 
@@ -1232,7 +1242,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label" for="movCantidad">
-                Cantidad a {{ esMovimientoSalida() ? 'Descontar' : 'Ingresar' }} ({{ getUnidadMovimientoActual() }}) *
+                @if (movimientoTipoMov === 'SALIDA_MERMA') {
+                  Cantidad a Descontar ({{ getUnidadMovimientoActual() }}) *
+                } @else if (movimientoTipoMov === 'AJUSTE_INVENTARIO') {
+                  Nuevo Stock Físico Real ({{ getUnidadMovimientoActual() }}) *
+                } @else {
+                  Cantidad Producida a Ingresar ({{ getUnidadMovimientoActual() }}) *
+                }
               </label>
               <input
                 id="movCantidad"
@@ -2099,6 +2115,37 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     .badge-ajuste { background: #f3e8ff; color: #7e22ce; }
     .badge-reintegro { background: #fef3c7; color: #b45309; }
 
+    .compras-redirect-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      padding: 0.75rem 0.85rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius-sm);
+      color: #1e40af;
+      font-size: 0.8125rem;
+      line-height: 1.4;
+      margin-bottom: 0.75rem;
+    }
+    .compras-redirect-notice app-icon {
+      color: #3b82f6;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .notice-text {
+      flex: 1;
+    }
+    .link-compras {
+      color: #1d4ed8;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .link-compras:hover {
+      color: #1e3a8a;
+    }
+
     .val-summary-cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -2496,7 +2543,7 @@ export class StockComponent implements OnInit {
   public readonly modalMovimientoAbierto = signal<boolean>(false);
   public readonly movimientoTipoItem = signal<'PRODUCTO' | 'SABOR' | 'ENVASE'>('PRODUCTO');
   public movimientoItemId: number | null = null;
-  public movimientoTipoMov: TipoMovimientoStock = 'ENTRADA_COMPRA';
+  public movimientoTipoMov: TipoMovimientoStock = 'AJUSTE_INVENTARIO';
   public movimientoCantidad: number = 1;
   public movimientoMotivo: string = '';
   public movimientoCostoUnitario?: number;
@@ -2779,7 +2826,7 @@ export class StockComponent implements OnInit {
   abrirModalMovimiento(): void {
     this.inventarioService.listarArticulos().subscribe(() => {
       this.cambiarTipoItemMovimiento('PRODUCTO');
-      this.movimientoTipoMov = 'ENTRADA_COMPRA';
+      this.movimientoTipoMov = 'AJUSTE_INVENTARIO';
       this.movimientoCantidad = 1;
       this.movimientoMotivo = '';
       this.modalMovimientoAbierto.set(true);
@@ -2800,7 +2847,15 @@ export class StockComponent implements OnInit {
       this.movimientoItemId = null;
       this.movimientoCostoUnitario = undefined;
     }
-    this.movimientoCantidad = tipo === 'SABOR' ? 5.0 : 1;
+    if (tipo === 'SABOR') {
+      this.movimientoTipoMov = 'ENTRADA_PRODUCCION';
+      this.movimientoCantidad = 5.0;
+    } else {
+      if (this.movimientoTipoMov === 'ENTRADA_PRODUCCION') {
+        this.movimientoTipoMov = 'AJUSTE_INVENTARIO';
+      }
+      this.movimientoCantidad = 1;
+    }
   }
 
   onArticuloMovimientoCambiado(): void {
@@ -2828,9 +2883,16 @@ export class StockComponent implements OnInit {
       this.toast.warning('El motivo o justificación del movimiento es obligatorio.');
       return;
     }
-    if (this.movimientoCantidad <= 0) {
-      this.toast.warning('La cantidad debe ser mayor a 0.');
-      return;
+    if (this.movimientoTipoMov === 'AJUSTE_INVENTARIO') {
+      if (this.movimientoCantidad < 0) {
+        this.toast.warning('El stock no puede ser negativo.');
+        return;
+      }
+    } else {
+      if (this.movimientoCantidad <= 0) {
+        this.toast.warning('La cantidad debe ser mayor a 0.');
+        return;
+      }
     }
 
     const request: RegistrarMovimientoRequest = {
