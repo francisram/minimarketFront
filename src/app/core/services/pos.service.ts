@@ -131,6 +131,34 @@ export class PosService {
     }
   }
 
+  // --- Venta Directa de Toppings y Agregados ---
+  agregarToppingDirecto(topping: Topping, cantidad: number = 1): void {
+    if (!topping.disponible) {
+      this.toast.warning(`El topping "${topping.nombre}" no está disponible.`);
+      return;
+    }
+
+    const items = this.ticketItems();
+    const itemExistente = items.find(i => i.tipoItem === 'TOPPING' && i.toppings?.some(t => t.id === topping.id));
+
+    if (itemExistente) {
+      this.actualizarCantidad(itemExistente.idLocal, cantidad);
+    } else {
+      const nuevoItem: ItemTicketLocal = {
+        idLocal: Math.random().toString(36).substring(2, 9),
+        tipoItem: 'TOPPING',
+        sabores: [],
+        toppings: [topping],
+        cantidad: cantidad,
+        precioUnitario: topping.precioExtra,
+        subtotal: topping.precioExtra * cantidad,
+        tipoIva: 'IVA_10'
+      };
+      this.ticketItems.update(list => [...list, nuevoItem]);
+      this.toast.success(`Agregado: ${topping.nombre}`);
+    }
+  }
+
   // --- Lógica de Armado de Helado ---
   seleccionarPresentacion(p: Presentacion): void {
     if (p.stock !== undefined && p.stock <= 0) {
@@ -356,6 +384,13 @@ export class PosService {
           tipoItem: 'HELADO',
           presentacionId: item.presentacion?.id,
           saborIds: item.sabores.map(s => s.id),
+          toppingIds: item.toppings.map(t => t.id),
+          cantidad: item.cantidad,
+          tipoIva: item.tipoIva || 'IVA_10'
+        };
+      } else if (item.tipoItem === 'TOPPING') {
+        return {
+          tipoItem: 'TOPPING',
           toppingIds: item.toppings.map(t => t.id),
           cantidad: item.cantidad,
           tipoIva: item.tipoIva || 'IVA_10'

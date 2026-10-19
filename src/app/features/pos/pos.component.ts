@@ -22,7 +22,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 
 export interface ItemCatalogoPOS {
   idUnico: string;
-  tipo: 'HELADO' | 'PRODUCTO';
+  tipo: 'HELADO' | 'PRODUCTO' | 'TOPPING';
   nombre: string;
   categoria: string;
   precio: number;
@@ -31,7 +31,7 @@ export interface ItemCatalogoPOS {
   codigoBarra?: string | null;
   detalles?: string;
   icon: string;
-  rawItem: Presentacion | ProductoSimple;
+  rawItem: Presentacion | ProductoSimple | Topping;
 }
 
 @Component({
@@ -184,7 +184,7 @@ export interface ItemCatalogoPOS {
                   </div>
 
                   <!-- ICONO PRINCIPAL DEL PRODUCTO -->
-                  <div class="card-icon-wrapper" [class.icon-helado]="item.tipo === 'HELADO'">
+                  <div class="card-icon-wrapper" [class.icon-helado]="item.tipo === 'HELADO'" [class.icon-topping]="item.tipo === 'TOPPING'">
                     <app-icon [name]="item.icon" [size]="32" />
                   </div>
 
@@ -207,18 +207,240 @@ export interface ItemCatalogoPOS {
                   <!-- PRECIO Y BOTÓN ACCIÓN -->
                   <div class="card-footer">
                     <div class="card-price">{{ item.precio | appCurrency }}</div>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-primary card-add-btn"
-                      [disabled]="item.stock !== undefined && item.stock <= 0"
-                      (click)="$event.stopPropagation(); agregarItemAlTicket(item)"
-                    >
-                      <app-icon name="plus" [size]="15" />
-                      <span>Agregar</span>
-                    </button>
+                    <div class="card-action-group">
+                      @if (item.tipo === 'HELADO') {
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary card-flavor-quick-btn"
+                          title="Elegir y personalizar sabores en bacha para este helado"
+                          (click)="$event.stopPropagation(); abrirPersonalizadorSabor(item.rawItem)"
+                        >
+                          <app-icon name="sparkles" [size]="13" />
+                          <span>Sabores</span>
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-primary card-add-btn"
+                        [disabled]="item.stock !== undefined && item.stock <= 0"
+                        (click)="$event.stopPropagation(); agregarItemAlTicket(item)"
+                      >
+                        <app-icon name="plus" [size]="15" />
+                        <span>Agregar</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               }
+            </div>
+          }
+        </div>
+
+        <!-- VENTANA OPCIONAL DE SELECCIÓN DE SABORES EN BACHA -->
+        <div id="panelSabores" class="sabores-panel-card" [class.panel-open]="selectorSaboresActivo()">
+          <!-- CABECERA DESPLEGABLE -->
+          <div class="sabores-panel-header" (click)="toggleSelectorSabores()">
+            <div class="header-left">
+              <div class="panel-icon-circle">
+                <app-icon name="sparkles" [size]="20" />
+              </div>
+              <div class="header-titles">
+                <div class="d-flex align-center gap-2">
+                  <h3 class="panel-title">Especificar Sabores en Bacha & Armador</h3>
+                  <span class="badge-opcional">Opcional</span>
+                </div>
+                <p class="panel-subtitle">
+                  @if (selectorSaboresActivo()) {
+                    Elige el envase, los sabores disponibles en bachas y toppings extras para personalizar el helado.
+                  } @else {
+                    Activa esta ventana si deseas especificar los sabores de helado que llevará el pote o cucurucho.
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div class="header-right">
+              <button 
+                type="button" 
+                class="btn btn-sm" 
+                [class.btn-primary]="!selectorSaboresActivo()" 
+                [class.btn-secondary]="selectorSaboresActivo()"
+                (click)="$event.stopPropagation(); toggleSelectorSabores()"
+              >
+                <app-icon [name]="selectorSaboresActivo() ? 'chevron-up' : 'chevron-down'" [size]="16" />
+                <span>{{ selectorSaboresActivo() ? 'Ocultar Sabores' : 'Activar Sabores' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- CONTENIDO EXPANDIBLE DEL ARMADOR -->
+          @if (selectorSaboresActivo()) {
+            <div class="sabores-panel-body">
+              <!-- PASO 1: SELECCIÓN DE PRESENTACIÓN / ENVASE -->
+              <div class="panel-section">
+                <div class="section-title-row">
+                  <span class="section-step-badge">1</span>
+                  <span class="section-heading">Selecciona la Presentación / Envase:</span>
+                  @if (posService.selectedPresentacion()) {
+                    <span class="badge badge-success ml-auto">
+                      {{ posService.selectedPresentacion()?.nombre }} (Hasta {{ posService.maxSaboresPermitidos() }} sabores)
+                    </span>
+                  }
+                </div>
+                <div class="presentaciones-pill-grid">
+                  @for (pres of posService.presentacionesActivas(); track pres.id) {
+                    <button
+                      type="button"
+                      class="pres-pill-btn"
+                      [class.active]="posService.selectedPresentacion()?.id === pres.id"
+                      [disabled]="pres.stock !== undefined && pres.stock <= 0"
+                      (click)="posService.seleccionarPresentacion(pres)"
+                    >
+                      <app-icon name="ice-cream" [size]="16" />
+                      <div class="pres-pill-info">
+                        <strong class="pres-pill-name">{{ pres.nombre }}</strong>
+                        <span class="pres-pill-meta">
+                          {{ pres.precio | appCurrency }} &bull; Max {{ pres.maxSabores }} sab.
+                        </span>
+                      </div>
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- PASO 2: CONTADOR Y FILTROS DE CATEGORÍA DE SABOR -->
+              <div class="panel-section">
+                <div class="section-title-row">
+                  <span class="section-step-badge">2</span>
+                  <span class="section-heading">Elige los Sabores de Bacha:</span>
+                  <div class="flavor-count-pill ml-auto" [class.count-complete]="posService.cantidadSaboresSeleccionados() === posService.maxSaboresPermitidos() && posService.maxSaboresPermitidos() > 0">
+                    <app-icon name="check-circle" [size]="14" />
+                    <span>
+                      Sabores seleccionados: {{ posService.cantidadSaboresSeleccionados() }} / {{ posService.maxSaboresPermitidos() || '0' }}
+                    </span>
+                  </div>
+                </div>
+
+                @if (!posService.selectedPresentacion()) {
+                  <div class="sabor-notice-box">
+                    <app-icon name="info" [size]="16" />
+                    <span>Por favor, selecciona primero un envase o presentación en el paso 1.</span>
+                  </div>
+                }
+
+                <!-- FILTRO DE CATEGORÍAS DE SABOR -->
+                <div class="sabor-category-tabs">
+                  @for (cat of categoriasSaborDisponibles(); track cat) {
+                    <button
+                      type="button"
+                      class="sabor-tab-btn"
+                      [class.active]="filtroCategoriaSabor() === cat"
+                      (click)="seleccionarFiltroCategoriaSabor(cat)"
+                    >
+                      {{ formatearCategoriaSabor(cat) }}
+                    </button>
+                  }
+                </div>
+
+                <!-- GRILLA DE SABORES -->
+                <div class="sabores-grid">
+                  @for (sabor of saboresFiltrados(); track sabor.id) {
+                    <div
+                      class="sabor-card"
+                      [class.selected]="esSaborSeleccionado(sabor)"
+                      [class.disabled]="!sabor.disponible || (sabor.stockKilos !== undefined && sabor.stockKilos <= 0)"
+                      (click)="posService.toggleSabor(sabor)"
+                    >
+                      <div class="sabor-card-header">
+                        <span class="sabor-cat-tag">{{ formatearCategoriaSabor(sabor.categoria) }}</span>
+                        @if (sabor.stockKilos !== undefined) {
+                          @if (sabor.stockKilos <= 0) {
+                            <span class="sabor-stock-empty">Sin bacha</span>
+                          } @else {
+                            <span class="sabor-stock-tag">{{ sabor.stockKilos | number:'1.1-2' }} kg</span>
+                          }
+                        }
+                      </div>
+
+                      <div class="sabor-card-body">
+                        <strong class="sabor-name">{{ sabor.nombre }}</strong>
+                      </div>
+
+                      <div class="sabor-diet-badges">
+                        @if (sabor.aptoCeliaco) {
+                          <span class="diet-badge diet-celiac" title="Apto Celíaco / Sin TACC">Sin TACC</span>
+                        }
+                        @if (sabor.esVegano) {
+                          <span class="diet-badge diet-vegan" title="Vegano">Vegano</span>
+                        }
+                        @if (sabor.sinAzucar) {
+                          <span class="diet-badge diet-sugarfree" title="Sin Azúcar">Sin Azúcar</span>
+                        }
+                      </div>
+
+                      @if (esSaborSeleccionado(sabor)) {
+                        <div class="sabor-check-indicator">
+                          <app-icon name="check" [size]="14" />
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- PASO 3: TOPPINGS EXTRAS OPCIONALES PARA ESTE HELADO -->
+              @if (posService.toppingsDisponibles().length > 0) {
+                <div class="panel-section">
+                  <div class="section-title-row">
+                    <span class="section-step-badge">3</span>
+                    <span class="section-heading">Toppings o Coberturas Adicionales (Opcional):</span>
+                  </div>
+                  <div class="toppings-chip-group">
+                    @for (top of posService.toppingsDisponibles(); track top.id) {
+                      <button
+                        type="button"
+                        class="topping-chip-btn"
+                        [class.active]="esToppingSeleccionado(top)"
+                        (click)="posService.toggleTopping(top)"
+                      >
+                        <app-icon name="sparkles" [size]="14" />
+                        <span>{{ top.nombre }}</span>
+                        <span class="topping-price-tag">+{{ top.precioExtra | appCurrency }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+
+              <!-- BARRA DE ACCIÓN FINAL DEL HELADO PERSONALIZADO -->
+              <div class="panel-action-bar">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  (click)="posService.resetArmadoHelado()"
+                  [disabled]="!posService.selectedPresentacion() && posService.selectedSabores().length === 0"
+                >
+                  <app-icon name="trash" [size]="14" />
+                  <span>Limpiar Armado</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-success btn-lg flex-1"
+                  [disabled]="!posService.selectedPresentacion() || posService.selectedSabores().length === 0"
+                  (click)="posService.agregarHeladoAlTicket()"
+                >
+                  <app-icon name="plus-circle" [size]="18" />
+                  <span>
+                    Agregar al Ticket:
+                    @if (posService.selectedPresentacion()) {
+                      {{ posService.selectedPresentacion()?.nombre }} ({{ posService.selectedSabores().length }} sab.)
+                    } @else {
+                      Helado con Sabores
+                    }
+                  </span>
+                </button>
+              </div>
             </div>
           }
         </div>
@@ -252,6 +474,8 @@ export interface ItemCatalogoPOS {
                     <span class="item-name">
                       @if (item.tipoItem === 'HELADO') {
                         {{ item.presentacion?.nombre }}
+                      } @else if (item.tipoItem === 'TOPPING') {
+                        {{ item.toppings && item.toppings.length > 0 ? item.toppings[0].nombre : 'Topping' }}
                       } @else {
                         {{ item.productoSimple?.nombre }}
                       }
@@ -1203,6 +1427,464 @@ export interface ItemCatalogoPOS {
       color: #d97706;
     }
 
+    .card-icon-wrapper.icon-topping {
+      background: #fdf4ff;
+      color: #c026d3;
+    }
+
+    .card-action-group {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .card-flavor-quick-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-weight: 600;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.775rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid #0284c7;
+      color: #0284c7;
+      background: #f0f9ff;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .card-flavor-quick-btn:hover {
+      background: #0284c7;
+      color: #ffffff;
+    }
+
+    /* VENTANA OPCIONAL DE SELECCIÓN DE SABORES EN BACHA */
+    .sabores-panel-card {
+      margin-top: 1.5rem;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.25s ease;
+      overflow: hidden;
+    }
+
+    .sabores-panel-card.panel-open {
+      border-color: #38bdf8;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.12);
+    }
+
+    .sabores-panel-header {
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      cursor: pointer;
+      background: #f8fafc;
+      border-bottom: 1px solid transparent;
+      transition: background 0.15s ease;
+    }
+
+    .sabores-panel-card.panel-open .sabores-panel-header {
+      background: #f0f9ff;
+      border-bottom-color: #e0f2fe;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      flex: 1;
+    }
+
+    .panel-icon-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: #e0f2fe;
+      color: #0284c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .header-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0;
+    }
+
+    .badge-opcional {
+      background: #e2e8f0;
+      color: #475569;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .sabores-panel-card.panel-open .badge-opcional {
+      background: #bae6fd;
+      color: #0369a1;
+    }
+
+    .panel-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .sabores-panel-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .section-step-badge {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #0284c7;
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .section-heading {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+
+    .presentaciones-pill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 0.65rem;
+    }
+
+    .pres-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+    }
+
+    .pres-pill-btn:hover:not(:disabled) {
+      border-color: #0284c7;
+      background: #f8fafc;
+    }
+
+    .pres-pill-btn.active {
+      border-color: #0284c7;
+      background: #f0f9ff;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+    }
+
+    .pres-pill-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #f1f5f9;
+    }
+
+    .pres-pill-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pres-pill-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .pres-pill-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .flavor-count-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.775rem;
+      font-weight: 700;
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .flavor-count-pill.count-complete {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .sabor-notice-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: var(--radius-md);
+      background: #fef3c7;
+      border: 1px solid #fde047;
+      color: #92400e;
+      font-size: 0.8125rem;
+    }
+
+    .sabor-category-tabs {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+      scrollbar-width: thin;
+    }
+
+    .sabor-tab-btn {
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .sabor-tab-btn:hover {
+      background: #ffffff;
+      color: var(--text-main);
+    }
+
+    .sabor-tab-btn.active {
+      background: #0284c7;
+      border-color: #0284c7;
+      color: #ffffff;
+    }
+
+    .sabores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .sabor-card {
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      background: var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .sabor-card:hover:not(.disabled) {
+      border-color: #0284c7;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .sabor-card.selected {
+      border-color: #0284c7;
+      background: #f0f9ff;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+    }
+
+    .sabor-card.disabled {
+      opacity: 0.5;
+      background: #f8fafc;
+      cursor: not-allowed;
+    }
+
+    .sabor-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .sabor-cat-tag {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg-subtle);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 90px;
+    }
+
+    .sabor-stock-tag {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: #166534;
+      background: #dcfce7;
+      padding: 0.1rem 0.35rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .sabor-stock-empty {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: #991b1b;
+      background: #fee2e2;
+      padding: 0.1rem 0.35rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .sabor-card-body {
+      flex: 1;
+    }
+
+    .sabor-name {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.25;
+    }
+
+    .sabor-diet-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .diet-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.05rem 0.3rem;
+      border-radius: 3px;
+    }
+
+    .diet-celiac {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .diet-vegan {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .diet-sugarfree {
+      background: #e0e7ff;
+      color: #4338ca;
+    }
+
+    .sabor-check-indicator {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0284c7;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .toppings-chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .topping-chip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 999px;
+      border: 1.5px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .topping-chip-btn:hover {
+      border-color: #c026d3;
+      background: #fdf4ff;
+    }
+
+    .topping-chip-btn.active {
+      border-color: #c026d3;
+      background: #fdf4ff;
+      color: #a21caf;
+      box-shadow: 0 0 0 2px rgba(192, 38, 211, 0.2);
+    }
+
+    .topping-price-tag {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .panel-action-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-color);
+    }
+
     .card-body {
       flex: 1;
       display: flex;
@@ -1738,6 +2420,8 @@ export class PosComponent implements OnInit {
 
   public readonly categoriaSeleccionada = signal<string>('TODOS');
   public busquedaTermino: string = '';
+  public readonly selectorSaboresActivo = signal<boolean>(false);
+  public readonly filtroCategoriaSabor = signal<string>('TODOS');
 
   public readonly modalCheckoutAbierto = signal<boolean>(false);
   public readonly modalAperturaRapidaAbierto = signal<boolean>(false);
@@ -1819,17 +2503,18 @@ export class PosComponent implements OnInit {
     });
   }
 
-  // Categorías disponibles unificadas (Helados + Categorías de Productos Simples)
+  // Categorías disponibles unificadas (Helados + Toppings + Categorías de Productos Simples)
   public readonly categoriasDisponibles = computed<{ id: string; nombre: string; icon: string; count: number }[]>(() => {
     const list: { id: string; nombre: string; icon: string; count: number }[] = [];
     const presentaciones = this.posService.presentacionesActivas();
     const productos = this.posService.productosSimplesActivos();
+    const toppings = this.posService.toppingsDisponibles();
 
     list.push({
       id: 'TODOS',
       nombre: 'Todas las Categorías',
       icon: 'filter',
-      count: presentaciones.length + productos.length
+      count: presentaciones.length + productos.length + toppings.length
     });
 
     if (presentaciones.length > 0) {
@@ -1838,6 +2523,15 @@ export class PosComponent implements OnInit {
         nombre: 'Helados & Envases',
         icon: 'ice-cream',
         count: presentaciones.length
+      });
+    }
+
+    if (toppings.length > 0) {
+      list.push({
+        id: 'TOPPINGS',
+        nombre: 'Toppings & Agregados',
+        icon: 'sparkles',
+        count: toppings.length
       });
     }
 
@@ -1880,6 +2574,22 @@ export class PosComponent implements OnInit {
           detalles: pres.pesoGramosAprox ? `~${pres.pesoGramosAprox}g` : undefined,
           icon: 'ice-cream',
           rawItem: pres
+        });
+      }
+    }
+
+    // Toppings y agregados
+    if (cat === 'TODOS' || cat === 'TOPPINGS') {
+      for (const top of this.posService.toppingsDisponibles()) {
+        resultado.push({
+          idUnico: `top_${top.id}`,
+          tipo: 'TOPPING',
+          nombre: top.nombre,
+          categoria: 'Toppings',
+          precio: top.precioExtra,
+          detalles: 'Agregado / Extra',
+          icon: 'sparkles',
+          rawItem: top
         });
       }
     }
@@ -1927,8 +2637,74 @@ export class PosComponent implements OnInit {
   agregarItemAlTicket(item: ItemCatalogoPOS): void {
     if (item.tipo === 'HELADO') {
       this.posService.agregarPresentacionDirecta(item.rawItem as Presentacion);
+    } else if (item.tipo === 'TOPPING') {
+      this.posService.agregarToppingDirecto(item.rawItem as Topping);
     } else {
       this.posService.agregarProductoSimple(item.rawItem as ProductoSimple);
+    }
+  }
+
+  // Métodos y filtros para la ventana opcional de selección de sabores
+  public readonly categoriasSaborDisponibles = computed<string[]>(() => {
+    const cats = new Set<string>();
+    for (const s of this.posService.saboresDisponibles()) {
+      if (s.categoria) {
+        cats.add(s.categoria);
+      }
+    }
+    return ['TODOS', ...Array.from(cats).sort()];
+  });
+
+  public readonly saboresFiltrados = computed<Sabor[]>(() => {
+    const cat = this.filtroCategoriaSabor();
+    const todos = this.posService.saboresDisponibles();
+    if (cat === 'TODOS') {
+      return todos;
+    }
+    return todos.filter(s => s.categoria === cat);
+  });
+
+  toggleSelectorSabores(): void {
+    this.selectorSaboresActivo.update(v => !v);
+  }
+
+  abrirPersonalizadorSabor(itemPres?: any): void {
+    this.selectorSaboresActivo.set(true);
+    if (itemPres && (itemPres as Presentacion).id) {
+      this.posService.seleccionarPresentacion(itemPres as Presentacion);
+    } else if (!this.posService.selectedPresentacion()) {
+      const presActivas = this.posService.presentacionesActivas();
+      if (presActivas.length > 0) {
+        this.posService.seleccionarPresentacion(presActivas[0]);
+      }
+    }
+    setTimeout(() => {
+      const panel = document.getElementById('panelSabores');
+      if (panel) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 80);
+  }
+
+  seleccionarFiltroCategoriaSabor(cat: string): void {
+    this.filtroCategoriaSabor.set(cat);
+  }
+
+  esSaborSeleccionado(sabor: Sabor): boolean {
+    return this.posService.selectedSabores().some(s => s.id === sabor.id);
+  }
+
+  esToppingSeleccionado(topping: Topping): boolean {
+    return this.posService.selectedToppings().some(t => t.id === topping.id);
+  }
+
+  formatearCategoriaSabor(cat: string): string {
+    switch (cat) {
+      case 'DULCE_DE_LECHE': return 'Dulce de Leche';
+      case 'CHOCOLATE': return 'Chocolates';
+      case 'FRUTAL': return 'Frutales';
+      case 'CREMA': return 'Cremas';
+      default: return cat;
     }
   }
 

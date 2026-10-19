@@ -155,6 +155,11 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
                         @if (item.toppings && item.toppings.length > 0) {
                           <div class="item-subinfo">Toppings: {{ obtenerNombresToppings(item.toppings) }}</div>
                         }
+                      } @else if (item.tipoItem === 'TOPPING') {
+                        <div class="item-title">
+                          {{ (item.toppings && item.toppings.length > 0) ? item.toppings[0].nombre : 'Topping' }}
+                          <span class="iva-tag" [class.iva-tag-5]="obtenerIndicadorIva(item) === '5%'" [class.iva-tag-ex]="obtenerIndicadorIva(item) === 'Ex'">[{{ obtenerIndicadorIva(item) }}]</span>
+                        </div>
                       } @else {
                         <div class="item-title">
                           {{ item.productoSimple?.nombre || 'Producto' }}

@@ -7,7 +7,7 @@ import { TipoIva } from './tipo-iva.model';
 export type TipoEntrega = 'MOSTRADOR' | 'TAKE_AWAY' | 'DELIVERY';
 export type MetodoPago = 'EFECTIVO' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'TRANSFERENCIA_QR';
 export type EstadoPedido = 'PENDIENTE' | 'PREPARANDO' | 'LISTO' | 'ENTREGADO' | 'CANCELADO';
-export type TipoItem = 'HELADO' | 'PRODUCTO_SIMPLE';
+export type TipoItem = 'HELADO' | 'PRODUCTO_SIMPLE' | 'TOPPING';
 export type TipoComprobante = 'TICKET' | 'FACTURA';
 export type CondicionVenta = 'CONTADO' | 'CREDITO';
 
