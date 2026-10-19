@@ -120,22 +120,6 @@ export interface ItemCatalogoPOS {
               }
             </div>
           </div>
-
-          <!-- BOTONES CHIPS / TABS RÁPIDAS DE CATEGORÍA -->
-          <div class="category-chips-bar">
-            @for (cat of categoriasDisponibles(); track cat.id) {
-              <button
-                type="button"
-                class="category-chip-btn"
-                [class.active]="categoriaSeleccionada() === cat.id"
-                (click)="seleccionarCategoria(cat.id)"
-              >
-                <app-icon [name]="cat.icon" [size]="16" />
-                <span>{{ cat.nombre }}</span>
-                <span class="chip-count">{{ cat.count }}</span>
-              </button>
-            }
-          </div>
         </div>
 
         <!-- GRILLA UNIFICADA DE PRODUCTOS -->
@@ -1143,7 +1127,7 @@ export interface ItemCatalogoPOS {
       justify-content: space-between;
       gap: 1rem;
       flex-wrap: wrap;
-      margin-bottom: 0.875rem;
+      margin-bottom: 0;
     }
 
     .category-dropdown-group {
@@ -1231,59 +1215,6 @@ export interface ItemCatalogoPOS {
 
     .btn-clear-search:hover {
       color: #0f172a;
-    }
-
-    /* BOTONES CHIPS / TABS RÁPIDAS DE CATEGORÍA */
-    .category-chips-bar {
-      display: flex;
-      gap: 0.5rem;
-      overflow-x: auto;
-      padding-top: 0.25rem;
-      padding-bottom: 0.25rem;
-      scrollbar-width: thin;
-    }
-
-    .category-chip-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      padding: 0.4rem 0.85rem;
-      border-radius: 999px;
-      border: 1px solid var(--border-color);
-      background: var(--bg-subtle);
-      color: var(--text-muted);
-      font-size: 0.8125rem;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.15s ease;
-    }
-
-    .category-chip-btn:hover {
-      background: #ffffff;
-      border-color: var(--text-muted);
-      color: var(--text-main);
-    }
-
-    .category-chip-btn.active {
-      background: #0f172a;
-      border-color: #0f172a;
-      color: #ffffff;
-      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
-    }
-
-    .chip-count {
-      display: inline-block;
-      padding: 0.05rem 0.4rem;
-      border-radius: 999px;
-      font-size: 0.72rem;
-      background: rgba(0, 0, 0, 0.08);
-      font-weight: 700;
-    }
-
-    .category-chip-btn.active .chip-count {
-      background: rgba(255, 255, 255, 0.25);
-      color: #ffffff;
     }
 
     /* CONTENEDOR DEL CATÁLOGO DE PRODUCTOS */
