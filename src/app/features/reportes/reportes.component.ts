@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, HostListener, ElementRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportesService } from '../../core/services/reportes.service';
@@ -31,6 +31,14 @@ import {
 } from '../../core/models/reporte.model';
 
 type TabReporte = 'dashboard' | 'ventas' | 'compras' | 'libro-iva' | 'cajas' | 'rankings' | 'reimpresiones' | 'talonarios' | 'inventario';
+
+export interface ItemReporteOpcion {
+  id: TabReporte;
+  nombre: string;
+  icono: string;
+  badgeClass: string;
+  descripcion: string;
+}
 
 interface DonutSegment {
   label: string;
@@ -196,90 +204,77 @@ interface DonutSegment {
         </div>
       </section>
 
-      <!-- BARRA DE NAVEGACIÓN ENTRE PESTAÑAS (TABS) -->
-      <nav class="reportes-tabs" role="tablist">
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'dashboard'"
-          (click)="cambiarTab('dashboard')"
-        >
-          <app-icon name="layout-dashboard" [size]="18" />
-          <span>Dashboard Ejecutivo</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'ventas'"
-          (click)="cambiarTab('ventas')"
-        >
-          <app-icon name="shopping-cart" [size]="18" />
-          <span>Ventas Detalladas</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'compras'"
-          (click)="cambiarTab('compras')"
-        >
-          <app-icon name="truck" [size]="18" />
-          <span>Compras a Proveedores</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'libro-iva'"
-          (click)="cambiarTab('libro-iva')"
-        >
-          <app-icon name="file-spreadsheet" [size]="18" />
-          <span>Libro Ventas IVA (SET)</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'cajas'"
-          (click)="cambiarTab('cajas')"
-        >
-          <app-icon name="banknote" [size]="18" />
-          <span>Auditoría de Cajas</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'rankings'"
-          (click)="cambiarTab('rankings')"
-        >
-          <app-icon name="award" [size]="18" />
-          <span>Ranking Productos & Sabores</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'reimpresiones'"
-          (click)="cambiarTab('reimpresiones')"
-        >
-          <app-icon name="printer" [size]="18" />
-          <span>Reimpresiones</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'talonarios'"
-          (click)="cambiarTab('talonarios')"
-        >
-          <app-icon name="file-text" [size]="18" />
-          <span>Talonarios & Timbrado SET</span>
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="tabActiva() === 'inventario'"
-          (click)="cambiarTab('inventario')"
-        >
-          <app-icon name="warehouse" [size]="18" />
-          <span>Inventario & Kardex</span>
-        </button>
-      </nav>
+      <!-- SELECTOR DE VISTAS / REPORTES (FORMA DE SELECT CON ICONOS) -->
+      <div class="reporte-selector-wrapper">
+        <div class="custom-reporte-select-container" [class.is-open]="dropdownReporteAbierto()">
+          <label class="selector-field-label">
+            <app-icon name="bar-chart-3" [size]="15" class="label-icon" />
+            <span>Seleccionar Módulo o Reporte:</span>
+          </label>
+
+          <button
+            type="button"
+            class="custom-select-trigger"
+            (click)="toggleDropdownReporte()"
+            [attr.aria-expanded]="dropdownReporteAbierto()"
+            aria-haspopup="listbox"
+          >
+            <div class="trigger-content">
+              <span class="trigger-icon-box" [ngClass]="reporteSeleccionado().badgeClass">
+                <app-icon [name]="reporteSeleccionado().icono" [size]="20" />
+              </span>
+              <div class="trigger-texts">
+                <span class="trigger-title">{{ reporteSeleccionado().nombre }}</span>
+                <span class="trigger-desc">{{ reporteSeleccionado().descripcion }}</span>
+              </div>
+            </div>
+            <div class="trigger-indicators">
+              <span class="badge-active-pill">Vista activa</span>
+              <app-icon
+                [name]="dropdownReporteAbierto() ? 'chevron-up' : 'chevron-down'"
+                [size]="18"
+                class="dropdown-arrow"
+              />
+            </div>
+          </button>
+
+          @if (dropdownReporteAbierto()) {
+            <div class="custom-select-dropdown" role="listbox">
+              <div class="dropdown-header-hint">
+                <span>CATÁLOGO DE REPORTES Y ANALÍTICA</span>
+                <span class="options-count">{{ itemsReporte.length }} disponibles</span>
+              </div>
+              <div class="dropdown-options-list">
+                @for (item of itemsReporte; track item.id) {
+                  <button
+                    type="button"
+                    class="dropdown-option-item"
+                    [class.selected]="tabActiva() === item.id"
+                    role="option"
+                    [attr.aria-selected]="tabActiva() === item.id"
+                    (click)="seleccionarReporte(item.id)"
+                  >
+                    <div class="option-left">
+                      <span class="option-icon-box" [ngClass]="item.badgeClass">
+                        <app-icon [name]="item.icono" [size]="18" />
+                      </span>
+                      <div class="option-info">
+                        <span class="option-title">{{ item.nombre }}</span>
+                        <span class="option-desc">{{ item.descripcion }}</span>
+                      </div>
+                    </div>
+                    @if (tabActiva() === item.id) {
+                      <div class="option-check">
+                        <app-icon name="check" [size]="18" />
+                      </div>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
 
       <!-- INDICADOR DE CARGA (SKELETON) -->
       @if (cargando()) {
@@ -2510,43 +2505,315 @@ interface DonutSegment {
       width: 140px;
     }
 
-    /* TABS */
-    .reportes-tabs {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      border-bottom: 2px solid var(--border-color);
-      padding-bottom: 0.25rem;
-      overflow-x: auto;
-    }
-
-    .tab-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1rem;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      background: transparent;
-      border: none;
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
+    /* SELECTOR DE VISTAS / REPORTES (EN FORMA DE SELECT CON ICONOS) */
+    .reporte-selector-wrapper {
       position: relative;
+      margin-top: 0.5rem;
+      margin-bottom: 1.5rem;
+      z-index: 40;
     }
 
-    .tab-btn:hover {
+    .custom-reporte-select-container {
+      position: relative;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+
+    .selector-field-label {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .selector-field-label .label-icon {
+      color: var(--primary);
+    }
+
+    .custom-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.875rem;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
       color: var(--text-main);
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .custom-select-trigger:hover {
+      border-color: var(--primary);
       background: var(--bg-subtle);
     }
 
-    .tab-btn.active {
+    .custom-reporte-select-container.is-open .custom-select-trigger {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+    }
+
+    .trigger-content {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .trigger-texts {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+      min-width: 0;
+    }
+
+    .trigger-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .trigger-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .trigger-indicators {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      flex-shrink: 0;
+    }
+
+    .badge-active-pill {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--primary-subtle);
       color: var(--primary);
+      border: 1px solid rgba(217, 119, 6, 0.25);
+      letter-spacing: 0.025em;
+    }
+
+    .dropdown-arrow {
+      color: var(--text-muted);
+      transition: transform 0.2s ease;
+    }
+
+    /* DROPDOWN MENU */
+    .custom-select-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      min-width: 320px;
+      max-width: 620px;
+      margin-top: 0.5rem;
       background: var(--bg-surface);
-      border-bottom: 3px solid var(--primary);
-      margin-bottom: -0.4rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.05);
+      z-index: 50;
+      overflow: hidden;
+      animation: dropdownFadeIn 0.15s ease-out;
+    }
+
+    @keyframes dropdownFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .dropdown-header-hint {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.875rem;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .options-count {
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg-surface);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    .dropdown-options-list {
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 0.375rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .dropdown-option-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+      gap: 0.75rem;
+    }
+
+    .dropdown-option-item:hover {
+      background: var(--bg-subtle);
+    }
+
+    .dropdown-option-item.selected {
+      background: var(--primary-subtle);
+    }
+
+    .dropdown-option-item.selected .option-title {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .option-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .option-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+
+    .option-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+
+    .option-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .option-check {
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* BADGE COLORS FOR REPORT ICONS */
+    .trigger-icon-box,
+    .option-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .badge-dashboard {
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+    }
+
+    .badge-ventas {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
+
+    .badge-compras {
+      background: #fef3c7;
+      color: #d97706;
+      border: 1px solid #fde68a;
+    }
+
+    .badge-iva {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+
+    .badge-cajas {
+      background: #f0fdfa;
+      color: #0d9488;
+      border: 1px solid #99f6e4;
+    }
+
+    .badge-rankings {
+      background: #faf5ff;
+      color: #9333ea;
+      border: 1px solid #e9d5ff;
+    }
+
+    .badge-reimpresiones {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
+    .badge-talonarios {
+      background: #fff1f2;
+      color: #e11d48;
+      border: 1px solid #fecdd3;
+    }
+
+    .badge-inventario {
+      background: #fff7ed;
+      color: #c2410c;
+      border: 1px solid #ffedd5;
     }
 
     /* KPIS DASHBOARD */
@@ -3757,6 +4024,7 @@ interface DonutSegment {
   `]
 })
 export class ReportesComponent implements OnInit {
+  private readonly elementRef = inject(ElementRef);
   private readonly reportesService = inject(ReportesService);
   private readonly toast = inject(ToastService);
   public readonly impresorasService = inject(ImpresorasService);
@@ -3766,6 +4034,106 @@ export class ReportesComponent implements OnInit {
   public readonly inventarioService = inject(InventarioService);
   public readonly comprasService = inject(ComprasService);
   public readonly proveedoresService = inject(ProveedoresService);
+
+  // Catálogo de Reportes para el selector
+  public readonly itemsReporte: ItemReporteOpcion[] = [
+    {
+      id: 'dashboard',
+      nombre: 'Dashboard Ejecutivo',
+      icono: 'layout-dashboard',
+      badgeClass: 'badge-dashboard',
+      descripcion: 'Métricas clave, KPIs de facturación y resumen de rendimiento'
+    },
+    {
+      id: 'ventas',
+      nombre: 'Ventas Detalladas',
+      icono: 'shopping-cart',
+      badgeClass: 'badge-ventas',
+      descripcion: 'Desglose cronológico de ventas, medios de pago y tickets emitidos'
+    },
+    {
+      id: 'compras',
+      nombre: 'Compras a Proveedores',
+      icono: 'truck',
+      badgeClass: 'badge-compras',
+      descripcion: 'Control de facturas de compra, insumos y compras contado/crédito'
+    },
+    {
+      id: 'libro-iva',
+      nombre: 'Libro Ventas IVA (SET)',
+      icono: 'file-spreadsheet',
+      badgeClass: 'badge-iva',
+      descripcion: 'Libro impositivo fiscal según requerimientos SET / DNIT Hechauka'
+    },
+    {
+      id: 'cajas',
+      nombre: 'Auditoría de Cajas',
+      icono: 'banknote',
+      badgeClass: 'badge-cajas',
+      descripcion: 'Control de aperturas, cierres de turno, arqueos y diferencias'
+    },
+    {
+      id: 'rankings',
+      nombre: 'Ranking Productos & Sabores',
+      icono: 'award',
+      badgeClass: 'badge-rankings',
+      descripcion: 'Estadísticas de productos estrella, sabores favoritos y demanda'
+    },
+    {
+      id: 'reimpresiones',
+      nombre: 'Reimpresiones',
+      icono: 'printer',
+      badgeClass: 'badge-reimpresiones',
+      descripcion: 'Histórico de pedidos para reimpresión de comprobantes y duplicados'
+    },
+    {
+      id: 'talonarios',
+      nombre: 'Talonarios & Timbrado SET',
+      icono: 'file-text',
+      badgeClass: 'badge-talonarios',
+      descripcion: 'Gestión de timbrados vigentes, puntos de expedición y alertas de rango'
+    },
+    {
+      id: 'inventario',
+      nombre: 'Inventario & Kardex',
+      icono: 'warehouse',
+      badgeClass: 'badge-inventario',
+      descripcion: 'Existencias físicas, valuación de stock, mermas y auditoría de almacén'
+    }
+  ];
+
+  public readonly dropdownReporteAbierto = signal<boolean>(false);
+
+  public readonly reporteSeleccionado = computed(() => {
+    const act = this.tabActiva();
+    return this.itemsReporte.find(r => r.id === act) || this.itemsReporte[0];
+  });
+
+  public toggleDropdownReporte(): void {
+    this.dropdownReporteAbierto.update(v => !v);
+  }
+
+  public seleccionarReporte(tab: TabReporte): void {
+    this.cambiarTab(tab);
+    this.dropdownReporteAbierto.set(false);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (
+      this.dropdownReporteAbierto() &&
+      !this.elementRef.nativeElement.querySelector('.custom-reporte-select-container')?.contains(event.target as Node)
+    ) {
+      this.dropdownReporteAbierto.set(false);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.dropdownReporteAbierto()) {
+      this.dropdownReporteAbierto.set(false);
+    }
+  }
 
   // Estados principales
   public readonly tabActiva = signal<TabReporte>('dashboard');
