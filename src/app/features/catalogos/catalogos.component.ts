@@ -2110,6 +2110,7 @@ export class CatalogosComponent implements OnInit {
       next: () => {
         this.guardandoItem.set(false);
         this.modalSaborAbierto.set(false);
+        this.productosService.cargarProductos();
       },
       error: (err) => {
         this.guardandoItem.set(false);
@@ -2120,13 +2121,17 @@ export class CatalogosComponent implements OnInit {
 
   toggleDisponibilidadSabor(sab: Sabor): void {
     if (!sab.id) return;
-    this.catalogosService.toggleDisponibilidadSabor(sab.id, !sab.disponible).subscribe();
+    this.catalogosService.toggleDisponibilidadSabor(sab.id, !sab.disponible).subscribe({
+      next: () => this.productosService.cargarProductos()
+    });
   }
 
   confirmarEliminarSabor(sab: Sabor): void {
     if (!sab.id) return;
     if (confirm(`¿Eliminar sabor "${sab.nombre}"?`)) {
-      this.catalogosService.eliminarSabor(sab.id).subscribe();
+      this.catalogosService.eliminarSabor(sab.id).subscribe({
+        next: () => this.productosService.cargarProductos()
+      });
     }
   }
 
@@ -2172,6 +2177,7 @@ export class CatalogosComponent implements OnInit {
       next: () => {
         this.guardandoItem.set(false);
         this.modalPresentacionAbierto.set(false);
+        this.productosService.cargarProductos();
       },
       error: (err) => {
         this.guardandoItem.set(false);
@@ -2183,7 +2189,9 @@ export class CatalogosComponent implements OnInit {
   confirmarEliminarPresentacion(pres: Presentacion): void {
     if (!pres.id) return;
     if (confirm(`¿Eliminar presentación "${pres.nombre}"?`)) {
-      this.catalogosService.eliminarPresentacion(pres.id).subscribe();
+      this.catalogosService.eliminarPresentacion(pres.id).subscribe({
+        next: () => this.productosService.cargarProductos()
+      });
     }
   }
 
@@ -2221,6 +2229,7 @@ export class CatalogosComponent implements OnInit {
       next: () => {
         this.guardandoItem.set(false);
         this.modalToppingAbierto.set(false);
+        this.productosService.cargarProductos();
       },
       error: (err) => {
         this.guardandoItem.set(false);
@@ -2231,13 +2240,17 @@ export class CatalogosComponent implements OnInit {
 
   toggleDisponibilidadTopping(top: Topping): void {
     if (!top.id) return;
-    this.catalogosService.toggleDisponibilidadTopping(top.id, !top.disponible).subscribe();
+    this.catalogosService.toggleDisponibilidadTopping(top.id, !top.disponible).subscribe({
+      next: () => this.productosService.cargarProductos()
+    });
   }
 
   confirmarEliminarTopping(top: Topping): void {
     if (!top.id) return;
     if (confirm(`¿Eliminar topping "${top.nombre}"?`)) {
-      this.catalogosService.eliminarTopping(top.id).subscribe();
+      this.catalogosService.eliminarTopping(top.id).subscribe({
+        next: () => this.productosService.cargarProductos()
+      });
     }
   }
 
@@ -2294,6 +2307,7 @@ export class CatalogosComponent implements OnInit {
       next: () => {
         this.guardandoItem.set(false);
         this.modalProductoAbierto.set(false);
+        this.productosService.cargarProductos();
       },
       error: (err) => {
         this.guardandoItem.set(false);
@@ -2305,7 +2319,9 @@ export class CatalogosComponent implements OnInit {
   confirmarEliminarProducto(prod: ProductoSimple): void {
     if (!prod.id) return;
     if (confirm(`¿Eliminar producto "${prod.nombre}"?`)) {
-      this.catalogosService.eliminarProductoSimple(prod.id).subscribe();
+      this.catalogosService.eliminarProductoSimple(prod.id).subscribe({
+        next: () => this.productosService.cargarProductos()
+      });
     }
   }
 
@@ -2557,6 +2573,10 @@ export class CatalogosComponent implements OnInit {
         this.guardandoItem.set(false);
         this.modalMaestroAbierto.set(false);
         this.productosService.cargarProductos();
+        this.catalogosService.cargarSabores();
+        this.catalogosService.cargarPresentaciones();
+        this.catalogosService.cargarToppings();
+        this.catalogosService.cargarProductosSimples();
       },
       error: (err) => {
         this.guardandoItem.set(false);
@@ -2567,13 +2587,27 @@ export class CatalogosComponent implements OnInit {
 
   confirmarEliminarProductoMaestro(prod: Producto): void {
     if (confirm(`¿Eliminar artículo "${prod.nombre}" del catálogo maestro?`)) {
-      this.productosService.eliminar(prod.id).subscribe();
+      this.productosService.eliminar(prod.id).subscribe({
+        next: () => {
+          this.catalogosService.cargarSabores();
+          this.catalogosService.cargarPresentaciones();
+          this.catalogosService.cargarToppings();
+          this.catalogosService.cargarProductosSimples();
+        }
+      });
     }
   }
 
   cambiarEstadoProductoMaestro(prod: Producto): void {
     const nuevoEstado = !prod.activo;
-    this.productosService.cambiarEstado(prod.id, nuevoEstado).subscribe();
+    this.productosService.cambiarEstado(prod.id, nuevoEstado).subscribe({
+      next: () => {
+        this.catalogosService.cargarSabores();
+        this.catalogosService.cargarPresentaciones();
+        this.catalogosService.cargarToppings();
+        this.catalogosService.cargarProductosSimples();
+      }
+    });
   }
 
   limpiarFiltrosMaestro(): void {

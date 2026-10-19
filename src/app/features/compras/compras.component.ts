@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ComprasService } from '../../core/services/compras.service';
 import { ProveedoresService } from '../../core/services/proveedores.service';
 import { ProductosService } from '../../core/services/productos.service';
+import { CatalogosService } from '../../core/services/catalogos.service';
 import { ReporteExportService } from '../../core/services/reporte-export.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Compra, DetalleCompra, RegistroCompraRequest, RegistroDetalleCompraRequest, CondicionCompra, EstadoCompra } from '../../core/models/compra.model';
@@ -1509,6 +1510,7 @@ export class ComprasComponent implements OnInit {
   public readonly comprasService = inject(ComprasService);
   public readonly proveedoresService = inject(ProveedoresService);
   public readonly productosService = inject(ProductosService);
+  public readonly catalogosService = inject(CatalogosService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly exportService = inject(ReporteExportService);
@@ -1910,6 +1912,11 @@ export class ComprasComponent implements OnInit {
         this.onProductoSeleccionadoChange(nuevoProd.id);
         this.itemEnCarga.costoUnitario = this.formNuevoArticulo.costoCompra || 0;
         this.itemEnCarga.tipoIva = this.formNuevoArticulo.tipoIva;
+        this.productosService.cargarProductos();
+        this.catalogosService.cargarSabores();
+        this.catalogosService.cargarPresentaciones();
+        this.catalogosService.cargarToppings();
+        this.catalogosService.cargarProductosSimples();
         this.toast.success(`Artículo "${nuevoProd.nombre}" creado e incorporado al comprobante.`);
         // Enfocar cantidad
         setTimeout(() => {
@@ -2115,6 +2122,10 @@ export class ComprasComponent implements OnInit {
         // Refrescar compras e inventario
         this.comprasService.cargarCompras();
         this.productosService.cargarProductos();
+        this.catalogosService.cargarSabores();
+        this.catalogosService.cargarPresentaciones();
+        this.catalogosService.cargarToppings();
+        this.catalogosService.cargarProductosSimples();
       },
       error: (err) => {
         this.guardandoCompra.set(false);
