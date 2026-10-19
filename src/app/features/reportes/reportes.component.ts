@@ -747,99 +747,56 @@ interface DonutSegment {
         <!-- ============================================================= -->
         @if (tabActiva() === 'compras') {
           <div class="tab-content compras-tab">
-            <!-- FILTROS ESPECÍFICOS DE COMPRAS -->
-            <div class="filters-card">
-              <div class="filters-grid">
-                <!-- PRESETS DE FECHA -->
-                <div class="filter-group">
-                  <label class="filter-label">Período:</label>
-                  <div class="preset-buttons">
-                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'hoy'" (click)="aplicarPreset('hoy')">Hoy</button>
-                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'ayer'" (click)="aplicarPreset('ayer')">Ayer</button>
-                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === '7dias'" (click)="aplicarPreset('7dias')">7 días</button>
-                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'esteMes'" (click)="aplicarPreset('esteMes')">Este mes</button>
-                    <button type="button" class="btn-preset" [class.active]="presetSeleccionado() === 'mesAnterior'" (click)="aplicarPreset('mesAnterior')">Mes anterior</button>
-                  </div>
-                </div>
-
-                <!-- FECHAS PERSONALIZADAS -->
-                <div class="filter-group-row">
-                  <div class="filter-group">
-                    <label class="filter-label" for="compraFechaDesde">Desde:</label>
-                    <input
-                      id="compraFechaDesde"
-                      type="date"
-                      class="form-control"
-                      [(ngModel)]="fechaInicio"
-                      (change)="onCambioFechaManual(); cargarCompras()"
-                    />
-                  </div>
-                  <div class="filter-group">
-                    <label class="filter-label" for="compraFechaHasta">Hasta:</label>
-                    <input
-                      id="compraFechaHasta"
-                      type="date"
-                      class="form-control"
-                      [(ngModel)]="fechaFin"
-                      (change)="onCambioFechaManual(); cargarCompras()"
-                    />
-                  </div>
-                </div>
-
-                <!-- PROVEEDOR -->
-                <div class="filter-group">
-                  <label class="filter-label" for="filtroProv">Proveedor:</label>
-                  <select
-                    id="filtroProv"
-                    class="form-control"
-                    [(ngModel)]="filtroComprasProveedorId"
-                    (change)="cargarCompras()"
-                  >
-                    <option value="TODOS">Todos los Proveedores</option>
-                    @for (prov of proveedoresService.proveedores(); track prov.id) {
-                      <option [value]="prov.id">{{ prov.razonSocial }} ({{ prov.ruc }})</option>
-                    }
-                  </select>
-                </div>
-
-                <!-- CONDICIÓN -->
-                <div class="filter-group">
-                  <label class="filter-label" for="filtroCond">Condición:</label>
-                  <select id="filtroCond" class="form-control" [(ngModel)]="filtroComprasCondicion">
-                    <option value="TODOS">Todas (Contado / Crédito)</option>
-                    <option value="CONTADO">Contado</option>
-                    <option value="CREDITO">Crédito</option>
-                  </select>
-                </div>
-
-                <!-- ESTADO -->
-                <div class="filter-group">
-                  <label class="filter-label" for="filtroEst">Estado:</label>
-                  <select id="filtroEst" class="form-control" [(ngModel)]="filtroComprasEstado">
-                    <option value="TODOS">Todos los Estados</option>
-                    <option value="REGISTRADA">Registrada</option>
-                    <option value="ANULADA">Anulada</option>
-                  </select>
-                </div>
-
-                <!-- BÚSQUEDA LIBRE -->
-                <div class="filter-group span-full">
-                  <div class="search-input-wrapper">
-                    <app-icon name="search" [size]="16" class="search-icon" />
-                    <input
-                      type="text"
-                      class="form-control search-input"
-                      placeholder="Buscar por N° Factura, Timbrado, RUC o Nombre del Proveedor..."
-                      [(ngModel)]="busquedaCompras"
-                    />
-                    @if (busquedaCompras) {
-                      <button type="button" class="btn-clear" (click)="busquedaCompras = ''">
-                        <app-icon name="x" [size]="14" />
-                      </button>
-                    }
-                  </div>
-                </div>
+            <!-- BARRA DE FILTROS ESPECÍFICOS DE COMPRAS -->
+            <div class="filtros-secundarios-card">
+              <div class="filter-item">
+                <label for="filtroProv">Proveedor:</label>
+                <select
+                  id="filtroProv"
+                  class="form-control"
+                  [(ngModel)]="filtroComprasProveedorId"
+                  (change)="cargarCompras()"
+                >
+                  <option value="TODOS">Todos los Proveedores</option>
+                  @for (prov of proveedoresService.proveedores(); track prov.id) {
+                    <option [value]="prov.id">{{ prov.razonSocial }} ({{ prov.ruc }})</option>
+                  }
+                </select>
               </div>
+
+              <div class="filter-item">
+                <label for="filtroCond">Condición:</label>
+                <select id="filtroCond" class="form-control" [(ngModel)]="filtroComprasCondicion">
+                  <option value="TODOS">Todas las condiciones</option>
+                  <option value="CONTADO">Contado</option>
+                  <option value="CREDITO">Crédito</option>
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <label for="filtroEst">Estado:</label>
+                <select id="filtroEst" class="form-control" [(ngModel)]="filtroComprasEstado">
+                  <option value="TODOS">Todos los estados</option>
+                  <option value="REGISTRADA">Registrada</option>
+                  <option value="ANULADA">Anulada</option>
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <label for="busquedaComprasInput">Buscar:</label>
+                <input
+                  id="busquedaComprasInput"
+                  type="text"
+                  class="form-control"
+                  placeholder="Factura, timbrado o RUC..."
+                  [(ngModel)]="busquedaCompras"
+                  style="min-width: 220px;"
+                />
+              </div>
+
+              <button type="button" class="btn btn-secondary btn-sm" (click)="limpiarFiltrosCompras()">
+                <span>Limpiar</span>
+              </button>
             </div>
 
             <!-- KPIS DE COMPRAS -->
@@ -4417,6 +4374,14 @@ export class ReportesComponent implements OnInit {
     this.filtroTipoEntrega = 'TODOS';
     this.filtroCajero = '';
     this.cargarVentas();
+  }
+
+  limpiarFiltrosCompras(): void {
+    this.filtroComprasProveedorId = 'TODOS';
+    this.filtroComprasCondicion = 'TODOS';
+    this.filtroComprasEstado = 'TODOS';
+    this.busquedaCompras = '';
+    this.cargarCompras();
   }
 
   cargarLibroIva(): void {
