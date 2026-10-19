@@ -75,17 +75,20 @@ Cuando un distribuidor entrega un pedido extenso con decenas de productos habitu
 
 ### Procedimiento C: Alta Rápida de Artículo en Caliente (`+ ¿Artículo nuevo?`)
 
-Si estás cargando una factura y aparece un producto que no existe en el catálogo maestro:
+Si estás cargando una factura y el proveedor te trae un producto nuevo que no existe en el catálogo maestro:
 
 1. **No necesitas cancelar ni perder los datos cargados**.
-2. Haz clic en el enlace **"+ ¿Artículo nuevo? Créalo aquí"** (ubicado junto al selector de artículos).
-3. Se abrirá un submodal sin cerrar la factura actual:
+2. **Dos formas inmediatas de activarlo**:
+   * **Vía Escáner / Código de Barras**: Si pasas la pistola lectora o escribes el código de barras y presionas `Enter`, al detectar que no existe en el catálogo, el sistema **despliega automáticamente la ventana de Alta Rápida** con el código ya completado.
+   * **Vía Clic Directo**: Haz clic en el enlace azul **"+ ¿Artículo nuevo? Créalo aquí"** (ubicado justo arriba del selector de artículos).
+3. **Completar datos en la ventana emergente (sin cerrar la factura)**:
    * Ingresa: Nombre del producto, Tipo (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`), Código de Barra y Unidad de Medida.
-   * En la **Calculadora de Margen Comercial**, ingresa el Costo de Compra y selecciona el margen deseado (**15%**, **20%**, **30%**, **50%**) para calcular automáticamente el Precio de Venta sugerido al público.
-4. Presiona **"Guardar e Insertar en Factura"**:
-   * El artículo se registra en el catálogo maestro.
-   * Se vincula automáticamente a este proveedor como su proveedor principal.
-   * Se inserta de inmediato en la factura actual listo para ingresar la cantidad recibida.
+   * En la **Calculadora de Margen Comercial**, ingresa el Costo de Compra y selecciona el margen deseado (**15%**, **20%**, **30%**, **50%**) para calcular automáticamente el Precio de Venta sugerido al público para el POS.
+4. **Presiona "Guardar e Insertar en Factura"**:
+   * El artículo se registra en el catálogo maestro de inmediato.
+   * Se vincula automáticamente a este proveedor como su proveedor principal con el costo pactado.
+   * Se inserta de inmediato en la factura actual con su costo y tipo de IVA.
+   * El cursor se ubica en el campo **Cantidad** para que digites cuántas unidades llegaron y presiones `Enter`.
 
 ---
 
