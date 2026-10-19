@@ -16,7 +16,7 @@ Puedes consultar el [**Manual de Usuario General Exhaustivo (Todo en Uno)**](./M
 
 ### 2. Ventas y Atención al Cliente
 * [**03. Punto de Venta (POS) y Comandas**](./03_punto_de_venta_pos.md)  
-  *Venta de helados en pote y cucurucho por sabores, selección de toppings, bebidas y minimarket, escaneo de código de barras, clientes con RUC/CI, cobros multimoneda (Efectivo, Tarjeta con Voucher obligatorio, QR) e impresión de factura legal.*
+  *Venta rápida multimodal con 3 opciones de búsqueda (Código de Barras con escáner automático, Código de Producto / ID y Nombre), botón rápido `+`, venta de helados por sabores en pote, toppings, bebidas, clientes con RUC/CI, cobros multimoneda (Efectivo, Tarjeta con Voucher obligatorio, QR) e impresión de factura legal.*
 * [**04. Control de Caja, Turnos y Arqueo Ciego**](./04_control_de_caja_y_turnos.md)  
   *Apertura de turno con fondo inicial, registro de movimientos, arqueo de valores por medio de pago (Efectivo, Vouchers POS, Transferencias/QR), detección de sobrantes/faltantes y cierre de turno.*
 * [**05. Monitor de Pedidos y Despacho en Mostrador**](./05_monitor_de_pedidos.md)  
@@ -26,19 +26,21 @@ Puedes consultar el [**Manual de Usuario General Exhaustivo (Todo en Uno)**](./M
 
 ### 3. Almacén, Existencias y Abastecimiento
 * [**07. Control Integral de Inventario y Kardex Físico**](./07_inventario_y_kardex.md)  
-  *Alertas automáticas de stock mínimo, control de bachas de helado en kg, envases y cucuruchos en unidades, registro de movimientos y valorización en Guaraníes (Gs.).*
+  *Alertas automáticas de stock mínimo, control de bachas de helado en kg, envases y cucuruchos en unidades, registro de mermas y ajustes, y valorización en Guaraníes (Gs.).*
 * [**08. Auditoría y Conteo Físico a Ciegas (Blind Stocktaking)**](./08_auditoria_y_conteo_fisico.md)  
-  *Auditoría física sin ver el stock del sistema para evitar manipulaciones, carga de cantidades contadas, aplicación de ajustes atómicos y descarga del Acta Oficial en PDF A4 y CSV.*
+  *Auditoría física de almacén sin ver el stock del sistema para evitar manipulaciones, carga de cantidades contadas, aplicación de ajustes atómicos y descarga del Acta Oficial en PDF A4 y CSV.*
 * [**17. Padrón de Proveedores y Artículos Suministrados**](./17_proveedores.md)  
   *Directorio de distribuidores mayoristas con RUC y datos bancarios, contador de artículos y consulta interactiva de catálogo provisto con costos pactados y proveedor principal ⭐.*
 * [**18. Facturas de Compra de Proveedores e Ingreso a Stock**](./18_compras_a_proveedores.md)  
-  *Registro de facturas de compra con respaldo fiscal (Contado/Crédito), carga rápida por código de barras, selección múltiple en bloque por proveedor habitual, alta rápida de artículos en caliente con calculadora de margen comercial, protección contra cierre accidental y exportación en CSV y PDF.*
+  *Registro oficial de facturas de compra con respaldo fiscal (Contado/Crédito), carga rápida por código de barras, selección múltiple en bloque por proveedor habitual, alta rápida de artículos en caliente con calculadora de margen comercial, protección contra cierre accidental y exportación en CSV y PDF.*
 
-### 4. Catálogos y Fiscalidad
+### 4. Catálogos, Fiscalidad y Analítica
 * [**09. Catálogo de Artículos (Maestro ERP, Sabores, Envases, Toppings y Productos)**](./09_catalogos_sabores_presentaciones_productos.md)  
   *Catálogo Maestro Retail ERP clasificado en 5 tipos de artículos, multi-proveedor N:M con costos individuales y calculadora inteligente de margen comercial (15%, 20%, 30%, 50%) con sugerencia automática de precio de venta.*
-* [**10. Reportes Oficiales, Libro Ventas IVA, Compras y Reimpresiones**](./10_reportes_y_libro_iva.md)  
-  *Generación del Libro de Ventas IVA, nuevo reporte completo de Compras a Proveedores con liquidación de Crédito Fiscal IVA y descargas en CSV (Excel) y PDF A4 Apaisado, talonarios timbrados y reimpresiones térmicas.*
+* [**10. Reportes Oficiales, Libro Ventas IVA, Compras y Analítica**](./10_reportes_y_libro_iva.md)  
+  *Nuevo Selector interactivo de Reportes con íconos temáticos y descripciones funcionales: Dashboard Ejecutivo, Ventas Detalladas, Compras a Proveedores (Crédito Fiscal IVA), Libro Ventas IVA (SET), Auditoría de Cajas, Rankings, Reimpresiones, Talonarios y Timbrados, e Inventario Valorizado con exportaciones en CSV (Excel) y PDF A4.*
+* [**19. Bitácora Centralizada de Auditoría (Audit Trail)**](./19_bitacora_de_auditoria.md)  
+  *Trazabilidad total e inmutable de operaciones del sistema: registro automático de quién, cuándo y qué modificó (cambios de precios de venta/costo, altas/bajas de artículos, facturas de compras, anulaciones con motivo, arqueos/cierres de caja y ajustes de stock) con filtros interactivos, KPIs y exportaciones en CSV y PDF.*
 
 ### 5. Configuración y Administración del Sistema
 * [**11. Gestión de Usuarios y Personal**](./11_gestion_de_usuarios.md)  
@@ -61,4 +63,4 @@ Puedes consultar el [**Manual de Usuario General Exhaustivo (Todo en Uno)**](./M
 1. **Cajeros(as)**: Manuales **01**, **03** y **04**. Indispensable abrir turno de caja antes de realizar cualquier venta.
 2. **Encargados(as) de Compras y Almacén**: Manuales **07**, **17** y **18** para registrar compras, recepcionar pedidos de proveedores habituales y alimentar el stock.
 3. **Auditores(as) de Inventario**: Manual **08** para la toma de conteo físico a ciegas y emisión del acta de discrepancias.
-4. **Gerentes y Propietarios**: Manuales **02**, **09**, **10**, **11**, **12** y **16** para supervisar rentabilidad, márgenes de ganancia, libros impositivos y resguardo seguro de datos.
+4. **Gerentes, Contadores y Propietarios**: Manuales **02**, **09**, **10**, **19**, **11**, **12** y **16** para supervisar rentabilidad, márgenes de ganancia, libros impositivos, trazabilidad total en la bitácora y resguardo seguro de datos.

@@ -8,6 +8,11 @@ El módulo de **Auditoría & Conteo Físico** permite llevar a cabo inventarios 
   * O desde **Inventario & Stock** (`/stock`), pestaña **"Auditoría & Conteo Físico"**.
 * **Permisos requeridos**: Rol `AUDITOR`, `ADMIN`, `OWNER` o permiso `auditoria` / `stock`.
 
+> [!NOTE]
+> **Diferencia entre Conteo Físico y Bitácora de Auditoría**:
+> - Este manual corresponde al **Conteo Físico de Mercaderías en Almacén** (`/auditoria`).
+> - Si deseas auditar el **historial de cambios de los usuarios** (quién modificó un precio, anuló una compra, ajustó stock o cerró una caja), consulta el manual de la [**Bitácora Centralizada de Auditoría (`/bitacora`)**](./19_bitacora_de_auditoria.md).
+
 ---
 
 ## 2. Concepto Clave: ¿Qué es el Conteo a Ciegas?
@@ -25,7 +30,6 @@ El **Conteo a Ciegas**:
 ## 3. Procedimiento de Auditoría Paso a Paso
 
 ### Paso 1: Iniciar una Nueva Auditoría Física
-
 1. Dirígete a **Auditoría & Conteo Físico** (`/auditoria` o pestaña Auditoría en `/stock`).
 2. En la vista verás el historial de tomas anteriores. Haz clic en el botón principal **"Iniciar Nuevo Conteo Físico"**.
 3. El sistema cargará la **Planilla de Conteo Físico a Ciegas**:
@@ -39,7 +43,6 @@ El **Conteo a Ciegas**:
 ---
 
 ### Paso 2: Conteo Físico en Freezers y Estanterías
-
 1. Recorre las instalaciones con tu terminal (tablet, laptop o anotaciones físicas).
 2. Para cada producto, escribe la cantidad real observada en la columna **"Stock Físico (Contado)"**:
    * **Sabores de Helado**: Pesa la bacha en la báscula y descuenta el peso de la lata o bacha vacía (tara). Escribe los kilogramos netos con decimales (ejemplo: `3.450` kg).
@@ -55,11 +58,8 @@ El **Conteo a Ciegas**:
 ---
 
 ### Paso 3: Aplicación del Conteo y Ajuste Atómico en Base de Datos
-
 Una vez completado el relevamiento físico:
 1. Haz clic en el botón verde **"Aplicar Conteo y Ajustar Stock"**.
-   > [!WARNING]
-   > Si no ingresaste el conteo de ningún artículo, el sistema te alertará que debes contar al menos un ítem antes de procesar.
 2. Se desplegará el **Modal de Confirmación de Seguridad**:
    * Muestra el resumen del conteo: *Total de artículos*, *Artículos con conteo físico* y *Porcentaje auditado*.
    * Si dejaste artículos con el badge `Pendiente`, el sistema mostrará una advertencia clara:
@@ -70,11 +70,11 @@ Una vez completado el relevamiento físico:
    * Actualiza el stock real de la base de datos de cada sabor, envase o producto para que coincida con lo contado.
    * Si un sabor de helado estaba marcado como agotado y el conteo arrojó existencia física positiva, el sistema **lo reactiva automáticamente para la venta en el POS**.
    * Asienta en el **Kardex** los movimientos oficiales de regularización bajo el concepto `AJUSTE_INVENTARIO`.
+   * Registra el acta en la **Bitácora Centralizada de Auditoría (`/bitacora`)** para trazabilidad gerencial.
 
 ---
 
 ### Paso 4: Análisis del Reporte Comparativo y Descargas
-
 Inmediatamente tras guardar, se abre la ventana del **Reporte Comparativo de Auditoría**:
 
 1. **Cabecera Resumen**:
@@ -93,6 +93,6 @@ Inmediatamente tras guardar, se abre la ventana del **Reporte Comparativo de Aud
    * Botón *"Solo Discrepancias"*: Filtra la tabla para ver únicamente los productos que tuvieron faltantes o sobrantes.
    * Botón *"Solo Coincidentes"*: Muestra los que estuvieron 100% exactos.
 4. **Exportar Acta Oficial en PDF A4**:
-   * Genera el informe institucional formal en orientación apaisada (Landscape) con membrete legal de la empresa (RUC, Timbrado, Dirección), tarjetas de métricas, tabla comparativa a colores y **líneas de firma manuscrita para el Auditor y el Gerente de Sucursal**.
+   * Genera el informe institucional formal en orientación horizontal con membrete legal de la empresa, tarjetas de métricas, tabla comparativa a colores y **líneas de firma manuscrita para el Auditor y el Gerente de Sucursal**.
 5. **Exportar CSV**:
    * Descarga una planilla electrónica con separador de punto y coma (`;`) y codificación compatible con Microsoft Excel para auditorías contables.

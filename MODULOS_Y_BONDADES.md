@@ -5,19 +5,19 @@
 
 ## 1. Resumen Ejecutivo y Arquitectura
 
-Este sistema es una solución empresarial de alta disponibilidad diseñada específicamente para resolver las complejidades operativas del sector gastronómico y de retail comercial (venta fraccionada por peso/potes, combinación de sabores, envases térmicos, toppings, productos de cafetería/minimarket, compras formales a distribuidores y liquidación fiscal), combinando agilidad en el punto de venta con estricto control de inventario, compras y caja.
+Este sistema es una solución empresarial de alta disponibilidad diseñada específicamente para resolver las complejidades operativas del sector gastronómico y de retail comercial (venta fraccionada por peso/potes, combinación de sabores, envases térmicos, toppings, productos de cafetería/minimarket, compras formales a distribuidores, liquidación fiscal y auditoría integral de cambios), combinando agilidad en el punto de venta con estricto control de inventario, compras, caja y trazabilidad total de usuarios.
 
 ### Stack Tecnológico:
 * **Frontend:** Angular 19+ (Standalone Components, Signals reactivas, arquitectura modular, PWA instalable con modo pantalla completa / APK Kiosco).
 * **Backend:** Java Spring Boot 3+, Spring Security con JWT, arquitectura RESTful y drivers directos de impresión ESC/POS.
-* **Base de Datos:** PostgreSQL 16 Alpine con soporte transaccional ACID, kardex valorizado, auditorías físicas y catálogo maestro multi-proveedor (N:M).
+* **Base de Datos:** PostgreSQL 16 Alpine con soporte transaccional ACID, kardex valorizado, auditorías físicas, catálogo maestro multi-proveedor (N:M) y bitácora de auditoría inmutable.
 * **Infraestructura:** Docker & Docker Compose con proxy inverso Nginx (soporte de subidas de hasta 100 MB) y certificados SSL integrados.
 
 ---
 
 ## 2. Catálogo Detallado de Módulos y sus Bondades
 
-El sistema cuenta con **20 módulos funcionales** en el menú de navegación, organizados en **6 grandes áreas de negocio**:
+El sistema cuenta con **21 módulos funcionales** en el menú de navegación, organizados en **6 grandes áreas de negocio**:
 
 ```mermaid
 mindmap
@@ -41,10 +41,13 @@ mindmap
       Bebidas y Cafetería
       Calculadora de Margen Comercial
     Analítica y Fiscalidad
-      Reportes, Libro IVA Ventas & Compras CSV/PDF
+      Selector de Reportes con Iconos
+      Libro IVA Ventas & Compras CSV/PDF
+      Auditoría de Cajas
     Hardware
       Impresoras ESC/POS Térmicas
-    Administración y Contingencia
+    Seguridad, Auditoría y Contingencia
+      Bitácora Centralizada de Auditoría
       Usuarios y Operadores
       Roles y Matriz de Permisos
       Licenciamiento SaaS
@@ -72,183 +75,116 @@ mindmap
   * Historial auditable de todas las sesiones de caja con balance de faltantes o sobrantes.
 * **Bondades para el Negocio:** **Elimina el robo hormiga y las pérdidas de dinero.** Cada centavo queda registrado y asociado al operador que abrió y cerró el turno.
 
-#### 3. Punto de Venta - POS (`/pos`)
+#### 3. Punto de Venta - POS (`/pos`) — *Actualizado*
 * **Propósito:** Terminal táctil ultra-rápida de ventas pensada para pantallas táctiles, tablets y computadoras de mostrador.
 * **Funcionalidades:**
-  * **Lector y Escáner de Código de Barras integrado:** Soporta pistolas lectoras USB/Bluetooth y teclado con tecla `Enter`. Al escanear un producto envasado o bebida, lo ingresa automáticamente al ticket de venta de manera instantánea.
-  * Selección dinámica de presentaciones (potes de 1/4 kg, 1/2 kg, 1 kg, cucuruchos, vasitos).
-  * Control del límite de sabores por presentación (ej.: máximo 3 gustos para 1/2 kg).
-  * Agregado de toppings con precio diferencial.
+  * **Buscador Multimodal Rápido (3 Opciones):**
+    1. **Código de Barras:** Pistola lectora USB/Bluetooth o tecleado manual. Al escanear o presionar `Enter`, el artículo se agrega **automáticamente al ticket** de forma transparente.
+    2. **Código de Producto / ID interno:** Para localizar rápidamente artículos codificados en bodega.
+    3. **Nombre / Descripción:** Búsqueda incremental instantánea.
+  * **Botón Rápido `+` en Artículos:** Permite sumar unidades de cualquier producto empaquetado o bebida con un solo toque directo.
+  * Selección dinámica de presentaciones (potes de 1/4 kg, 1/2 kg, 1 kg, cucuruchos, vasitos) con bloqueo automático de bachas agotadas.
+  * Control del límite de sabores por presentación y agregados de toppings con precio diferencial.
   * Búsqueda ágil de clientes con validación de RUC paraguayo (Dígito Verificador DV).
-  * Múltiples medios de pago: Efectivo, Tarjeta con carga de N° de Voucher y Billetera Digital/QR.
+  * Múltiples medios de pago: Efectivo, Tarjeta con **ingreso obligatorio de N° de Voucher POS** y Billetera Digital/QR.
 * **Bondades para el Negocio:** **Velocidad extrema de despacho en horas pico** (menos de 15 segundos por cliente), reduciendo filas de espera.
 
 #### 4. Monitor de Pedidos (`/pedidos`)
 * **Propósito:** Tablero de comandas estilo Kanban para el despacho en mostrador.
-* **Funcionalidades:**
-  * Estados del pedido: *Pendiente -> En Preparación -> Listo -> Entregado*.
-  * Detalle exacto de cada orden: gustos elegidos, toppings, notas especiales y cliente.
-  * Reimpresión rápida de tickets extraviados.
-* **Bondades para el Negocio:** Sirve como pantalla de despacho o comanda para el personal que arma los helados, desacoplando al cajero del despachador y reduciendo la confusión de órdenes.
+* **Funcionalidades:** Estados *Pendiente -> En Preparación -> Listo -> Entregado*, detalle de sabores y notas especiales.
+* **Bondades para el Negocio:** Desacopla al cajero del despachador y reduce la confusión en horas pico.
 
 #### 5. Gestión de Clientes (`/clientes`)
 * **Propósito:** Directorio y fidelización de la cartera de clientes.
-* **Funcionalidades:**
-  * Alta y edición con datos de facturación (RUC/CI con cálculo de DV, teléfono, correo y domicilio).
-  * Historial de compras por cliente y búsqueda instantánea desde el POS durante la venta.
-* **Bondades para el Negocio:** Construcción de base de datos para marketing, promociones de cumpleaños, delivery recurrente y facturación personalizada.
+* **Funcionalidades:** Alta y edición con datos de facturación (RUC/CI con cálculo de DV Módulo 11) e historial de compras.
 
-#### 6. Padrón y Gestión de Proveedores (`/proveedores`)
-* **Propósito:** Registro integral de empresas proveedoras, distribuidores y mayoristas.
-* **Funcionalidades:**
-  * Alta y edición con RUC fiscal, razón social, persona de contacto/vendedor, teléfono, correo, depósito y cuentas bancarias.
-  * **Trazabilidad Multi-Proveedor (N:M):** Badge interactivo con contador dinámico de artículos provistos.
-  * **Modal de Artículos Suministrados:** Grilla detallada con artículos abastecidos, costos pactados individuales, precio de venta al público y marca de **⭐ Proveedor Principal**.
-  * Conmutación de estado activo/inactivo.
-* **Bondades para el Negocio:** Centraliza la agenda de compras y reposición, permitiendo saber al instante a qué distribuidor pedir cada bebida, insumo o envase al mejor costo pactado.
+#### 6. Padrón de Proveedores (`/proveedores`)
+* **Propósito:** Directorio comercial de distribuidores mayoristas.
+* **Funcionalidades:** RUC con DV, datos bancarios para transferencias y modal interactivo para consultar todos los artículos provistos con costos pactados y proveedor principal ⭐.
 
-#### 7. Facturas de Compra & Ingreso a Stock (`/compras`) — *Nuevo*
-* **Propósito:** Registro formal de facturas de compra de proveedores con triple impacto (ingreso a inventario, liquidación de Crédito Fiscal IVA y control financiero de pagos).
-* **Funcionalidades:**
-  * Carga obligatoria de datos fiscales: Proveedor, N° Factura, Timbrado, Fecha de Emisión, Fecha de Vencimiento y Condición (Contado / Crédito).
-  * **Carga Rápida con Lector de Código de Barras**: Escaneo directo para inserción inmediata en la grilla.
-  * **Carga Masiva en Bloque (Selección Múltiple)**: Grilla para marcar decenas de productos habituales con filtro **`⭐ Solo de este Proveedor`** e insertarlos en un solo paso.
-  * **Alta Rápida de Artículos en Caliente (`+ ¿Artículo nuevo?`)**: Permite registrar un producto nuevo sin cerrar ni perder la compra en curso, utilizando la calculadora de margen para estimar el precio de venta e insertándolo al instante.
-  * **Protección Total contra Cierre Accidental**: Fondo modal bloqueado y guardián de confirmación si el usuario intenta cancelar con datos cargados.
-  * **Descargas Directas**: Botones en cabecera para exportar a **CSV (Excel)** y **PDF A4**.
-* **Bondades para el Negocio:** Garantiza la actualización inmediata del stock real, computa el crédito fiscal de compras ante la SET/DNIT y previene errores humanos en la recepción de mercadería.
+#### 7. Facturas de Compra de Proveedores (`/compras`)
+* **Propósito:** Registro formal de facturas de compra con respaldo fiscal.
+* **Funcionalidades:** Carga rápida por código de barras, selección masiva en bloque, alta rápida de artículos en caliente (`+ ¿Artículo nuevo?`), protección contra cierre accidental, liquidación de Crédito Fiscal IVA y descargas en CSV y PDF A4.
 
 ---
 
-### ÁREA 2: CONTROL DE INVENTARIO Y STOCK
+### ÁREA 2: INVENTARIO, ALMACÉN Y STOCK
 
-#### 8. Inventario & Stock (`/stock`)
-* **Propósito:** Control centralizado de existencias de materias primas y productos de reventa.
-* **Funcionalidades:**
-  * Kardex detallado de movimientos (entradas por compra, salidas por venta, mermas).
-  * Alertas automáticas de stock mínimo y crítico (notificaciones visuales en la barra superior).
-  * Valorización monetaria del inventario a precio de costo y venta en Guaraníes.
-* **Bondades para el Negocio:** **Evita el quiebre de stock** en momentos de alta demanda y ofrece una radiografía exacta del capital inmovilizado en mercadería.
+#### 8. Control de Stock & Kardex (`/stock`)
+* **Propósito:** Control en tiempo real de existencias físicas y valor monetario del inventario.
+* **Funcionalidades:** Alertas de stock crítico/mínimo, control fraccionado en kilogramos (`kg`) para helados y unidades (`u`) para envases/bebidas, registro de mermas y kardex cronológico.
+* **Bondades:** Evita quiebres de stock en sabores estrella y transparenta los movimientos de almacén.
 
 #### 9. Auditoría & Conteo Físico a Ciegas (`/auditoria`)
-* **Propósito:** Realización de tomas de inventario periódicas para contrastar stock real vs. stock teórico.
-* **Funcionalidades:**
-  * Conteo físico a ciegas (los auditores no ven el stock teórico para evitar cuadres artificiales).
-  * Comparativa automática: *Stock en Sistema* vs. *Stock Contado* con cálculo de desviaciones.
-  * Ajuste automático de stock documentado con motivo de diferencia (vencimiento, merma, rotura) y emisión del Acta Oficial en PDF A4 y CSV.
-* **Bondades para el Negocio:** Detección temprana de fugas de mercadería, desvíos en el porcionado de helado y control sobre los inventarios de cierre de mes.
+* **Propósito:** Toma de inventario físico sin ver las cantidades teóricas del sistema (*Blind Stocktaking*).
+* **Funcionalidades:** Carga de cantidades contadas, aplicación atómica de ajustes, reactivación de sabores agotados con existencia positiva y emisión de Acta Oficial firmada en PDF A4 y CSV.
+* **Bondades:** **Elimina la manipulación de números en auditorías físicas.**
 
 ---
 
-### ÁREA 3: CATÁLOGOS RETAIL ERP Y CALCULADORA DE PRECIOS
+### ÁREA 3: CATÁLOGOS RETAIL ERP
 
-#### 10. Catálogo Maestro Retail ERP (`/catalogos/maestro`) — *Nuevo*
-* **Propósito:** Administración centralizada de todo el universo de artículos del negocio.
-* **Funcionalidades:**
-  * Clasificación en 5 categorías: `VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`.
-  * **Modelo Multi-Proveedor N:M:** Asociación de múltiples proveedores por artículo con costos individuales, códigos de referencia y proveedor principal ⭐.
-  * **Calculadora Inteligente de Margen Comercial:** Tarjeta interactiva para calcular el Precio de Venta en tiempo real según el costo y margen deseado (**15%**, **20%**, **30%**, **50%**), con cálculo bidireccional y badge dinámico de ganancia neta.
-* **Bondades para el Negocio:** Unifica el modelo comercial y productivo; permite negociar costos con distintos proveedores y asegura la rentabilidad operativa de cada artículo.
+#### 10. Catálogo Maestro ERP Multi-Proveedor (`/catalogos/maestro`)
+* **Propósito:** Gestión integral de la lista de artículos comerciales.
+* **Funcionalidades:** Clasificación en 5 categorías (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`), asignación multi-proveedor N:M con costos individuales, proveedor principal ⭐ y **Calculadora Inteligente de Margen Comercial** (**15%**, **20%**, **30%**, **50%**).
+* **Bondades:** Unifica el modelo comercial y productivo, asegurando la rentabilidad operativa.
 
-#### 11. Catálogo de Sabores (`/catalogos/sabores`)
-* **Propósito:** Administración de la carta de gustos de helado en bacha.
-* **Funcionalidades:** Alta de sabores, color identificador para POS y switch de disponibilidad instantáneo (apaga un gusto con 1 clic si se terminó en bacha sin borrarlo).
-* **Bondades:** Reflejo inmediato en el POS: los cajeros nunca venderán un gusto que no esté disponible en la vitrina.
-
-#### 12. Presentaciones y Potes (`/catalogos/presentaciones`)
-* **Propósito:** Parametrización de envases térmicos, cucuruchos y formatos de venta.
-* **Funcionalidades:** Configuración de precio, peso estimado en gramos y límite máximo de gustos permitidos (ej.: Cucurucho simple 1 gusto, Pote 1 kg 4 gustos).
-* **Bondades:** Control estandarizado de porciones para garantizar el margen de rentabilidad de cada envase.
-
-#### 13. Toppings y Agregados (`/catalogos/toppings`)
-* **Propósito:** Gestión de salsas, coberturas y agregados dulces con precio adicional.
-* **Bondades:** Monetización del *up-selling* (venta cruzada) aumentando el ticket promedio por cliente.
+#### 11. Catálogos de Sabores, Presentaciones y Toppings (`/catalogos/*`)
+* **Propósito:** Parametrización de bachas, potes térmicos y agregados dulces con límites de porciones.
 
 ---
 
 ### ÁREA 4: ANALÍTICA, FISCALIDAD Y REPORTES
 
-#### 14. Reportes Fiscales SET y Compras (`/reportes`) — *Actualizado*
+#### 12. Módulo de Reportes y Analítica con Selector de Iconos (`/reportes`) — *Actualizado*
 * **Propósito:** Inteligencia de negocio, cumplimiento impositivo y auditoría.
 * **Funcionalidades:**
-  * **Nuevo Reporte de Compras a Proveedores:** Filtros por rango de fechas, proveedor, condición y estado. Tarjetas KPI de compras facturadas, crédito fiscal IVA total (10% y 5%) y pasivos a crédito.
-  * **Exportación en CSV y PDF A4 Apaisado:** Descargas preparadas para Microsoft Excel (UTF-8 con BOM y delimitador `;`) e informes ejecutivos vectoriales.
-  * **Libro de Ventas IVA:** Formato Hechauka/SET para liquidación impositiva mensual.
-  * **Reporte de Cajas y Turnos:** Histórico de diferencias de caja y arqueos ciegos.
-  * **Rankings de Ventas:** Artículos y gustos Top Sellers.
-  * **Talonarios y Timbrados:** Alertas de vencimiento de comprobantes DNIT.
-  * **Reimpresión de Comprobantes:** Búsqueda e impresión térmica histórica.
-* **Bondades para el Negocio:** Decisiones basadas en datos reales y contabilidad al día sin trabajo manual extra.
+  * **Nuevo Selector Desplegable con Iconos y Descripciones:** Navegación limpia e intuitiva entre los 9 reportes del sistema con íconos temáticos y descripciones funcionales.
+  * **9 Reportes Integrados:**
+    1. Dashboard Ejecutivo
+    2. Ventas Detalladas
+    3. Compras a Proveedores (Crédito Fiscal IVA)
+    4. Libro Ventas IVA (SET / DNIT Hechauka)
+    5. Auditoría de Cajas (arqueos y diferencias)
+    6. Ranking Productos & Sabores
+    7. Reimpresiones Térmicas
+    8. Talonarios & Timbrado SET
+    9. Inventario & Kardex Valorizado
+  * **Exportaciones Oficiales:** Botones de cabecera para generar planillas en **CSV (Excel UTF-8 con BOM)** y **PDF A4 Apaisado** con membrete institucional.
+* **Bondades para el Negocio:** Información ejecutiva y fiscal al día con un solo clic.
 
 ---
 
 ### ÁREA 5: HARDWARE Y DISPOSITIVOS
 
-#### 15. Impresoras ESC/POS (`/impresoras`)
-* **Propósito:** Integración directa con impresoras térmicas de tickets y comandas.
-* **Funcionalidades:** Soporte para impresoras térmicas USB, de Red (Ethernet/Wi-Fi) o Bluetooth; formatos de **58 mm** o **80 mm**; botón de diagnóstico de puerto/papel; apertura de cajón portamonedas.
-* **Bondades para el Negocio:** Emite tickets fiscales y comandas directamente desde el backend sin requerir drivers complejos en cada estación.
+#### 13. Impresoras ESC/POS (`/impresoras`)
+* **Propósito:** Integración directa con ticketeras térmicas (USB, Red TCP/IP o Bluetooth) en formatos 58 mm o 80 mm.
 
 ---
 
-### ÁREA 6: SEGURIDAD, ADMINISTRACIÓN Y CONTINGENCIA
+### ÁREA 6: SEGURIDAD, AUDITORÍA Y CONTINGENCIA
 
-#### 16. Usuarios y Operadores (`/usuarios`)
-* **Propósito:** Gestión del personal que interactúa con el sistema.
-* **Funcionalidades:** Alta de usuarios, asignación de roles, bloqueo de acceso inmediato y cambio obligatorio de contraseña en el primer inicio de sesión.
-* **Bondades:** Trazabilidad completa: cada venta, compra o arqueo tiene nombre y apellido.
-
-#### 17. Roles y Permisos (`/roles`)
-* **Propósito:** Control de acceso granular basado en roles (RBAC).
-* **Funcionalidades:** Creación de roles personalizados y matriz de permisos por módulo; roles de sistema protegidos (`ADMIN` y `OWNER`).
-* **Bondades:** Protege la información confidencial de costos, reportes de facturación y configuraciones contra empleados no autorizados.
-
-#### 18. Licenciamiento & Planes (`/licencia`)
-* **Propósito:** Motor de activación y validación de licencias comerciales SaaS.
-* **Funcionalidades:** Validación de clave criptográfica con fecha de caducidad y módulos autorizados (Básico, Estándar, Premium).
-* **Bondades:** Convierte el sistema en un producto comercial listo para cobrar suscripción mensual (SaaS) o pagos anuales.
-
-#### 19. Datos del Negocio y Timbrado (`/institucion`)
-* **Propósito:** Identidad de marca y configuración fiscal legal.
-* **Funcionalidades:** Carga de logotipo institucional, Razón Social, RUC con DV, número de Timbrado DNIT y fechas de vigencia.
-* **Bondades:** Emisión de comprobantes legales con la imagen corporativa del negocio.
-
-#### 20. Copias de Seguridad y Disaster Recovery (`/backup`) — *Actualizado*
-* **Propósito:** Resguardo de datos y plan de contingencia ante fallas de hardware.
+#### 14. Bitácora Centralizada de Auditoría (`/bitacora`) — *¡NUEVO!*
+* **Propósito:** Registro oficial, inmutable y cronológico de todas las operaciones y cambios del sistema.
 * **Funcionalidades:**
-  * Generación de respaldo binario completo (`pg_dump -Fc` formato `.dump` comprimido) con 1 clic.
-  * Descarga automática inmediata al equipo local.
-  * **Zona de Restauración Drag & Drop**: Subida directa del archivo `.dump` desde el navegador (soporta hasta 100 MB).
-  * **Recuperación ante Desastres (Disaster Recovery)**: Capacidad de reconstrucción total del sistema desde cero tras el borrado de volúmenes Docker.
-* **Bondades:** Tranquilidad total para el propietario; ante cualquier siniestro o reemplazo de máquina, el sistema se restablece al 100% en menos de 3 minutos.
+  * **Trazabilidad 100% Inmutable:** Registra fecha, hora, usuario, terminal (IP), módulo y detalle del cambio con valores anteriores y nuevos (`Valor Anterior ➔ Valor Nuevo`).
+  * **Áreas Auditadas:** Modificación de precios de venta y costos, altas/bajas de artículos, compras a proveedores, facturas anuladas con su motivo obligatorio, aperturas/cierres de caja con diferencias de arqueo y ajustes de stock.
+  * **4 Tarjetas KPI:** Total de eventos, usuarios con actividad, modificaciones realizadas y bajas/anulaciones.
+  * **Filtros Dinámicos:** Presets de fechas (Hoy, Esta Semana, Este Mes, Historial completo), filtros por usuario, módulo, acción y buscador en tiempo real.
+  * **Exportación Oficial:** Descargas en **CSV (Excel)** y **PDF A4 Apaisado** con membrete institucional.
+* **Bondades para el Negocio:** **Tranquilidad absoluta para los propietarios.** Permite saber con exactitud quién y cuándo modificó un precio, anuló una factura o alteró el stock.
 
----
+#### 15. Usuarios y Operadores (`/usuarios`)
+* **Propósito:** Gestión de cuentas, asignación de roles, bloqueo inmediato y cambio obligatorio de contraseña.
 
-## 3. Bondades Técnicas Transversales (Diferenciadores Clave)
+#### 16. Roles y Permisos (`/roles`)
+* **Propósito:** Control de acceso granular basado en roles (RBAC).
 
-| Característica | Beneficio Técnico | Impacto Comercial |
-|---|---|---|
-| **Operación en Red Local (Sin Internet)** | Funciona 100% sobre Docker local o servidor interno en red LAN. | Si la heladería se queda sin servicio de internet, las cajas **siguen vendiendo e imprimiendo** con normalidad. |
-| **PWA Pantalla Completa (Modo APK)** | Instalable en Android, Windows o tablets con selector de pantalla completa inmersiva. | No requiere pagar comisiones a tiendas de apps; se instala en tablets de mostrador como una app nativa. |
-| **Diseño Responsive y Táctil** | Interfaz optimizada con botones de gran tamaño y contrastes de color pensados para pantallas táctiles. | Disminuye los errores de digitación de los operadores en el mostrador. |
-| **Lector de Códigos de Barras** | Integrado en POS y en Facturas de Compra de proveedores. | Agiliza cobros y recepciones masivas de mercadería. |
-| **Seguridad de Nivel Empresarial** | Contraseñas con hashing BCrypt, tokens JWT con expiración, y validación estricta de permisos tanto en front como en back. | Cumple con los estándares modernos de seguridad y auditoría de software. |
+#### 17. Licenciamiento & Planes (`/licencia`)
+* **Propósito:** Motor de activación y validación de licencias comerciales SaaS.
 
----
+#### 18. Datos del Negocio y Timbrado (`/institucion`)
+* **Propósito:** Identidad corporativa, Razón Social, RUC con DV, Timbrado DNIT y fechas de vigencia.
 
-## 4. Guía de Monetización Sugerida
-
-Para comercializar este sistema se sugieren tres esquemas:
-
-### Esquema A: Suscripción Mensual (SaaS) — *Recomendado*
-* **Plan Básico ($35 - $50 USD/mes):** POS, Caja, Clientes, Catálogos e Impresoras (hasta 2 usuarios).
-* **Plan Profesional ($70 - $100 USD/mes):** Todo lo anterior + Inventario/Kardex, Auditoría de Stock, Facturas de Compra, Padrón de Proveedores, Reportes y Libro IVA (usuarios ilimitados).
-* **Sucursal Adicional ($50 USD/mes c/u).**
-
-### Esquema B: Licencia Perpetua (On-Premise / Servidor Local)
-* **Licencia de por vida por local:** **$1.000 - $2.200 USD**.
-* **Costo de instalación y puesta en marcha:** **$200 - $400 USD** (pago único inicial).
-* **Abono de mantenimiento y soporte opcional:** **$40 - $60 USD/mes**.
-
-### Esquema C: Venta del Código Fuente / Derechos
-* **Venta llave en mano (Front + Back + BD + Docker):** **$8.000 - $18.000 USD**.
+#### 19. Copias de Seguridad y Disaster Recovery (`/backup`)
+* **Propósito:** Resguardo de datos mediante volcados binarios completos de PostgreSQL (`pg_dump -Fc` formato `.dump`), zona de subida drag & drop y procedimiento de recuperación ante desastres con Docker (soporte de hasta 100 MB).

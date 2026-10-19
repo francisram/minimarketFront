@@ -18,7 +18,7 @@
 10. [Módulo 7: Control de Inventario, Bachas y Kardex Físico](#10-módulo-7-control-de-inventario-bachas-y-kardex-físico)
 11. [Módulo 8: Auditoría y Conteo Físico a Ciegas (Blind Stocktaking)](#11-módulo-8-auditoría-y-conteo-físico-a-ciegas-blind-stocktaking)
 12. [Módulo 9: Catálogo Maestro Retail ERP, Multi-Proveedor y Calculadora de Margen](#12-módulo-9-catálogo-maestro-retail-erp-multi-proveedor-y-calculadora-de-margen)
-13. [Módulo 10: Reportes Fiscales SET, Libro Ventas IVA, Compras a Proveedores y Reimpresiones](#13-módulo-10-reportes-fiscales-set-libro-ventas-iva-compras-a-proveedores-y-reimpresiones)
+13. [Módulo 10: Reportes Fiscales SET, Libro Ventas IVA, Compras a Proveedores y Analítica](#13-módulo-10-reportes-fiscales-set-libro-ventas-iva-compras-a-proveedores-y-analítica)
 14. [Módulo 11: Gestión de Usuarios y Personal](#14-módulo-11-gestión-de-usuarios-y-personal)
 15. [Módulo 12: Roles y Matriz de Permisos](#15-módulo-12-roles-y-matriz-de-permisos)
 16. [Módulo 13: Configuración de Impresoras Térmicas ESC/POS](#16-módulo-13-configuración-de-impresoras-térmicas-escpos)
@@ -27,7 +27,8 @@
 19. [Módulo 16: Copias de Seguridad, Restauración Drag & Drop y Disaster Recovery](#19-módulo-16-copias-de-seguridad-restauración-drag--drop-y-disaster-recovery)
 20. [Módulo 17: Padrón de Proveedores y Artículos Suministrados](#20-módulo-17-padrón-de-proveedores-y-artículos-suministrados)
 21. [Módulo 18: Facturas de Compra de Proveedores e Ingreso a Stock](#21-módulo-18-facturas-de-compra-de-proveedores-e-ingreso-a-stock)
-22. [Preguntas Frecuentes y Solución de Incidencias](#22-preguntas-frecuentes-y-solución-de-incidencias)
+22. [Módulo 19: Bitácora Centralizada de Auditoría (Audit Trail)](#22-módulo-19-bitácora-centralizada-de-auditoría-audit-trail)
+23. [Preguntas Frecuentes y Solución de Incidencias](#23-preguntas-frecuentes-y-solución-de-incidencias)
 
 ---
 
@@ -46,6 +47,7 @@ Este sistema es una solución integral desarrollada específicamente para negoci
   * Desglose impositivo en comprobantes: Exentas, Gravadas 5%, Gravadas 10% y Liquidación total del IVA (10% e 5%).
   * Generación del **Libro de Ventas IVA** mensual apto para el sistema tributario *Marangatu / Hechauka*.
   * Registro de facturas de compra para cómputo de **Crédito Fiscal IVA** y exportación de compras en **CSV** y **PDF A4**.
+* **Trazabilidad Inmutable**: Registro centralizado en la **Bitácora de Auditoría** de quién, cuándo y qué modificó en precios, costos, compras, anulaciones, turnos de caja y stock.
 
 ---
 
@@ -55,139 +57,121 @@ El sistema implementa un control de acceso basado en roles (*Role-Based Access C
 
 | Rol Sugerido | Descripción de Funciones | Módulos Autorizados Típicos |
 | :--- | :--- | :--- |
-| **OWNER / PROPIETARIO** | Máxima jerarquía comercial y técnica. Administra suscripciones, licencias, respaldos y configuración del negocio. | Todos los módulos sin excepción. |
-| **ADMIN / GERENTE** | Supervisión operativa total de sucursal, compras, márgenes, usuarios, roles, catálogo y fiscalidad. | Todos excepto licenciamiento avanzado. |
+| **OWNER / PROPIETARIO** | Máxima jerarquía comercial y técnica. Administra suscripciones, licencias, respaldos, bitácora y configuración del negocio. | Todos los módulos sin excepción. |
+| **ADMIN / GERENTE** | Supervisión operativa total de sucursal, compras, márgenes, usuarios, roles, catálogo, bitácora y fiscalidad. | Todos excepto licenciamiento avanzado. |
 | **CAJERO / VENDEDOR** | Operación de salón y mostrador: apertura de caja, venta en POS, cobro, emisión de tickets y arqueo final. | POS, Caja, Clientes, Monitor de Pedidos. |
-| **ENCARGADO DE COMPRAS** | Recepción de pedidos de proveedores, registro de facturas de compra y gestión del padrón de distribuidores. | Compras, Proveedores, Stock, Catálogos. |
-| **AUDITOR / INVENTARIO** | Auditoría y control de existencias. Realiza el conteo físico de bachas y mercaderías a ciegas y emite actas. | Auditoría & Conteo Físico, Dashboard. |
-| **COCINA / DESPACHO** | Personal de armado de pedidos, envasado de helados o preparación de cafetería. | Monitor de Pedidos. |
+| **AUDITOR / ENCARGADO DE ALMACÉN** | Relevamiento físico de mercaderías, conteo a ciegas, emisión de actas y recepción de compras. | Inventario, Auditoría de Stock, Compras, Proveedores. |
 
 ---
 
 ## 3. El Ciclo Operativo Diario
 
+Un día habitual de operación sigue este flujo estándar:
+
 ```
-  +-------------------------------------------------------------+
-  |                   1. APERTURA DE TURNO                      |
-  |  El cajero ingresa a Caja (/caja) y declara el fondo inicial|
-  +-------------------------------------------------------------+
-                                 |
-                                 v
-  +-------------------------------------------------------------+
-  |              2. VENTAS EN EL POS Y PEDIDOS                  |
-  |  Cobro de helados, escaneo de bebidas, tickets y facturas   |
-  +-------------------------------------------------------------+
-                                 |
-                                 v
-  +-------------------------------------------------------------+
-  |           3. RECEPCIÓN DE MERCADERÍA Y COMPRAS              |
-  |  Llegada de proveedores, carga de facturas e ingreso a stock|
-  +-------------------------------------------------------------+
-                                 |
-                                 v
-  +-------------------------------------------------------------+
-  |               4. ARQUEO CIEGO Y CIERRE DE TURNO             |
-  |  El cajero cuenta efectivo y vouchers sin ver el sistema    |
-  +-------------------------------------------------------------+
+[Inicio de Turno]
+  └─> 1. Iniciar sesión con usuario propio.
+  └─> 2. Abrir Turno de Caja ingresando el fondo inicial en Guaraníes (Gs.).
+
+[Durante la Jornada Comercial]
+  ├─> 3. Venta en POS: Escaneo por Código de Barras / Código de Producto / Selección táctil de potes, sabores y adicionales.
+  ├─> 4. Cobro: Efectivo (cálculo de vuelto), Tarjeta (ingreso obligatorio de Voucher) o QR.
+  ├─> 5. Impresión automática de factura legal o ticket térmico.
+  ├─> 6. Monitor de mostrador: preparación y entrega de pedidos.
+  └─> 7. Recepción de mercaderías: Carga de facturas de compra desde `/compras`.
+
+[Cierre de Turno]
+  └─> 8. Cierre de Caja ciego: el cajero cuenta sus valores físicos y el sistema calcula automáticamente las diferencias.
 ```
 
 ---
 
 ## 4. Módulo 1: Autenticación e Inicio de Sesión
-* **Acceso**: Iniciar sesión con usuario y contraseña asignada.
-* **Cambio Obligatorio de Clave**: Si es el primer ingreso, el sistema solicitará una nueva contraseña segura (mínimo 6 caracteres).
-* **Bloqueo de Inactividad**: La sesión expira de forma segura protegiendo las terminales del local.
+* **Acceso**: `/login`.
+* Ingreso seguro con credenciales encriptadas (BCrypt) y tokens JWT. Cambio obligatorio de clave si fue blanqueada por un administrador.
 
 ---
 
 ## 5. Módulo 2: Dashboard General y Métricas de Rendimiento
 * **Acceso**: `/dashboard`.
-* Muestra en tiempo real: Facturación acumulada del día, cantidad de pedidos despachados, ticket promedio, estado de la caja y accesos directos al POS.
+* Visualización en tiempo real de facturación acumulada, comensales atendidos, métodos de pago más utilizados y alertas de reposición de bachas.
 
 ---
 
 ## 6. Módulo 3: Punto de Venta (POS) y Venta de Mostrador
-* **Acceso**: `/pos`.
-* **Lector de Código de Barras**: Escaneo directo de artículos envasados y bebidas para agregarlos en menos de 1 segundo.
-* **Venta de Helados**: Selección de pote/cucurucho, control estricto del límite de sabores y agregado de toppings opcionales.
-* **Cobro Multimoneda**: Efectivo con cálculo de vuelto, Tarjetas (con campo obligatorio para N° de Voucher del POS físico) y Billeteras Digitales / QR.
-* **Emisión Fiscal**: Impresión térmica de factura legal paraguaya con RUC/CI del cliente y liquidación de IVA.
+* **Acceso**: Menú Lateral > **Punto de Venta (POS)** (`/pos`).
+
+### Funcionalidades Destacadas:
+1. **Búsqueda Multimodal (3 Vías de Entrada)**:
+   * 🏷️ **Código de Barras**: Con pistola lectora USB o tecleado manual. Al escanear o presionar `Enter`, el producto se agrega **automáticamente al ticket** de forma transparente.
+   * 🔢 **Código de Producto / ID**: Permite buscar artículos por su ID numérico o código interno de inventario.
+   * 🔍 **Nombre / Descripción**: Búsqueda incremental por texto libre.
+2. **Botón Rápido `+`**: Cada tarjeta de producto incorpora un botón compacto `+` para sumar unidades directamente al pedido con un solo toque.
+3. **Potes de Helado y Sabores**: Asignación interactiva de sabores según la capacidad del pote térmico con bloqueo visual de bachas agotadas.
+4. **Cobro Multimedio**:
+   * Efectivo con cálculo de vuelto.
+   * Tarjetas de débito/crédito con **obligatoriedad de ingresar el N° de Voucher / Cupón POS** para habilitar la confirmación.
+   * Pagos con QR y transferencias bancarias.
 
 ---
 
 ## 7. Módulo 4: Control de Caja, Turnos y Arqueo Ciego
 * **Acceso**: `/caja`.
-* **Apertura**: Ingreso del fondo inicial para cambio.
-* **Movimientos en Turno**: Registro categorizado de entradas y salidas de dinero menor.
-* **Arqueo Ciego**: El operador cuenta el dinero físico sin que el sistema le muestre el total teórico. Al confirmar, el sistema calcula si hubo sobrante o faltante y genera el acta de cierre.
+* Apertura de turno con fondo inicial, movimientos de caja durante el día y arqueo de valores físico a ciegas al cerrar turno.
 
 ---
 
 ## 8. Módulo 5: Monitor de Pedidos y Despacho
 * **Acceso**: `/pedidos`.
-* Tablero Kanban en tiempo real para el personal de despacho en mostrador (*Pendiente -> En Preparación -> Listo -> Entregado*). Desacopla la caja del despacho de helados.
+* Pantalla de cocina y despacho que actualiza el estado de las órdenes en preparación.
 
 ---
 
 ## 9. Módulo 6: Directorio y Gestión de Clientes (RUC / CI)
 * **Acceso**: `/clientes`.
-* Directorio de clientes con validación automática del Dígito Verificador (DV) paraguayo (Módulo 11) para evitar rechazos en facturas electrónicas o declaraciones juradas ante la SET.
+* Directorio de clientes con validación automática del Dígito Verificador (DV) paraguayo (Módulo 11).
 
 ---
 
 ## 10. Módulo 7: Control de Inventario, Bachas y Kardex Físico
 * **Acceso**: `/stock`.
-* Control de existencias de helado (en kg), potes térmicos (en unidades) y productos envasados. Registro de movimientos y valorización total del stock en Guaraníes.
+* Control de existencias de helado (en kg), potes térmicos (en unidades) y productos envasados. Registro de mermas y valorización monetaria total del stock. Las compras se canalizan por el módulo oficial de compras.
 
 ---
 
 ## 11. Módulo 8: Auditoría y Conteo Físico a Ciegas (Blind Stocktaking)
-* **Acceso**: `/auditoria`.
-* Proceso de auditoría periódica donde el auditor cuenta las bachas y mercaderías reales sin ver el stock del sistema. Al finalizar, el sistema contrasta los valores, actualiza el stock real y emite el Acta Oficial en PDF A4 firmada y CSV.
+* **Acceso**: Menú Lateral > **Auditoría & Conteo Físico** (`/auditoria` o `/stock`).
+* Toma de inventario físico sin ver el stock del sistema para evitar manipulaciones. Al finalizar, el sistema contrasta los valores, reactiva sabores agotados con existencia positiva y emite el Acta Oficial en PDF A4 y CSV.
 
 ---
 
 ## 12. Módulo 9: Catálogo Maestro Retail ERP, Multi-Proveedor y Calculadora de Margen
 * **Acceso**: Menú Lateral > **Artículos & Catálogo ERP** (`/catalogos/maestro`).
-
-### Funcionalidades Destacadas:
-1. **Catálogo Maestro ERP**:
-   * Clasificación en 5 categorías comerciales: `VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`.
-   * Atributos específicos según tipo: atributos dietarios para sabores (Sin TACC, Vegano, Sin Azúcar) y límite de sabores para envases.
-2. **Modelo Multi-Proveedor (N:M)**:
-   * Cada artículo puede ser provisto por varias empresas distintas con sus respectivos **Costos de Compra Pactados** y códigos de referencia.
-   * Marca de **⭐ Proveedor Principal** para priorizar pedidos automáticos.
-3. **Calculadora Inteligente de Margen Comercial**:
-   * Al ingresar el Costo (Gs.) y el % de Margen deseado, calcula de inmediato el Precio de Venta al público:
-     $$\text{Precio Venta} = \text{Precio Costo} \times \left(1 + \frac{\text{Margen}}{100}\right)$$
-   * Botones rápidos con un solo clic: **15%**, **20%**, **30%**, **50%**.
-   * Cálculo bidireccional y badge con el importe neto de ganancia en Guaraníes.
+* Catálogo clasificado en 5 tipos comerciales (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`), asignación multi-proveedor N:M con costos pactados y calculadora de margen comercial (15%, 20%, 30%, 50%).
 
 ---
 
-## 13. Módulo 10: Reportes Fiscales SET, Libro Ventas IVA, Compras a Proveedores y Reimpresiones
+## 13. Módulo 10: Reportes Fiscales SET, Libro Ventas IVA, Compras a Proveedores y Analítica
 * **Acceso**: Menú Lateral > **Reportes** (`/reportes`).
 
-### Submódulos Disponibles:
-1. **Compras a Proveedores (Nuevo)**:
-   * Consolidado de facturas de compra de distribuidores con cálculo automático del **Crédito Fiscal IVA** (IVA 10%, IVA 5% y Exentas).
-   * Filtros combinados por rango de fechas (Hoy, Esta semana, Este mes, Últimos 30 días, Todo el año), proveedor, condición (Contado/Crédito) y estado.
-   * Tarjetas KPI dinámicas y botón para ver el detalle de renglones de cada factura.
-   * **Descarga en CSV (Excel)** (UTF-8 con BOM y separador `;`) y **PDF A4 Apaisado (Landscape)** con membrete institucional.
-2. **Libro de Ventas IVA**:
-   * Generación mensual obligatoria para la SET/DNIT en PDF y formato Hechauka (CSV).
-3. **Cajas y Turnos**:
-   * Historial de auditoría de arqueos y turnos cerrados.
-4. **Rankings y Talonarios**:
-   * Artículos más vendidos y control de comprobantes timbrados restantes.
-5. **Reimpresión de Comprobantes Térmicos**:
-   * Reimpresión de tickets o facturas ante rotura o extravío.
+### Nueva Interfaz: Selector con Iconos y Descripciones
+La navegación se realiza mediante un **Selector Desplegable Moderno** que agrupa los 9 reportes integrados con sus respectivos íconos temáticos:
+
+1. 📊 **Dashboard Ejecutivo**: Métricas clave y KPIs de facturación en tiempo real.
+2. 🛒 **Ventas Detalladas**: Desglose de ventas, comensales y medios de pago.
+3. 🚚 **Compras a Proveedores**: Facturas recibidas, liquidación de **Crédito Fiscal IVA** (IVA 10%, 5% y Exentas) y descargas en CSV y PDF A4 horizontal.
+4. 📑 **Libro Ventas IVA (SET)**: Libro impositivo mensual para declaraciones SET / DNIT Hechauka.
+5. 💵 **Auditoría de Cajas**: Sesiones de caja, arqueos ciegos y control de sobrantes/faltantes.
+6. 🏆 **Ranking Productos & Sabores**: Artículos estrella y sabores más vendidos.
+7. 🖨️ **Reimpresiones**: Emisión de duplicados de comprobantes térmicos.
+8. 📄 **Talonarios & Timbrado SET**: Monitoreo de timbrados vigentes y alertas preventivas.
+9. 🏬 **Inventario & Kardex**: Valuación del almacén y existencias físicas.
 
 ---
 
 ## 14. Módulo 11: Gestión de Usuarios y Personal
 * **Acceso**: `/usuarios`.
-* Creación de cuentas para operadores, asignación de perfiles y restablecimiento de contraseñas.
+* Creación de operadores, asignación de perfiles y restablecimiento de contraseñas.
 
 ---
 
@@ -199,7 +183,7 @@ El sistema implementa un control de acceso basado en roles (*Role-Based Access C
 
 ## 16. Módulo 13: Configuración de Impresoras Térmicas ESC/POS
 * **Acceso**: `/impresoras`.
-* Configuración de ticketeras térmicas por Red TCP/IP o USB (formatos 58mm y 80mm), prueba de impresión y apertura de gaveta.
+* Configuración de ticketeras térmicas por Red TCP/IP o USB (formatos 58mm y 80mm).
 
 ---
 
@@ -217,61 +201,56 @@ El sistema implementa un control de acceso basado en roles (*Role-Based Access C
 
 ## 19. Módulo 16: Copias de Seguridad, Restauración Drag & Drop y Disaster Recovery
 * **Acceso**: `/backup`.
-
-### Procedimientos Paso a Paso:
-1. **Generar Respaldo**: Clic en *"Generar y Descargar Respaldo Ahora"*. Genera un volcado binario comprimido de PostgreSQL (`pg_dump -Fc` formato `.dump`) y lo descarga automáticamente al equipo.
-2. **Restaurar desde Archivo Local**: Arrastra el archivo `.dump` al recuadro punteado (*dropzone*), confirma la advertencia y el sistema restablecerá la base de datos al 100%.
-3. **Recuperación ante Desastres (Disaster Recovery)**: Si se elimina el contenedor o el volumen Docker (`postgres_data`), al volver a iniciar con Docker el sistema arrancará limpio con el usuario `admin` / `admin123`. Basta con ingresar a `/backup` y subir el archivo `.dump` descargado; PostgreSQL reconstruirá de inmediato todas las 28 tablas, clientes, compras, ventas y usuarios originales.
-4. **Capacidad Técnica**: Soporta archivos de respaldo de hasta **100 MB** tanto en Nginx como en Spring Boot.
+* Generación de volcados binarios de PostgreSQL (`.dump`), restauración arrastrando el archivo y soporte para archivos de hasta 100 MB.
 
 ---
 
 ## 20. Módulo 17: Padrón de Proveedores y Artículos Suministrados
 * **Acceso**: Menú Lateral > **Proveedores** (`/proveedores`).
-
-### Funcionalidades:
-1. **Directorio Comercial**: RUC con Dígito Verificador, Razón Social, Vendedor de contacto, teléfono, correo y datos bancarios para transferencias.
-2. **Contador y Modal de Artículos Suministrados**: Badge que indica cuántos productos provee la empresa. Al hacer clic, abre la grilla con todos los artículos provistos, costos pactados y marca de proveedor principal ⭐.
+* Directorio comercial de distribuidores mayoristas con RUC, datos bancarios y contador de artículos suministrados con costos pactados.
 
 ---
 
 ## 21. Módulo 18: Facturas de Compra de Proveedores e Ingreso a Stock
 * **Acceso**: Menú Lateral > **Facturas de Compra** (`/compras`).
-
-### Funcionalidades:
-1. **Registro con Respaldo Fiscal**:
-   * Carga de Proveedor, N° Factura física, Timbrado, Fecha de Emisión, Condición (Contado / Crédito) y Vencimiento.
-2. **Carga Rápida por Código de Barras**:
-   * Escaneo con pistola óptica que detecta el artículo y pre-carga su costo pactado.
-3. **Carga Masiva en Bloque (Selección Múltiple)**:
-   * Grilla para marcar decenas de artículos con el filtro **`⭐ Solo de este Proveedor`** e insertarlos en un solo paso.
-4. **Alta Rápida de Artículos en Caliente (`+ ¿Artículo nuevo?`)**:
-   * Permite registrar un artículo no existente en el catálogo sin cerrar la compra actual, fijar su margen comercial, vincularlo al proveedor e insertarlo de inmediato a la factura.
-5. **Protección contra Cierre Accidental**:
-   * Clics fuera del modal bloqueados y diálogo de confirmación si se intenta cancelar con datos cargados.
-6. **Triple Impacto Automático**:
-   * Aumenta el stock en almacén, registra el Crédito Fiscal IVA (10%, 5% y Exentas) y actualiza el kardex.
-7. **Exportación Inmediata**:
-   * Botones en cabecera para descargar el listado de compras en **CSV** y **PDF A4**.
+* Registro formal de compras con timbrado, carga por código de barras, selección masiva en bloque, alta rápida de artículos en caliente (`+ ¿Artículo nuevo?`), protección contra cierre accidental y triple impacto automático (stock, crédito fiscal IVA y kardex).
 
 ---
 
-## 22. Preguntas Frecuentes y Solución de Incidencias
+## 22. Módulo 19: Bitácora Centralizada de Auditoría (Audit Trail)
+* **Acceso**: Menú Lateral > **Bitácora de Auditoría** (`/bitacora`).
+* **Permisos**: Rol `ADMIN` o `OWNER`.
 
-### 1. ¿Por qué el POS dice "Caja Cerrada"?
-* **Solución**: Debes abrir turno de caja en `/caja` con el fondo inicial antes de registrar ventas.
+### Propósito y Alcance:
+Registro oficial, inmutable y cronológico de todas las operaciones y modificaciones realizadas por los operadores:
+1. **Trazabilidad Total**: Registra fecha, hora, usuario, terminal (IP), módulo y el cambio exacto con contraste de valores (`Valor Anterior ➔ Valor Nuevo`).
+2. **Eventos Capturados**: Modificaciones de precios de venta y costos, altas/bajas de artículos y sabores, compras a proveedores, facturas anuladas con su motivo obligatorio, aperturas/cierres de caja con arqueos y ajustes de stock.
+3. **4 Tarjetas KPI**: Total de eventos, usuarios con actividad, modificaciones realizadas y bajas/anulaciones.
+4. **Filtros Interactivos**: Presets rápidos de fechas (*Hoy, Esta Semana, Este Mes, Todo el Historial*), filtros por usuario, módulo, tipo de acción y buscador en tiempo real.
+5. **Exportaciones Oficiales**:
+   * **Descargar CSV (Excel)**: Formato UTF-8 con BOM y separador `;`.
+   * **Exportar PDF (A4 Apaisado)**: Documento formal con membrete del negocio y sumatorias para gerencia o auditoría externa.
 
-### 2. ¿Cómo calculo el precio de venta sugerido al cargar un producto?
-* **Solución**: Al registrar o editar un artículo (en Catálogos o en el alta rápida de Compras), ingresa el Precio Costo y pulsa los botones de margen sugerido (**15%**, **20%**, **30%**, **50%**). La calculadora fijará el precio de venta automáticamente.
+---
 
-### 3. ¿Qué pasa si borro todo incluyendo los volúmenes de Docker y vuelvo a levantar desde Docker? ¿Servirá el backup descargado?
-* **Solución**: **Sí, servirá perfectamente.** Al levantar de cero, inicia sesión con el usuario de fábrica `admin` / `admin123`. Ve a `/backup`, arrastra tu archivo `.dump` descargado y confirma la restauración. El motor eliminará las tablas semilla vacías y reconstruirá el 100% de tus ventas, compras, productos y usuarios con sus contraseñas reales.
+## 23. Preguntas Frecuentes y Solución de Incidencias
+
+### 1. ¿Cuál es la diferencia entre la "Bitácora de Auditoría", "Auditoría de Stock" y "Auditoría de Cajas"?
+* **Bitácora de Auditoría (`/bitacora`)**: Registra **quién hizo qué cambio en el sistema** (cambios de precios, compras anuladas, ajustes, etc.).
+* **Auditoría & Conteo Físico (`/auditoria`)**: Es la planilla de **conteo físico de mercaderías en almacén** para detectar faltantes o sobrantes de bachas y productos.
+* **Auditoría de Cajas (`/reportes`)**: Es el panel de **arqueos y turnos de caja** donde se coteja lo recaudado físicamente por los cajeros vs. el sistema.
+
+### 2. ¿Cómo funciona la búsqueda de productos en el POS?
+* Puedes escanear directamente con la pistola el **Código de Barras** (se agregará automáticamente al ticket al escanear o presionar `Enter`), o escribir el **Código de Producto / ID interno**, o tipear el **Nombre** del producto.
+
+### 3. ¿Por qué en el registro manual de stock ya no está la opción "Entrada por compra a proveedor"?
+* Porque todas las compras a proveedores deben registrarse a través del módulo oficial de **Facturas de Compra (`/compras`)**, asegurando que queden asociadas a una factura legal, timbrado, RUC del distribuidor, liquidación de Crédito Fiscal IVA y trazabilidad en la bitácora.
 
 ### 4. ¿Cómo obtengo el informe de compras a proveedores para el contador?
-* **Solución**: Ingresa a `/reportes` > Pestaña **Compras a Proveedores** (ícono de camión). Selecciona el período (ej. *Este mes*) y pulsa **Exportar CSV** para obtener la planilla Excel con el crédito fiscal desglosado, o **Descargar PDF (A4)** para el documento impreso.
+* Ingresa a `/reportes`, abre el **Selector de Reportes** y elige **Compras a Proveedores** (ícono de camión 🚚). Selecciona el período impositivo y pulsa **Descargar CSV** para obtener la planilla Excel con el crédito fiscal desglosado, o **Descargar PDF (A4)** para el documento impreso.
 
-### 5. ¿Cómo evito perder una factura de compra si hago clic afuera sin querer?
-* **Solución**: El modal tiene protección nativa de bloqueo de fondo (`closeOnBackdrop: false`). Además, si pulsas cancelar teniendo artículos cargados, el sistema te solicitará confirmación explícita para evitar descartar los datos por error.
+### 5. ¿Qué pasa si borro todo incluyendo los volúmenes de Docker y vuelvo a levantar desde Docker? ¿Servirá el backup descargado?
+* **Sí, servirá perfectamente.** Al levantar de cero, inicia sesión con el usuario de fábrica `admin` / `admin123`. Ve a `/backup`, arrastra tu archivo `.dump` descargado y confirma la restauración. El motor reconstruirá el 100% de tus datos originales.
 
 ---
 *Manual elaborado conforme a la versión vigente del Sistema Retail ERP Heladería & Minimarket.*  
