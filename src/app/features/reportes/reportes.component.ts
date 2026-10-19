@@ -78,11 +78,11 @@ interface DonutSegment {
           }
 
           @if (tabActiva() === 'compras') {
-            <button type="button" class="btn btn-outline" (click)="exportarComprasCsv()" [disabled]="comprasFiltradasReporte().length === 0" title="Descargar compras a proveedores en formato CSV / Excel">
+            <button type="button" class="btn btn-outline" (click)="exportarComprasCsv()" title="Descargar compras a proveedores en formato CSV / Excel">
               <app-icon name="file-spreadsheet" [size]="16" />
-              <span>Exportar CSV</span>
+              <span>Descargar CSV</span>
             </button>
-            <button type="button" class="btn btn-primary" (click)="exportarComprasPdf()" [disabled]="descargandoPdf() || comprasFiltradasReporte().length === 0" title="Descargar reporte detallado de compras en PDF tamaño A4">
+            <button type="button" class="btn btn-primary" (click)="exportarComprasPdf()" [disabled]="descargandoPdf()" title="Descargar reporte detallado de compras en PDF tamaño A4">
               <app-icon name="file-text" [size]="16" />
               <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
             </button>
@@ -863,6 +863,34 @@ interface DonutSegment {
                 <span class="fiscal-label">Facturas del Período</span>
                 <strong class="fiscal-val">{{ comprasFiltradasReporte().length }}</strong>
                 <span class="fiscal-sub">@if (kpisComprasReporte().totalAnuladas > 0) { {{ kpisComprasReporte().totalAnuladas }} anuladas } @else { 0 anuladas }</span>
+              </div>
+            </div>
+
+            <!-- RESUMEN Y ACCIONES DE DESCARGA -->
+            <div class="resumen-strip">
+              <div class="resumen-badges">
+                <div class="resumen-pill">
+                  <span>Facturas Filtradas:</span>
+                  <strong>{{ comprasFiltradasReporte().length }}</strong>
+                </div>
+                <div class="resumen-pill">
+                  <span>Total Período:</span>
+                  <strong>{{ kpisComprasReporte().totalCompras | appCurrency }}</strong>
+                </div>
+                <div class="resumen-pill">
+                  <span>Crédito Fiscal IVA:</span>
+                  <strong>{{ kpisComprasReporte().totalIva | appCurrency }}</strong>
+                </div>
+              </div>
+              <div class="export-actions">
+                <button type="button" class="btn btn-outline btn-sm" (click)="exportarComprasCsv()" title="Descargar compras a proveedores en formato CSV / Excel">
+                  <app-icon name="file-spreadsheet" [size]="14" />
+                  <span>Descargar CSV</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" (click)="exportarComprasPdf()" [disabled]="descargandoPdf()" title="Descargar reporte oficial en PDF tamaño A4">
+                  <app-icon name="file-text" [size]="14" />
+                  <span>{{ descargandoPdf() ? 'Generando PDF...' : 'Descargar PDF (A4)' }}</span>
+                </button>
               </div>
             </div>
 

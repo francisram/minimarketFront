@@ -47,11 +47,11 @@ interface ItemSeleccionMultiple {
           <p class="page-subtitle">Registro de comprobantes de proveedores, ingreso de mercadería a inventario y liquidación de IVA</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-secondary" (click)="exportarCsv()" [disabled]="comprasFiltradas().length === 0" title="Exportar compras filtradas a CSV / Excel">
+          <button class="btn btn-secondary" (click)="exportarCsv()" title="Exportar compras filtradas a CSV / Excel">
             <app-icon name="file-spreadsheet" [size]="18" />
-            <span>Exportar CSV</span>
+            <span>Descargar CSV</span>
           </button>
-          <button class="btn btn-secondary" (click)="exportarPdf()" [disabled]="comprasFiltradas().length === 0" title="Descargar compras filtradas en PDF (A4)">
+          <button class="btn btn-secondary" (click)="exportarPdf()" title="Descargar compras filtradas en PDF (A4)">
             <app-icon name="file-text" [size]="18" />
             <span>Descargar PDF</span>
           </button>
