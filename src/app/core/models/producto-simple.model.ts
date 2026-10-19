@@ -11,6 +11,7 @@ export interface ProductoSimple {
   stockMinimo?: number;
   activo: boolean;
   tipoIva?: TipoIva;
+  codigo?: string | null;
   codigoBarra?: string | null;
   proveedor?: Proveedor | null;
   proveedorId?: number | null;

@@ -310,6 +310,16 @@ import { Component, input } from '@angular/core';
           <line x1="12" y1="8" x2="12" y2="16"/>
           <line x1="8" y1="12" x2="16" y2="12"/>
         }
+        @case ('hash') {
+          <line x1="4" x2="20" y1="9" y2="9"/>
+          <line x1="4" x2="20" y1="15" y2="15"/>
+          <line x1="10" x2="8" y1="3" y2="21"/>
+          <line x1="16" x2="14" y1="3" y2="21"/>
+        }
+        @case ('tag') {
+          <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+          <path d="M7 7h.01"/>
+        }
         @default {
           <circle cx="12" cy="12" r="10"/>
         }

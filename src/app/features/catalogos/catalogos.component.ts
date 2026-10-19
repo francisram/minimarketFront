@@ -485,7 +485,12 @@ export interface ProductoMaestroFormModel {
               <tbody>
                 @for (pres of catalogosService.presentaciones(); track pres.id) {
                   <tr>
-                    <td><strong>{{ pres.nombre }}</strong></td>
+                    <td>
+                      <div class="d-flex align-center gap-2">
+                        <span class="code-badge-inline" title="Código de producto POS">H-{{ pres.id }}</span>
+                        <strong>{{ pres.nombre }}</strong>
+                      </div>
+                    </td>
                     <td class="text-primary font-bold">{{ pres.precio | appCurrency }}</td>
                     <td>
                       <span class="font-bold" [class.text-danger]="(pres.stock ?? 0) <= 0">
@@ -554,7 +559,12 @@ export interface ProductoMaestroFormModel {
               <tbody>
                 @for (top of catalogosService.toppings(); track top.id) {
                   <tr>
-                    <td><strong>{{ top.nombre }}</strong></td>
+                    <td>
+                      <div class="d-flex align-center gap-2">
+                        <span class="code-badge-inline" title="Código de producto POS">T-{{ top.id }}</span>
+                        <strong>{{ top.nombre }}</strong>
+                      </div>
+                    </td>
                     <td class="text-primary font-bold">+ {{ top.precioExtra | appCurrency }}</td>
                     <td>
                       <button
@@ -664,7 +674,12 @@ export interface ProductoMaestroFormModel {
               <tbody>
                 @for (prod of productosFiltrados(); track prod.id) {
                   <tr>
-                    <td><strong>{{ prod.nombre }}</strong></td>
+                    <td>
+                      <div class="d-flex align-center gap-2">
+                        <span class="code-badge-inline" title="Código de producto POS">{{ prod.codigo || ('P-' + prod.id) }}</span>
+                        <strong>{{ prod.nombre }}</strong>
+                      </div>
+                    </td>
                     <td>
                       @if (prod.codigoBarra) {
                         <span class="barcode-badge">
@@ -978,6 +993,19 @@ export interface ProductoMaestroFormModel {
           </div>
           <div class="form-row-2">
             <div class="form-group">
+              <label class="form-label d-flex align-center gap-1" for="catProdCodigo">
+                <app-icon name="hash" [size]="14" />
+                <span>Cód. Producto / ID Rápido</span>
+              </label>
+              <input
+                id="catProdCodigo"
+                type="text"
+                class="form-control"
+                [placeholder]="productoEditando?.id ? ('P-' + productoEditando?.id) : 'Ej. CAF-01 o automático'"
+                [(ngModel)]="productoForm.codigo"
+              />
+            </div>
+            <div class="form-group">
               <label class="form-label d-flex align-center gap-1" for="catProdCodigoBarra">
                 <app-icon name="barcode" [size]="14" />
                 <span>Código de Barra</span>
@@ -990,6 +1018,8 @@ export interface ProductoMaestroFormModel {
                 [(ngModel)]="productoForm.codigoBarra"
               />
             </div>
+          </div>
+          <div class="form-row-2">
             <div class="form-group">
               <label class="form-label d-flex align-center gap-1" for="catProdProveedor">
                 <app-icon name="truck" [size]="14" />
@@ -1533,6 +1563,19 @@ export interface ProductoMaestroFormModel {
     .badge-iva-10 { background: #e0f2fe; color: #0369a1; font-weight: 600; }
     .badge-iva-5 { background: #fef9c3; color: #854d0e; font-weight: 600; }
     .badge-iva-exenta { background: #f1f5f9; color: #475569; font-weight: 600; }
+    .code-badge-inline {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.45rem;
+      border-radius: 0.25rem;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 0.72rem;
+      border: 1px solid #bae6fd;
+      line-height: 1.2;
+    }
     .barcode-badge {
       display: inline-flex;
       align-items: center;
@@ -2208,6 +2251,7 @@ export class CatalogosComponent implements OnInit {
       stockMinimo: 5,
       activo: true,
       tipoIva: 'IVA_10',
+      codigo: '',
       codigoBarra: '',
       proveedorId: null
     };
@@ -2219,6 +2263,7 @@ export class CatalogosComponent implements OnInit {
       this.productoForm = {
         ...prod,
         tipoIva: prod.tipoIva || 'IVA_10',
+        codigo: prod.codigo || '',
         codigoBarra: prod.codigoBarra || '',
         proveedorId: prod.proveedor?.id || prod.proveedorId || null
       };
@@ -2237,6 +2282,7 @@ export class CatalogosComponent implements OnInit {
     this.guardandoItem.set(true);
     const payload: Partial<ProductoSimple> = {
       ...this.productoForm,
+      codigo: this.productoForm.codigo?.trim() || null,
       codigoBarra: this.productoForm.codigoBarra?.trim() || null,
       proveedorId: this.productoForm.proveedorId || null
     };

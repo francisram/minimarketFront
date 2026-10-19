@@ -29,6 +29,7 @@ export interface ItemCatalogoPOS {
   stock?: number;
   stockMinimo?: number;
   codigoBarra?: string | null;
+  codigoItem?: string | null;
   detalles?: string;
   icon: string;
   rawItem: Presentacion | ProductoSimple | Topping;
@@ -107,7 +108,7 @@ export interface ItemCatalogoPOS {
               <input
                 type="text"
                 class="search-scanner-input"
-                placeholder="Buscar producto o escanear código de barra [Enter]..."
+                placeholder="Buscar por nombre, código de barra o Cód/ID (#) [Enter]..."
                 [ngModel]="busquedaTermino()"
                 (ngModelChange)="busquedaTermino.set($event)"
                 (keydown.enter)="onBuscarOEnter($event)"
@@ -197,12 +198,20 @@ export interface ItemCatalogoPOS {
                       <div class="card-detail-text">{{ item.detalles }}</div>
                     }
 
-                    @if (item.codigoBarra) {
-                      <div class="card-barcode-tag">
-                        <app-icon name="barcode" [size]="12" />
-                        <span>{{ item.codigoBarra }}</span>
-                      </div>
-                    }
+                    <div class="card-tags-row">
+                      @if (item.codigoItem) {
+                        <span class="card-code-tag" title="Código de producto / ID rápido">
+                          <app-icon name="hash" [size]="10" />
+                          <span>{{ item.codigoItem }}</span>
+                        </span>
+                      }
+                      @if (item.codigoBarra) {
+                        <span class="card-barcode-tag" title="Código de barras para lector óptico">
+                          <app-icon name="barcode" [size]="11" />
+                          <span>{{ item.codigoBarra }}</span>
+                        </span>
+                      }
+                    </div>
                   </div>
 
                   <!-- PRECIO Y BOTÓN ACCIÓN -->
@@ -1911,6 +1920,29 @@ export interface ItemCatalogoPOS {
       margin-bottom: 0.35rem;
     }
 
+    .card-tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
+    }
+
+    .card-code-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      font-family: monospace;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      border: 1px solid #bae6fd;
+      width: fit-content;
+    }
+
     .card-barcode-tag {
       display: inline-flex;
       align-items: center;
@@ -2587,6 +2619,7 @@ export class PosComponent implements OnInit {
           precio: pres.precio,
           stock: pres.stock,
           stockMinimo: pres.stockMinimo,
+          codigoItem: (pres as any).codigo || `H-${pres.id}`,
           detalles: pres.pesoGramosAprox ? `~${pres.pesoGramosAprox}g` : undefined,
           icon: 'ice-cream',
           rawItem: pres
@@ -2603,6 +2636,7 @@ export class PosComponent implements OnInit {
           nombre: top.nombre,
           categoria: 'Toppings',
           precio: top.precioExtra,
+          codigoItem: (top as any).codigo || `T-${top.id}`,
           detalles: 'Agregado / Extra',
           icon: 'sparkles',
           rawItem: top
@@ -2624,6 +2658,7 @@ export class PosComponent implements OnInit {
           stock: prod.stock,
           stockMinimo: prod.stockMinimo,
           codigoBarra: prod.codigoBarra,
+          codigoItem: prod.codigo || (prod as any).sku || `P-${prod.id}`,
           icon: this.obtenerIconoCategoria(prodCat),
           rawItem: prod
         });
@@ -2634,11 +2669,22 @@ export class PosComponent implements OnInit {
       return resultado;
     }
 
+    const qClean = qNorm.replace(/[^a-z0-9]/g, '');
+
     return resultado.filter(item => {
       const nomNorm = this.normalizarTexto(item.nombre);
       const catNorm = this.normalizarTexto(item.categoria);
       const codNorm = this.normalizarTexto(item.codigoBarra);
-      return nomNorm.includes(qNorm) || catNorm.includes(qNorm) || (codNorm && codNorm.includes(qNorm));
+      const codItemNorm = this.normalizarTexto(item.codigoItem);
+      const codItemClean = codItemNorm.replace(/[^a-z0-9]/g, '');
+      const rawIdStr = (item.rawItem && (item.rawItem as any).id != null) ? String((item.rawItem as any).id) : '';
+
+      return nomNorm.includes(qNorm) ||
+             catNorm.includes(qNorm) ||
+             (codNorm && codNorm.includes(qNorm)) ||
+             (codItemNorm && codItemNorm.includes(qNorm)) ||
+             (qClean && codItemClean && codItemClean.includes(qClean)) ||
+             (qClean && rawIdStr && (rawIdStr === qClean || qNorm === `#${rawIdStr}`));
     });
   });
 
@@ -2731,6 +2777,7 @@ export class PosComponent implements OnInit {
     if (!query) return;
 
     const qNorm = this.normalizarTexto(query);
+    const qClean = qNorm.replace(/[^a-z0-9]/g, '');
 
     // 1. ¿Hay coincidencia EXACTA por código de barra en productos simples locales?
     const matchBarra = this.posService.productosSimplesActivos().find(
@@ -2745,7 +2792,7 @@ export class PosComponent implements OnInit {
     // 2. Obtener los productos que coinciden con la búsqueda actual
     const filtrados = this.itemsCatalogoFiltrados();
 
-    // 2a. Si hay coincidencia exacta por código de barra en el catálogo
+    // 2a. Si hay coincidencia exacta por código de barra en el catálogo en pantalla
     const matchBarraCat = filtrados.find(
       item => item.codigoBarra && item.codigoBarra.trim().toLowerCase() === query.toLowerCase()
     );
@@ -2755,7 +2802,31 @@ export class PosComponent implements OnInit {
       return;
     }
 
-    // 2a. Si hay coincidencia exacta de nombre
+    // 2b. ¿Coincidencia exacta por CÓDIGO DE PRODUCTO / SKU / CÓDIGO INTERNO (ej. "P-6", "p6", "H-1", "T-2", etc.)?
+    const matchCodigoItem = filtrados.find(item => {
+      if (!item.codigoItem) return false;
+      const codNorm = this.normalizarTexto(item.codigoItem);
+      const codClean = codNorm.replace(/[^a-z0-9]/g, '');
+      return codNorm === qNorm || (qClean && codClean === qClean);
+    });
+    if (matchCodigoItem) {
+      this.agregarItemAlTicket(matchCodigoItem);
+      this.busquedaTermino.set('');
+      return;
+    }
+
+    // 2c. Si el cajero ingresó un ID numérico (#6 o 6) y coincide con un único producto
+    const matchesPorId = filtrados.filter(item => {
+      const idStr = String((item.rawItem as any)?.id || '');
+      return idStr === qClean || `#${idStr}` === query;
+    });
+    if (matchesPorId.length === 1) {
+      this.agregarItemAlTicket(matchesPorId[0]);
+      this.busquedaTermino.set('');
+      return;
+    }
+
+    // 2d. Si hay coincidencia exacta de nombre
     const matchExactoNombre = filtrados.find(
       item => this.normalizarTexto(item.nombre) === qNorm
     );
@@ -2765,21 +2836,21 @@ export class PosComponent implements OnInit {
       return;
     }
 
-    // 2b. Si el filtro arrojó exactamente 1 producto, agregarlo al ticket directamente
+    // 2e. Si el filtro arrojó exactamente 1 producto único en total
     if (filtrados.length === 1) {
       this.agregarItemAlTicket(filtrados[0]);
       this.busquedaTermino.set('');
       return;
     }
 
-    // 2c. Si hay múltiples productos (ej. "ca" coincide con Café y Salsa de Caramelo)
+    // 2f. Si hay múltiples productos (ej. "ca" coincide con Café y Salsa de Caramelo)
     if (filtrados.length > 1) {
       this.toast.info(`Se encontraron ${filtrados.length} productos con "${query}". Selecciona el que deseas en pantalla.`);
       return;
     }
 
     // 3. Si no hay ningún resultado en el catálogo en pantalla (filtrados.length === 0),
-    // recién aquí consultar al backend por código de barra de lectora óptica
+    // consultar al backend por código de barra / código de producto
     this.posService.agregarPorCodigoBarra(query).subscribe({
       next: (agregado) => {
         if (agregado) {
