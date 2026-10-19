@@ -108,11 +108,12 @@ export interface ItemCatalogoPOS {
                 type="text"
                 class="search-scanner-input"
                 placeholder="Buscar producto o escanear código de barra [Enter]..."
-                [(ngModel)]="busquedaTermino"
+                [ngModel]="busquedaTermino()"
+                (ngModelChange)="busquedaTermino.set($event)"
                 (keydown.enter)="onBuscarOEnter($event)"
               />
-              @if (busquedaTermino) {
-                <button type="button" class="btn-clear-search" (click)="busquedaTermino = ''">
+              @if (busquedaTermino()) {
+                <button type="button" class="btn-clear-search" (click)="busquedaTermino.set('')">
                   <app-icon name="x" [size]="14" />
                 </button>
               }
@@ -151,11 +152,11 @@ export interface ItemCatalogoPOS {
               <h3>No se encontraron productos</h3>
               <p class="text-muted">
                 No hay artículos disponibles para la categoría seleccionada
-                @if (busquedaTermino.trim()) {
-                  con el término "{{ busquedaTermino }}"
+                @if (busquedaTermino().trim()) {
+                  con el término "{{ busquedaTermino() }}"
                 }.
               </p>
-              @if (categoriaSeleccionada() !== 'TODOS' || busquedaTermino.trim()) {
+              @if (categoriaSeleccionada() !== 'TODOS' || busquedaTermino().trim()) {
                 <button type="button" class="btn btn-secondary btn-sm" (click)="resetFiltros()">
                   Ver Todos los Productos
                 </button>
@@ -2419,7 +2420,7 @@ export class PosComponent implements OnInit {
   private readonly router = inject(Router);
 
   public readonly categoriaSeleccionada = signal<string>('TODOS');
-  public busquedaTermino: string = '';
+  public readonly busquedaTermino = signal<string>('');
   public readonly selectorSaboresActivo = signal<boolean>(false);
   public readonly filtroCategoriaSabor = signal<string>('TODOS');
 
@@ -2566,7 +2567,7 @@ export class PosComponent implements OnInit {
   // Catálogo unificado filtrado por categoría y término de búsqueda
   public readonly itemsCatalogoFiltrados = computed<ItemCatalogoPOS[]>(() => {
     const cat = this.categoriaSeleccionada();
-    const query = this.busquedaTermino.trim();
+    const query = this.busquedaTermino().trim();
     const qNorm = this.normalizarTexto(query);
     const resultado: ItemCatalogoPOS[] = [];
 
@@ -2645,7 +2646,7 @@ export class PosComponent implements OnInit {
 
   resetFiltros(): void {
     this.categoriaSeleccionada.set('TODOS');
-    this.busquedaTermino = '';
+    this.busquedaTermino.set('');
   }
 
   agregarItemAlTicket(item: ItemCatalogoPOS): void {
@@ -2724,7 +2725,7 @@ export class PosComponent implements OnInit {
 
   onBuscarOEnter(event?: Event): void {
     if (event) event.preventDefault();
-    const query = this.busquedaTermino.trim();
+    const query = this.busquedaTermino().trim();
     if (!query) return;
 
     const qNorm = this.normalizarTexto(query);
@@ -2735,7 +2736,7 @@ export class PosComponent implements OnInit {
     );
     if (matchBarra) {
       this.posService.agregarProductoSimple(matchBarra);
-      this.busquedaTermino = '';
+      this.busquedaTermino.set('');
       return;
     }
 
@@ -2748,14 +2749,14 @@ export class PosComponent implements OnInit {
     );
     if (matchExactoNombre) {
       this.agregarItemAlTicket(matchExactoNombre);
-      this.busquedaTermino = '';
+      this.busquedaTermino.set('');
       return;
     }
 
     // 2b. Si el filtro arrojó exactamente 1 producto, agregarlo al ticket directamente
     if (filtrados.length === 1) {
       this.agregarItemAlTicket(filtrados[0]);
-      this.busquedaTermino = '';
+      this.busquedaTermino.set('');
       return;
     }
 
@@ -2770,7 +2771,7 @@ export class PosComponent implements OnInit {
     this.posService.agregarPorCodigoBarra(query).subscribe({
       next: (agregado) => {
         if (agregado) {
-          this.busquedaTermino = '';
+          this.busquedaTermino.set('');
         } else {
           this.toast.warning(`No se encontró ningún producto que coincida con "${query}".`);
         }
