@@ -225,9 +225,9 @@ export interface ItemCatalogoPOS {
                         class="btn btn-sm btn-primary card-add-btn"
                         [disabled]="item.stock !== undefined && item.stock <= 0"
                         (click)="$event.stopPropagation(); agregarItemAlTicket(item)"
+                        title="Agregar al ticket"
                       >
-                        <app-icon name="plus" [size]="15" />
-                        <span>Agregar</span>
+                        <app-icon name="plus" [size]="16" />
                       </button>
                     </div>
                   </div>
@@ -1945,10 +1945,12 @@ export interface ItemCatalogoPOS {
     .card-add-btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      font-weight: 600;
-      padding: 0.35rem 0.65rem;
-      font-size: 0.8125rem;
+      justify-content: center;
+      font-weight: 700;
+      padding: 0.35rem 0.55rem;
+      min-width: 2.1rem;
+      height: 2rem;
+      border-radius: var(--radius-sm);
     }
 
     /* ASIDE: TICKET EN VIVO */
