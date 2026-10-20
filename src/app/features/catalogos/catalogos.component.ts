@@ -1659,22 +1659,36 @@ export interface ProductoMaestroFormModel {
                     <tfoot>
                       <tr class="combo-footer-row">
                         <td colspan="3" class="text-right font-bold">Totales de Referencia:</td>
-                        <td class="font-bold text-muted" title="Valor regular de los artículos por separado">
-                          {{ calcularVentaTotalComponentes() | appCurrency }}
-                        </td>
-                        <td class="text-right font-bold">Costo Total:</td>
-                        <td class="font-bold text-primary">{{ calcularCostoTotalComponentes() | appCurrency }}</td>
-                        <td colspan="2">
+                        <td>
+                          <div class="font-bold text-success" title="Valor regular de los artículos por separado">
+                            {{ calcularVentaTotalComponentes() | appCurrency }}
+                          </div>
                           <button
                             type="button"
-                            class="btn-apply-cost"
+                            class="btn-apply-sale mt-1"
+                            (click)="aplicarVentaComponentesComoPrecioVentaCombo()"
+                            title="Copiar la suma de precios regulares al campo Precio de Venta del combo"
+                          >
+                            <app-icon name="arrow-right" [size]="11" />
+                            <span>Usar como precio venta</span>
+                          </button>
+                        </td>
+                        <td class="text-right font-bold">Costo Total:</td>
+                        <td>
+                          <div class="font-bold text-primary" title="Costo total de insumos">
+                            {{ calcularCostoTotalComponentes() | appCurrency }}
+                          </div>
+                          <button
+                            type="button"
+                            class="btn-apply-cost mt-1"
                             (click)="aplicarCostoComponentesComoCostoCombo()"
                             title="Actualizar el precio de costo del combo con la suma de costos de sus componentes"
                           >
-                            <app-icon name="arrow-right" [size]="12" />
-                            <span>Usar como costo del combo</span>
+                            <app-icon name="arrow-right" [size]="11" />
+                            <span>Usar como costo</span>
                           </button>
                         </td>
+                        <td colspan="2"></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -2329,6 +2343,25 @@ export interface ProductoMaestroFormModel {
     .btn-apply-cost:hover {
       background: #e0e7ff;
       color: #312e81;
+    }
+    .btn-apply-sale {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-apply-sale:hover {
+      background: #d1fae5;
+      color: #064e3b;
     }
 
     .suppliers-management-card {
@@ -3281,6 +3314,13 @@ export class CatalogosComponent implements OnInit {
     this.productoMaestroForm.precioCosto = Math.round(costoTotal);
     this.onCostoOMargenChange();
     this.toast.info(`Precio de costo actualizado a ${this.productoMaestroForm.precioCosto.toLocaleString('es-PY')} Gs. en base a sus componentes.`);
+  }
+
+  aplicarVentaComponentesComoPrecioVentaCombo(): void {
+    const ventaTotal = this.calcularVentaTotalComponentes();
+    this.productoMaestroForm.precioVenta = Math.round(ventaTotal);
+    this.onPrecioVentaChange();
+    this.toast.info(`Precio de venta del combo actualizado a ${this.productoMaestroForm.precioVenta.toLocaleString('es-PY')} Gs. en base a la suma regular de sus artículos.`);
   }
 
   agregarComponenteAlCombo(): void {
