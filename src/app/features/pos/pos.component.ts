@@ -198,7 +198,14 @@ export interface ItemCatalogoPOS {
                     <h4 class="card-title" [title]="item.nombre">{{ item.nombre }}</h4>
                     
                     @if (item.detalles) {
-                      <div class="card-detail-text">{{ item.detalles }}</div>
+                      @if (item.categoria === 'Promociones & Combos' || (item.codigoItem && item.codigoItem.startsWith('CMB-'))) {
+                        <div class="card-combo-ingredients" [title]="item.detalles">
+                          <app-icon name="sparkles" [size]="12" />
+                          <span>{{ item.detalles }}</span>
+                        </div>
+                      } @else {
+                        <div class="card-detail-text">{{ item.detalles }}</div>
+                      }
                     }
 
                     <div class="card-tags-row">
@@ -512,6 +519,11 @@ export interface ItemCatalogoPOS {
                         <strong>Toppings:</strong> {{ obtenerNombresToppings(item.toppings) }}
                       </div>
                     }
+                  } @else if (item.productoSimple?.descripcion) {
+                    <div class="item-combo-detail" [title]="item.productoSimple?.descripcion">
+                      <app-icon name="sparkles" [size]="11" />
+                      <span>{{ item.productoSimple?.descripcion }}</span>
+                    </div>
                   }
                 </div>
 
@@ -1928,6 +1940,29 @@ export interface ItemCatalogoPOS {
       margin-bottom: 0.35rem;
     }
 
+    .card-combo-ingredients {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #b45309;
+      background: #fef3c7;
+      border: 1px dashed #f59e0b;
+      border-radius: var(--radius-sm);
+      padding: 0.3rem 0.5rem;
+      margin-bottom: 0.4rem;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    :host-context(.dark-theme) .card-combo-ingredients,
+    :host(.dark-theme) .card-combo-ingredients {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+    }
+
     .card-tags-row {
       display: flex;
       flex-wrap: wrap;
@@ -2096,6 +2131,27 @@ export interface ItemCatalogoPOS {
       color: var(--text-muted);
       line-height: 1.3;
       margin-top: 0.2rem;
+    }
+
+    .item-combo-detail {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.35rem;
+      font-size: 0.73rem;
+      font-weight: 600;
+      color: #b45309;
+      background: rgba(245, 158, 11, 0.12);
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.45rem;
+      margin-top: 0.35rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    :host-context(.dark-theme) .item-combo-detail,
+    :host(.dark-theme) .item-combo-detail {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
     }
 
     .item-actions {
@@ -2681,6 +2737,7 @@ export class PosComponent implements OnInit {
           stockMinimo: prod.stockMinimo,
           codigoBarra: prod.codigoBarra,
           codigoItem: prod.codigo || (prod as any).sku || `P-${prod.id}`,
+          detalles: prod.descripcion || undefined,
           icon: this.obtenerIconoCategoria(prodCat),
           rawItem: prod
         });

@@ -1596,6 +1596,7 @@ export interface ProductoMaestroFormModel {
                         <th>Componente / Artículo</th>
                         <th>Tipo</th>
                         <th style="width: 100px;" class="text-center">Cant. Descuento</th>
+                        <th>P. Venta Ref.</th>
                         <th>Costo Unit.</th>
                         <th>Subtotal Costo</th>
                         <th>Notas / Obs</th>
@@ -1625,11 +1626,14 @@ export interface ProductoMaestroFormModel {
                               [(ngModel)]="comp.cantidad"
                             />
                           </td>
+                          <td class="text-muted">
+                            {{ (comp.precioUnitario || comp.componentePrecioVenta || obtenerPrecioVentaComponente(comp.componenteId)) | appCurrency }}
+                          </td>
                           <td>
-                            {{ obtenerCostoComponente(comp.componenteId) | appCurrency }}
+                            {{ (comp.costoUnitario || comp.componentePrecioCosto || obtenerCostoComponente(comp.componenteId)) | appCurrency }}
                           </td>
                           <td class="font-bold">
-                            {{ (comp.cantidad * obtenerCostoComponente(comp.componenteId)) | appCurrency }}
+                            {{ (comp.cantidad * (comp.costoUnitario || comp.componentePrecioCosto || obtenerCostoComponente(comp.componenteId))) | appCurrency }}
                           </td>
                           <td>
                             <input
@@ -1654,7 +1658,11 @@ export interface ProductoMaestroFormModel {
                     </tbody>
                     <tfoot>
                       <tr class="combo-footer-row">
-                        <td colspan="4" class="text-right font-bold">Costo Total Componentes:</td>
+                        <td colspan="3" class="text-right font-bold">Totales de Referencia:</td>
+                        <td class="font-bold text-muted" title="Valor regular de los artículos por separado">
+                          {{ calcularVentaTotalComponentes() | appCurrency }}
+                        </td>
+                        <td class="text-right font-bold">Costo Total:</td>
                         <td class="font-bold text-primary">{{ calcularCostoTotalComponentes() | appCurrency }}</td>
                         <td colspan="2">
                           <button
@@ -1681,7 +1689,7 @@ export interface ProductoMaestroFormModel {
                     <option [ngValue]="null">-- Seleccionar Artículo / Insumo / Sabor --</option>
                     @for (item of productosDisponiblesComoComponente(); track item.id) {
                       <option [ngValue]="item.id">
-                        {{ item.nombre }} ({{ obtenerTextoTipoArticulo(item.tipoArticulo) }}) - Stock: {{ item.stock }}
+                        {{ item.nombre }} ({{ obtenerTextoTipoArticulo(item.tipoArticulo) }}) — Venta: {{ item.precioVenta | appCurrency }} | Costo: {{ obtenerCostoComponente(item.id) | appCurrency }} | Stock: {{ item.stock }}
                       </option>
                     }
                   </select>
@@ -3222,7 +3230,22 @@ export class CatalogosComponent implements OnInit {
 
   obtenerCostoComponente(id: number): number {
     const p = this.productosService.productos().find(prod => prod.id === id);
-    return Number(p?.precioCosto) || 0;
+    if (!p) return 0;
+    if (p.precioCosto && Number(p.precioCosto) > 0) {
+      return Number(p.precioCosto);
+    }
+    if (p.proveedorPrincipal?.costoCompra && Number(p.proveedorPrincipal.costoCompra) > 0) {
+      return Number(p.proveedorPrincipal.costoCompra);
+    }
+    if (p.proveedores && p.proveedores.length > 0 && p.proveedores[0]?.costoCompra && Number(p.proveedores[0].costoCompra) > 0) {
+      return Number(p.proveedores[0].costoCompra);
+    }
+    return 0;
+  }
+
+  obtenerPrecioVentaComponente(id: number): number {
+    const p = this.productosService.productos().find(prod => prod.id === id);
+    return Number(p?.precioVenta) || 0;
   }
 
   calcularCostoTotalComponentes(): number {
@@ -3230,10 +3253,26 @@ export class CatalogosComponent implements OnInit {
       return 0;
     }
     return this.productoMaestroForm.componentes.reduce((acc, c) => {
-      const costo = c.componentePrecioCosto !== undefined && c.componentePrecioCosto !== null
-        ? Number(c.componentePrecioCosto)
-        : this.obtenerCostoComponente(c.componenteId);
+      const costo = c.costoUnitario !== undefined && c.costoUnitario !== null && Number(c.costoUnitario) > 0
+        ? Number(c.costoUnitario)
+        : (c.componentePrecioCosto !== undefined && c.componentePrecioCosto !== null && Number(c.componentePrecioCosto) > 0
+          ? Number(c.componentePrecioCosto)
+          : this.obtenerCostoComponente(c.componenteId));
       return acc + (costo * (Number(c.cantidad) || 0));
+    }, 0);
+  }
+
+  calcularVentaTotalComponentes(): number {
+    if (!this.productoMaestroForm.componentes || this.productoMaestroForm.componentes.length === 0) {
+      return 0;
+    }
+    return this.productoMaestroForm.componentes.reduce((acc, c) => {
+      const pVenta = c.precioUnitario !== undefined && c.precioUnitario !== null && Number(c.precioUnitario) > 0
+        ? Number(c.precioUnitario)
+        : (c.componentePrecioVenta !== undefined && c.componentePrecioVenta !== null && Number(c.componentePrecioVenta) > 0
+          ? Number(c.componentePrecioVenta)
+          : this.obtenerPrecioVentaComponente(c.componenteId));
+      return acc + (pVenta * (Number(c.cantidad) || 0));
     }, 0);
   }
 
@@ -3262,6 +3301,9 @@ export class CatalogosComponent implements OnInit {
       this.productoMaestroForm.componentes = [];
     }
 
+    const costoUnit = this.obtenerCostoComponente(prod.id);
+    const precioVentaUnit = Number(prod.precioVenta) || 0;
+
     const existente = this.productoMaestroForm.componentes.find(c => c.componenteId === compId);
     if (existente) {
       existente.cantidad = Number(existente.cantidad) + cant;
@@ -3275,8 +3317,10 @@ export class CatalogosComponent implements OnInit {
         componenteNombre: prod.nombre,
         componenteSku: prod.sku || undefined,
         componenteTipo: prod.tipoArticulo,
-        componentePrecioCosto: prod.precioCosto || 0,
-        componentePrecioVenta: prod.precioVenta || 0,
+        componentePrecioCosto: costoUnit,
+        componentePrecioVenta: precioVentaUnit,
+        costoUnitario: costoUnit,
+        precioUnitario: precioVentaUnit,
         cantidad: cant,
         notas: this.nuevoComponenteNotas?.trim() || null
       });
