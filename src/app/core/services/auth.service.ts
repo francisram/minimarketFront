@@ -27,6 +27,10 @@ export class AuthService {
     const r = (this.role() || '').toUpperCase();
     return r === 'ADMIN' || r === 'OWNER' || r === 'ROLE_ADMIN' || r === 'ROLE_OWNER';
   });
+  public readonly isOwner = computed(() => {
+    const r = (this.role() || '').toUpperCase();
+    return r === 'OWNER' || r === 'ROLE_OWNER';
+  });
   public readonly isCajero = computed(() => {
     const r = (this.role() || '').toUpperCase();
     return r === 'CAJERO' || r === 'ROLE_CAJERO';

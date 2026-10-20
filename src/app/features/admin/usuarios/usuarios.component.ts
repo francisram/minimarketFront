@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../../core/services/admin.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Usuario, Rol } from '../../../core/models/admin.model';
 import { AppIconComponent } from '../../../shared/components/icon/icon.component';
@@ -81,6 +82,9 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
                         @if (u.username === 'admin') {
                           <span class="system-tag">Superadmin</span>
                         }
+                        @if (u.username === 'owner' || u.rolNombre === 'OWNER') {
+                          <span class="system-tag system-tag-owner">Propietario</span>
+                        }
                       </div>
                     </div>
                   </td>
@@ -102,16 +106,22 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
                   </td>
                   <td class="text-right">
                     <div class="actions-cell">
-                      <button
-                        type="button"
-                        class="btn-icon"
-                        (click)="abrirModalEditar(u)"
-                        title="Modificar usuario"
-                      >
-                        <app-icon name="edit" [size]="15" />
-                      </button>
+                      @if (puedeModificar(u)) {
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          (click)="abrirModalEditar(u)"
+                          title="Modificar usuario"
+                        >
+                          <app-icon name="edit" [size]="15" />
+                        </button>
+                      } @else {
+                        <span class="btn-icon-disabled" title="Solo el Propietario (OWNER) puede gestionar esta cuenta">
+                          <app-icon name="shield" [size]="15" />
+                        </span>
+                      }
 
-                      @if (u.username !== 'admin') {
+                      @if (!esUsuarioProtegido(u)) {
                         <button
                           type="button"
                           class="btn-icon-danger"
@@ -121,7 +131,7 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
                           <app-icon name="trash" [size]="15" />
                         </button>
                       } @else {
-                        <span class="btn-icon-disabled" title="El usuario principal no puede eliminarse">
+                        <span class="btn-icon-disabled" [title]="'El usuario ' + u.username + ' está protegido por el sistema y no puede eliminarse'">
                           <app-icon name="lock" [size]="15" />
                         </span>
                       }
@@ -330,6 +340,12 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
       border: 1px solid #cbd5e1;
       display: inline-block;
     }
+    .system-tag-owner {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+      font-weight: 600;
+    }
     .actions-cell {
       display: flex;
       align-items: center;
@@ -420,6 +436,7 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
 })
 export class UsuariosComponent implements OnInit {
   public readonly adminService = inject(AdminService);
+  public readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
 
   public readonly modalAbierto = signal<boolean>(false);
@@ -476,6 +493,10 @@ export class UsuariosComponent implements OnInit {
   }
 
   abrirModalEditar(u: Usuario): void {
+    if (!this.puedeModificar(u)) {
+      this.toast.warning('Solo un usuario con rol Propietario (OWNER) puede gestionar esta cuenta.');
+      return;
+    }
     this.usuarioEditando = u;
     this.usuarioForm = {
       username: u.username,
@@ -485,6 +506,24 @@ export class UsuariosComponent implements OnInit {
       passwordNuncaExpira: u.passwordNuncaExpira ?? true
     };
     this.modalAbierto.set(true);
+  }
+
+  esUsuarioProtegido(u: Usuario): boolean {
+    if (!u) return true;
+    const nombre = (u.username || '').toLowerCase();
+    const rol = (u.rolNombre || '').toUpperCase();
+    return nombre === 'owner' || nombre === 'admin' || rol === 'OWNER' || this.authService.username() === u.username;
+  }
+
+  puedeModificar(u: Usuario): boolean {
+    if (!u) return false;
+    if (this.authService.isOwner()) return true;
+    const rol = (u.rolNombre || '').toUpperCase();
+    const nombre = (u.username || '').toLowerCase();
+    if (rol === 'OWNER' || nombre === 'owner') {
+      return false;
+    }
+    return true;
   }
 
   cerrarModal(): void {
@@ -555,8 +594,18 @@ export class UsuariosComponent implements OnInit {
 
   confirmarEliminar(u: Usuario): void {
     if (!u.id) return;
-    if (u.username === 'admin') {
-      this.toast.warning('El usuario superadministrador no puede eliminarse.');
+    if (this.esUsuarioProtegido(u)) {
+      const nombre = (u.username || '').toLowerCase();
+      const rol = (u.rolNombre || '').toUpperCase();
+      if (nombre === 'owner' || rol === 'OWNER') {
+        this.toast.warning('La cuenta del Propietario (OWNER) está protegida por el sistema y no puede eliminarse.');
+      } else if (nombre === 'admin') {
+        this.toast.warning('El usuario superadministrador no puede eliminarse.');
+      } else if (this.authService.username() === u.username) {
+        this.toast.warning('No puedes eliminar tu propia cuenta de usuario en uso.');
+      } else {
+        this.toast.warning('Este usuario está protegido por el sistema y no puede eliminarse.');
+      }
       return;
     }
 
