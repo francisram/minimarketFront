@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { ImpresorasService } from '../../core/services/impresoras.service';
+import { InstitucionService } from '../../core/services/institucion.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Impresora, TipoConexion } from '../../core/models/impresora.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
@@ -397,11 +398,21 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
             ></textarea>
           </div>
 
-          <div class="form-check">
-            <label class="check-label">
-              <input type="checkbox" [(ngModel)]="incluirLogoPrueba" />
+          <div class="form-check logo-check-row">
+            <label class="check-label" [class.text-muted]="!tieneLogo">
+              <input type="checkbox" [(ngModel)]="incluirLogoPrueba" [disabled]="!tieneLogo" />
               <span>Incluir logotipo del negocio</span>
             </label>
+            @if (tieneLogo) {
+              <span class="badge-logo-ok">
+                <app-icon name="check" [size]="14" />
+                Logo configurado
+              </span>
+            } @else {
+              <span class="badge-logo-none">
+                Sin logo configurado
+              </span>
+            }
           </div>
         </div>
 
@@ -746,6 +757,15 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       align-items: center;
     }
 
+    .logo-check-row {
+      justify-content: space-between;
+      gap: 1rem;
+      background: #f8fafc;
+      padding: 0.625rem 0.875rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
     .check-label {
       display: flex;
       align-items: center;
@@ -754,12 +774,38 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       cursor: pointer;
     }
 
+    .check-label.text-muted {
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    .badge-logo-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #15803d;
+      background: #dcfce7;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+    }
+
+    .badge-logo-none {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: #f1f5f9;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+    }
+
     .mt-2 { margin-top: 0.5rem; }
     .mt-3 { margin-top: 1rem; }
   `]
 })
 export class ImpresorasComponent implements OnInit {
   public readonly impresorasService = inject(ImpresorasService);
+  public readonly institucionService = inject(InstitucionService);
   private readonly fb = inject(FormBuilder);
   private readonly toast = inject(ToastService);
 
@@ -781,9 +827,15 @@ export class ImpresorasComponent implements OnInit {
 
   public impresoraForm!: FormGroup;
 
+  get tieneLogo(): boolean {
+    const logo = this.institucionService.institucion()?.logoBase64;
+    return !!(logo && logo.trim().length > 0);
+  }
+
   ngOnInit(): void {
     this.initForm();
     this.impresorasService.cargarImpresoras();
+    this.institucionService.cargarInstitucion();
   }
 
   private initForm(): void {
@@ -926,9 +978,11 @@ export class ImpresorasComponent implements OnInit {
   // --- PRUEBA DE IMPRESIÓN ---
   abrirModalPrueba(imp: Impresora): void {
     this.impresoraSeleccionada.set(imp);
+    const inst = this.institucionService.institucion();
+    const nombreNegocio = inst?.nombre?.trim() || 'Heladería Artesanal';
     const fecha = new Date().toLocaleString();
-    this.textoPrueba = `*** PRUEBA DE IMPRESION ***\nHeladeria Artesanal\nDispositivo: ${imp.nombre}\nFecha: ${fecha}\nEstado: OK\n***************************\n\n\n`;
-    this.incluirLogoPrueba = false;
+    this.textoPrueba = `*** PRUEBA DE IMPRESION ***\n${nombreNegocio}\nDispositivo: ${imp.nombre}\nFecha: ${fecha}\nEstado: OK\n***************************\n\n\n`;
+    this.incluirLogoPrueba = this.tieneLogo;
     this.modalPruebaAbierto.set(true);
   }
 
