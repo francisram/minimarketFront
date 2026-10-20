@@ -3,4 +3,5 @@ export interface Topping {
   nombre: string;
   precioExtra: number;
   disponible: boolean;
+  imagenUrl?: string | null;
 }

@@ -11,4 +11,5 @@ export interface Sabor {
   sinAzucar: boolean;
   stockKilos?: number;
   stockMinimoKilos?: number;
+  imagenUrl?: string | null;
 }

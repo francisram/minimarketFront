@@ -50,6 +50,7 @@ export interface ProductoMaestroFormModel {
   aptoCeliaco?: boolean;
   esVegano?: boolean;
   sinAzucar?: boolean;
+  imagenUrl?: string | null;
   proveedoresList: AsignarProveedorItem[];
   componentes: ComboComponente[];
 }
@@ -283,16 +284,21 @@ export interface ProductoMaestroFormModel {
                 @for (prod of productosMaestrosFiltrados(); track prod.id) {
                   <tr>
                     <td>
-                      <div>
-                        <div class="d-flex align-center gap-1">
-                          <strong>{{ prod.nombre }}</strong>
-                          @if (prod.categoria) {
-                            <span class="category-chip" style="font-size: 0.7rem; padding: 1px 6px;">{{ prod.categoria }}</span>
+                      <div class="d-flex align-center gap-2">
+                        @if (prod.imagenUrl) {
+                          <img [src]="prod.imagenUrl" alt="Foto" class="table-product-avatar" />
+                        }
+                        <div>
+                          <div class="d-flex align-center gap-1">
+                            <strong>{{ prod.nombre }}</strong>
+                            @if (prod.categoria) {
+                              <span class="category-chip" style="font-size: 0.7rem; padding: 1px 6px;">{{ prod.categoria }}</span>
+                            }
+                          </div>
+                          @if (prod.descripcion) {
+                            <div class="text-muted text-xs">{{ prod.descripcion }}</div>
                           }
                         </div>
-                        @if (prod.descripcion) {
-                          <div class="text-muted text-xs">{{ prod.descripcion }}</div>
-                        }
                       </div>
                     </td>
                     <td>
@@ -1357,6 +1363,37 @@ export interface ProductoMaestroFormModel {
                 [(ngModel)]="productoMaestroForm.descripcion"
                 placeholder="Descripción comercial, notas o especificaciones..."
               />
+            </div>
+          </div>
+
+          <!-- FOTO DEL ARTÍCULO -->
+          <div class="photo-upload-container">
+            <div class="photo-preview-box">
+              @if (productoMaestroForm.imagenUrl) {
+                <img [src]="productoMaestroForm.imagenUrl" alt="Foto del producto" class="photo-preview-img" />
+              } @else {
+                <div class="photo-placeholder">
+                  <app-icon name="image" [size]="24" />
+                  <span>Sin foto</span>
+                </div>
+              }
+            </div>
+            <div class="photo-upload-meta">
+              <label class="form-label mb-1">Foto o Imagen del Artículo</label>
+              <input type="file" accept="image/*" #fotoInput hidden (change)="onFotoSeleccionada($event)" />
+              <div class="d-flex align-center gap-2">
+                <button type="button" class="btn btn-secondary btn-sm" (click)="fotoInput.click()">
+                  <app-icon name="camera" [size]="14" />
+                  <span>{{ productoMaestroForm.imagenUrl ? 'Cambiar Foto' : 'Adjuntar Foto / Imagen' }}</span>
+                </button>
+                @if (productoMaestroForm.imagenUrl) {
+                  <button type="button" class="btn btn-danger btn-sm" (click)="quitarFoto(fotoInput)">
+                    <app-icon name="trash" [size]="14" />
+                    <span>Quitar</span>
+                  </button>
+                }
+              </div>
+              <span class="text-muted text-xs mt-1">Se mostrará en la tarjeta del Punto de Venta (POS). Se comprime automáticamente a max 320x320 px.</span>
             </div>
           </div>
 
@@ -2530,6 +2567,54 @@ export interface ProductoMaestroFormModel {
     .justify-content-between { justify-content: space-between; }
     .mb-1 { margin-bottom: 0.25rem; }
     .m-0 { margin: 0; }
+    .photo-upload-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.85rem;
+      background: var(--bg-surface, #ffffff);
+      border: 1px dashed var(--border-color, #cbd5e1);
+      border-radius: var(--radius-md, 0.5rem);
+    }
+    .photo-preview-box {
+      width: 68px;
+      height: 68px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg-subtle, #f8fafc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid var(--border-color, #e2e8f0);
+    }
+    .photo-preview-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .photo-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted, #94a3b8);
+      font-size: 0.65rem;
+      gap: 2px;
+    }
+    .photo-upload-meta {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .table-product-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid var(--border-color, #e2e8f0);
+    }
   `]
 })
 export class CatalogosComponent implements OnInit {
@@ -3074,6 +3159,7 @@ export class CatalogosComponent implements OnInit {
       aptoCeliaco: true,
       esVegano: false,
       sinAzucar: false,
+      imagenUrl: null,
       proveedoresList: [],
       componentes: []
     };
@@ -3142,6 +3228,7 @@ export class CatalogosComponent implements OnInit {
       stock: prod.stock,
       stockMinimo: prod.stockMinimo,
       activo: prod.activo,
+      imagenUrl: prod.imagenUrl || null,
       maxSabores: prod.maxSabores || 2,
       pesoGramosAprox: prod.pesoGramosAprox || 200,
       categoriaSabor: prod.categoriaSabor || 'CREMA',
@@ -3403,6 +3490,7 @@ export class CatalogosComponent implements OnInit {
       aptoCeliaco: this.productoMaestroForm.tipoArticulo === 'SABOR' ? this.productoMaestroForm.aptoCeliaco : false,
       esVegano: this.productoMaestroForm.tipoArticulo === 'SABOR' ? this.productoMaestroForm.esVegano : false,
       sinAzucar: this.productoMaestroForm.tipoArticulo === 'SABOR' ? this.productoMaestroForm.sinAzucar : false,
+      imagenUrl: this.productoMaestroForm.imagenUrl || null,
       proveedores: this.productoMaestroForm.proveedoresList.map(p => ({
         proveedorId: p.proveedorId,
         codigoReferencia: p.codigoReferencia || null,
@@ -3436,6 +3524,58 @@ export class CatalogosComponent implements OnInit {
         this.toast.error(err.error?.mensaje || 'Error al guardar artículo en catálogo maestro.');
       }
     });
+  }
+
+  onFotoSeleccionada(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) {
+      this.toast.warning('Por favor selecciona un archivo de imagen válido.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 320;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          this.productoMaestroForm.imagenUrl = dataUrl;
+          this.toast.success('Foto cargada y optimizada.');
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  quitarFoto(inputRef?: HTMLInputElement): void {
+    this.productoMaestroForm.imagenUrl = null;
+    if (inputRef) {
+      inputRef.value = '';
+    }
   }
 
   confirmarEliminarProductoMaestro(prod: Producto): void {

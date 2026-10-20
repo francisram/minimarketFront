@@ -66,6 +66,8 @@ export interface Producto {
   esVegano?: boolean;
   sinAzucar?: boolean;
 
+  imagenUrl?: string | null;
+
   fechaCreacion: string;
   fechaActualizacion?: string | null;
 
@@ -88,6 +90,7 @@ export interface ProductoRequest {
   unidadMedida?: UnidadMedida;
   activo?: boolean;
   categoria?: string | null;
+  imagenUrl?: string | null;
 
   // Atributos ENVASE
   maxSabores?: number | null;

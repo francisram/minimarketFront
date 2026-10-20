@@ -15,4 +15,5 @@ export interface ProductoSimple {
   codigoBarra?: string | null;
   proveedor?: Proveedor | null;
   proveedorId?: number | null;
+  imagenUrl?: string | null;
 }

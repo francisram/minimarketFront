@@ -10,5 +10,6 @@ export interface Presentacion {
   stock?: number;
   stockMinimo?: number;
   tipoIva?: TipoIva;
+  imagenUrl?: string | null;
 }
 

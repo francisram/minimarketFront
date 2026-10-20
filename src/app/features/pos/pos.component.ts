@@ -32,6 +32,7 @@ export interface ItemCatalogoPOS {
   codigoItem?: string | null;
   detalles?: string;
   icon: string;
+  imagenUrl?: string | null;
   rawItem: Presentacion | ProductoSimple | Topping;
 }
 
@@ -188,9 +189,13 @@ export interface ItemCatalogoPOS {
                     }
                   </div>
 
-                  <!-- ICONO PRINCIPAL DEL PRODUCTO -->
-                  <div class="card-icon-wrapper" [class.icon-helado]="item.tipo === 'HELADO'" [class.icon-topping]="item.tipo === 'TOPPING'">
-                    <app-icon [name]="item.icon" [size]="32" />
+                  <!-- ICONO O FOTO PRINCIPAL DEL PRODUCTO -->
+                  <div class="card-icon-wrapper" [class.icon-helado]="item.tipo === 'HELADO'" [class.icon-topping]="item.tipo === 'TOPPING'" [class.has-image]="!!item.imagenUrl">
+                    @if (item.imagenUrl) {
+                      <img [src]="item.imagenUrl" class="card-product-img" [alt]="item.nombre" />
+                    } @else {
+                      <app-icon [name]="item.icon" [size]="32" />
+                    }
                   </div>
 
                   <!-- DETALLES DEL PRODUCTO -->
@@ -316,7 +321,11 @@ export interface ItemCatalogoPOS {
                       [disabled]="pres.stock !== undefined && pres.stock <= 0"
                       (click)="posService.seleccionarPresentacion(pres)"
                     >
-                      <app-icon name="ice-cream" [size]="16" />
+                      @if (pres.imagenUrl) {
+                        <img [src]="pres.imagenUrl" alt="Foto" class="pres-pill-thumb" />
+                      } @else {
+                        <app-icon name="ice-cream" [size]="16" />
+                      }
                       <div class="pres-pill-info">
                         <strong class="pres-pill-name">{{ pres.nombre }}</strong>
                         <span class="pres-pill-meta">
@@ -383,6 +392,9 @@ export interface ItemCatalogoPOS {
                       </div>
 
                       <div class="sabor-card-body">
+                        @if (sabor.imagenUrl) {
+                          <img [src]="sabor.imagenUrl" alt="Foto" class="sabor-photo-thumb" />
+                        }
                         <strong class="sabor-name">{{ sabor.nombre }}</strong>
                       </div>
 
@@ -1462,6 +1474,21 @@ export interface ItemCatalogoPOS {
       color: #c026d3;
     }
 
+    .card-icon-wrapper.has-image {
+      padding: 0;
+      overflow: hidden;
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+    }
+
+    .card-product-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 12px;
+    }
+
     .card-action-group {
       display: flex;
       align-items: center;
@@ -1657,6 +1684,14 @@ export interface ItemCatalogoPOS {
       background: #f1f5f9;
     }
 
+    .pres-pill-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
     .pres-pill-info {
       display: flex;
       flex-direction: column;
@@ -1813,6 +1848,18 @@ export interface ItemCatalogoPOS {
 
     .sabor-card-body {
       flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sabor-photo-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid var(--border-color);
     }
 
     .sabor-name {
@@ -2700,6 +2747,7 @@ export class PosComponent implements OnInit {
           codigoItem: (pres as any).codigo || `H-${pres.id}`,
           detalles: pres.pesoGramosAprox ? `~${pres.pesoGramosAprox}g` : undefined,
           icon: 'ice-cream',
+          imagenUrl: pres.imagenUrl,
           rawItem: pres
         });
       }
@@ -2717,6 +2765,7 @@ export class PosComponent implements OnInit {
           codigoItem: (top as any).codigo || `T-${top.id}`,
           detalles: 'Agregado / Extra',
           icon: 'sparkles',
+          imagenUrl: top.imagenUrl,
           rawItem: top
         });
       }
@@ -2739,6 +2788,7 @@ export class PosComponent implements OnInit {
           codigoItem: prod.codigo || (prod as any).sku || `P-${prod.id}`,
           detalles: prod.descripcion || undefined,
           icon: this.obtenerIconoCategoria(prodCat),
+          imagenUrl: prod.imagenUrl,
           rawItem: prod
         });
       }
