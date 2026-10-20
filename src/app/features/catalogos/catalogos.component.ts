@@ -12,6 +12,8 @@ import { ProductoSimple } from '../../core/models/producto-simple.model';
 import { Producto, ProductoRequest, TipoArticulo, UnidadMedida, ProveedorVinculado } from '../../core/models/producto.model';
 import { Proveedor } from '../../core/models/proveedor.model';
 import { ProveedoresService } from '../../core/services/proveedores.service';
+import { CategoriasService } from '../../core/services/categorias.service';
+import { Categoria, CategoriaRequest } from '../../core/models/categoria.model';
 import { TipoIva, OPCIONES_TIPO_IVA } from '../../core/models/tipo-iva.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
@@ -29,6 +31,7 @@ export interface AsignarProveedorItem {
 export interface ProductoMaestroFormModel {
   nombre: string;
   descripcion?: string | null;
+  categoria?: string | null;
   tipoArticulo: TipoArticulo;
   unidadMedida: UnidadMedida;
   codigoBarra: string;
@@ -87,6 +90,11 @@ export interface ProductoMaestroFormModel {
               <app-icon name="plus" [size]="16" />
               <span>Nuevo Producto</span>
             </button>
+          } @else if (tabActiva() === 'categorias') {
+            <button type="button" class="btn btn-primary" (click)="abrirModalCategoria()">
+              <app-icon name="plus" [size]="16" />
+              <span>Nueva Categoría</span>
+            </button>
           }
 
           <div class="tabs-nav">
@@ -134,6 +142,15 @@ export interface ProductoMaestroFormModel {
             >
               <app-icon name="coffee" [size]="16" />
               <span>Cafetería ({{ catalogosService.productosSimples().length }})</span>
+            </button>
+            <button 
+              type="button" 
+              class="tab-btn" 
+              [class.active]="tabActiva() === 'categorias'"
+              (click)="tabActiva.set('categorias')"
+            >
+              <app-icon name="tag" [size]="16" />
+              <span>Categorías ({{ categoriasService.categorias().length }})</span>
             </button>
           </div>
         </div>
@@ -249,7 +266,12 @@ export interface ProductoMaestroFormModel {
                   <tr>
                     <td>
                       <div>
-                        <strong>{{ prod.nombre }}</strong>
+                        <div class="d-flex align-center gap-1">
+                          <strong>{{ prod.nombre }}</strong>
+                          @if (prod.categoria) {
+                            <span class="category-chip" style="font-size: 0.7rem; padding: 1px 6px;">{{ prod.categoria }}</span>
+                          }
+                        </div>
                         @if (prod.descripcion) {
                           <div class="text-muted text-xs">{{ prod.descripcion }}</div>
                         }
@@ -765,6 +787,161 @@ export interface ProductoMaestroFormModel {
         </div>
       }
 
+      <!-- VISTA CATEGORÍAS -->
+      @if (tabActiva() === 'categorias') {
+        <div class="card">
+          <div class="card-header space-between flex-wrap gap-3">
+            <div>
+              <h3>Gestión Dinámica de Categorías y Familias</h3>
+              <p class="section-subtitle">
+                Mostrando {{ categoriasFiltradas().length }} de {{ categoriasService.categorias().length }} categorías configuradas
+              </p>
+            </div>
+            
+            <div class="table-filters flex-wrap gap-2">
+              <!-- Búsqueda libre -->
+              <div class="search-box-sm">
+                <app-icon name="search" [size]="14" extraClass="search-icon-sm" />
+                <input
+                  type="text"
+                  class="search-input-sm"
+                  placeholder="Buscar categoría..."
+                  [ngModel]="filtroCategoriaBuscar()"
+                  (ngModelChange)="filtroCategoriaBuscar.set($event)"
+                />
+                @if (filtroCategoriaBuscar()) {
+                  <button type="button" class="btn-clear-sm" (click)="filtroCategoriaBuscar.set('')">
+                    <app-icon name="x" [size]="12" />
+                  </button>
+                }
+              </div>
+
+              <!-- Filtro Tipo de Artículo -->
+              <div class="filter-provider-box">
+                <label for="filtroCategoriaTipoSelect" class="filter-label">
+                  <app-icon name="filter" [size]="14" />
+                  <span>Tipo:</span>
+                </label>
+                <select 
+                  id="filtroCategoriaTipoSelect" 
+                  class="select-provider-filter"
+                  [ngModel]="filtroCategoriaTipo()"
+                  (ngModelChange)="filtroCategoriaTipo.set($event)"
+                >
+                  <option value="TODOS">Todos los tipos</option>
+                  <option value="SABOR">Sabores de Helado</option>
+                  <option value="VENTA_DIRECTA">Venta Directa / Cafetería</option>
+                  <option value="ENVASE">Envases / Potes</option>
+                  <option value="TOPPING">Toppings / Agregados</option>
+                  <option value="INSUMO">Insumos / Materia Prima</option>
+                  <option value="GENERAL">General / Sin Tipo Fijo</option>
+                </select>
+              </div>
+
+              @if (filtroCategoriaBuscar() || filtroCategoriaTipo() !== 'TODOS') {
+                <button 
+                  type="button" 
+                  class="btn btn-sm btn-ghost text-primary font-bold" 
+                  (click)="filtroCategoriaBuscar.set(''); filtroCategoriaTipo.set('TODOS')"
+                  title="Restablecer filtros"
+                >
+                  <app-icon name="x" [size]="14" />
+                  <span>Limpiar</span>
+                </button>
+              }
+
+              <button type="button" class="btn btn-sm btn-secondary" (click)="categoriasService.cargarCategorias()">
+                <app-icon name="refresh" [size]="14" />
+                <span>Refrescar</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table-custom">
+              <thead>
+                <tr>
+                  <th>Nombre Categoría</th>
+                  <th>Tipo de Artículo Aplicable</th>
+                  <th>Descripción</th>
+                  <th>Estado</th>
+                  <th class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cat of categoriasFiltradas(); track cat.id) {
+                  <tr>
+                    <td>
+                      <div class="d-flex align-center gap-2">
+                        <app-icon name="tag" [size]="16" class="text-primary" />
+                        <span class="font-bold">{{ cat.nombre }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      @if (cat.tipoArticulo) {
+                        <span class="badge" [ngClass]="obtenerClaseTipoArticulo(cat.tipoArticulo)">
+                          {{ obtenerTextoTipoArticulo(cat.tipoArticulo) }}
+                        </span>
+                      } @else {
+                        <span class="badge badge-tipo-default">General (Todos)</span>
+                      }
+                    </td>
+                    <td>
+                      <span class="text-muted">{{ cat.descripcion || '—' }}</span>
+                    </td>
+                    <td>
+                      <span 
+                        class="badge cursor-pointer" 
+                        [ngClass]="cat.activo ? 'badge-listo' : 'badge-cancelado'"
+                        (click)="toggleEstadoCategoria(cat)"
+                        title="Haz clic para alternar estado activo/inactivo"
+                      >
+                        {{ cat.activo ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                    <td class="text-right">
+                      <div class="actions-cell">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-secondary"
+                          (click)="abrirModalCategoria(cat)"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-icon-danger"
+                          (click)="confirmarEliminarCategoria(cat)"
+                          title="Eliminar categoría"
+                        >
+                          <app-icon name="trash" [size]="14" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5" class="text-center py-5">
+                      <div class="empty-filter-state">
+                        <app-icon name="tag" [size]="32" />
+                        <p class="mt-2 text-muted">No se encontraron categorías con los filtros seleccionados.</p>
+                        <button 
+                          type="button" 
+                          class="btn btn-sm btn-secondary mt-2" 
+                          (click)="filtroCategoriaBuscar.set(''); filtroCategoriaTipo.set('TODOS')"
+                        >
+                          Limpiar filtros
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
       <!-- MODAL SABOR -->
       <app-modal
         [isOpen]="modalSaborAbierto()"
@@ -792,6 +969,11 @@ export interface ProductoMaestroFormModel {
                 <option value="DULCE_DE_LECHE">DULCE_DE_LECHE</option>
                 <option value="FRUTAL">FRUTAL</option>
                 <option value="ESPECIAL">ESPECIAL</option>
+                @for (c of categoriasService.categoriasSabores(); track c.id) {
+                  @if (!['CREMA', 'CHOCOLATE', 'DULCE_DE_LECHE', 'FRUTAL', 'ESPECIAL'].includes(c.nombre)) {
+                    <option [value]="c.nombre">{{ c.nombre }}</option>
+                  }
+                }
               </select>
             </div>
           </div>
@@ -978,7 +1160,19 @@ export interface ProductoMaestroFormModel {
             </div>
             <div class="form-group">
               <label class="form-label" for="catProdCat">Categoría</label>
-              <input id="catProdCat" type="text" class="form-control" [(ngModel)]="productoForm.categoria" />
+              <input
+                id="catProdCat"
+                type="text"
+                list="listaCategoriasVentaDirecta"
+                class="form-control"
+                [(ngModel)]="productoForm.categoria"
+                placeholder="Ej. BEBIDAS, CAFETERIA..."
+              />
+              <datalist id="listaCategoriasVentaDirecta">
+                @for (c of categoriasService.categoriasVentaDirecta(); track c.id) {
+                  <option [value]="c.nombre"></option>
+                }
+              </datalist>
             </div>
           </div>
           <div class="form-row-2">
@@ -1090,15 +1284,33 @@ export interface ProductoMaestroFormModel {
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="maestroDesc">Descripción / Detalles</label>
-            <input
-              id="maestroDesc"
-              type="text"
-              class="form-control"
-              [(ngModel)]="productoMaestroForm.descripcion"
-              placeholder="Descripción comercial, notas o especificaciones..."
-            />
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="maestroCategoria">Categoría / Familia</label>
+              <input
+                id="maestroCategoria"
+                type="text"
+                list="listaCategoriasMaestro"
+                class="form-control"
+                [(ngModel)]="productoMaestroForm.categoria"
+                placeholder="Selecciona o escribe..."
+              />
+              <datalist id="listaCategoriasMaestro">
+                @for (c of categoriasPorTipo(productoMaestroForm.tipoArticulo); track c.id) {
+                  <option [value]="c.nombre"></option>
+                }
+              </datalist>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="maestroDesc">Descripción / Detalles</label>
+              <input
+                id="maestroDesc"
+                type="text"
+                class="form-control"
+                [(ngModel)]="productoMaestroForm.descripcion"
+                placeholder="Descripción comercial, notas o especificaciones..."
+              />
+            </div>
           </div>
 
           <!-- BLOQUE DE PRECIOS Y CÁLCULO DE MARGEN COMERCIAL -->
@@ -1278,6 +1490,11 @@ export interface ProductoMaestroFormModel {
                     <option value="DULCE_DE_LECHE">DULCE_DE_LECHE</option>
                     <option value="FRUTAL">FRUTAL</option>
                     <option value="ESPECIAL">ESPECIAL</option>
+                    @for (c of categoriasService.categoriasSabores(); track c.id) {
+                      @if (!['CREMA', 'CHOCOLATE', 'DULCE_DE_LECHE', 'FRUTAL', 'ESPECIAL'].includes(c.nombre)) {
+                        <option [value]="c.nombre">{{ c.nombre }}</option>
+                      }
+                    }
                   </select>
                 </div>
                 <div class="checkboxes-row mt-4">
@@ -1442,6 +1659,76 @@ export interface ProductoMaestroFormModel {
             } @else {
               <app-icon name="check" [size]="16" />
               <span>{{ productoMaestroEditando?.id ? 'Guardar Cambios' : 'Crear Artículo ERP' }}</span>
+            }
+          </button>
+        </div>
+      </app-modal>
+
+      <!-- MODAL CATEGORÍA -->
+      <app-modal
+        [isOpen]="modalCategoriaAbierto()"
+        [title]="categoriaEditando?.id ? ('Modificar Categoría: ' + categoriaEditando?.nombre) : 'Nueva Categoría / Familia'"
+        size="md"
+        (close)="modalCategoriaAbierto.set(false)"
+      >
+        <div body class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="catNombre">Nombre de la Categoría *</label>
+            <input
+              id="catNombre"
+              type="text"
+              class="form-control"
+              [(ngModel)]="categoriaForm.nombre"
+              placeholder="Ej. Cafés Especiales, Helados Gourmet, Descartables..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="catTipoArticulo">Tipo de Artículo Aplicable</label>
+            <select id="catTipoArticulo" class="form-control" [(ngModel)]="categoriaForm.tipoArticulo">
+              <option [ngValue]="null">General / Aplica a cualquier artículo</option>
+              <option value="SABOR">Sabor de Helado</option>
+              <option value="VENTA_DIRECTA">Venta Directa / Cafetería Envasada</option>
+              <option value="ENVASE">Envase / Pote de Helado</option>
+              <option value="TOPPING">Topping / Agregado</option>
+              <option value="INSUMO">Insumo / Materia Prima</option>
+            </select>
+            <span class="small text-muted mt-1">Si seleccionas un tipo, esta categoría se sugerirá específicamente al crear artículos de esa clase.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="catDesc">Descripción / Notas</label>
+            <textarea
+              id="catDesc"
+              class="form-control"
+              rows="3"
+              [(ngModel)]="categoriaForm.descripcion"
+              placeholder="Descripción opcional de la categoría..."
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="categoriaForm.activo" />
+              <span>✅ Categoría Activa (disponible en selección de artículos)</span>
+            </label>
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="modalCategoriaAbierto.set(false)">Cancelar</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="guardandoCategoria() || !categoriaForm.nombre.trim()"
+            (click)="guardarCategoria()"
+          >
+            @if (guardandoCategoria()) {
+              <app-icon name="refresh" [size]="16" extraClass="spin-icon" />
+              <span>Guardando...</span>
+            } @else {
+              <app-icon name="check" [size]="16" />
+              <span>{{ categoriaEditando?.id ? 'Guardar Cambios' : 'Crear Categoría' }}</span>
             }
           </button>
         </div>
@@ -1932,13 +2219,54 @@ export class CatalogosComponent implements OnInit {
   public readonly catalogosService = inject(CatalogosService);
   public readonly productosService = inject(ProductosService);
   public readonly proveedoresService = inject(ProveedoresService);
+  public readonly categoriasService = inject(CategoriasService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
 
   public readonly opcionesIva = OPCIONES_TIPO_IVA;
 
-  public readonly tabActiva = signal<'maestro' | 'sabores' | 'presentaciones' | 'toppings' | 'productos'>('maestro');
+  public readonly tabActiva = signal<'maestro' | 'sabores' | 'presentaciones' | 'toppings' | 'productos' | 'categorias'>('maestro');
   public readonly guardandoItem = signal<boolean>(false);
+
+  // Filtros y Estado Categorías
+  public readonly filtroCategoriaBuscar = signal<string>('');
+  public readonly filtroCategoriaTipo = signal<string>('TODOS');
+  public readonly modalCategoriaAbierto = signal<boolean>(false);
+  public readonly guardandoCategoria = signal<boolean>(false);
+  public categoriaEditando: Categoria | null = null;
+  public categoriaForm: CategoriaRequest = {
+    nombre: '',
+    descripcion: '',
+    tipoArticulo: null,
+    activo: true
+  };
+
+  public readonly categoriasFiltradas = computed(() => {
+    let list = this.categoriasService.categorias();
+    const buscar = this.filtroCategoriaBuscar().trim().toLowerCase();
+    const tipo = this.filtroCategoriaTipo();
+
+    if (tipo === 'GENERAL') {
+      list = list.filter(c => !c.tipoArticulo);
+    } else if (tipo !== 'TODOS') {
+      list = list.filter(c => c.tipoArticulo === tipo);
+    }
+
+    if (buscar) {
+      list = list.filter(c =>
+        c.nombre.toLowerCase().includes(buscar) ||
+        (c.descripcion && c.descripcion.toLowerCase().includes(buscar))
+      );
+    }
+
+    return list;
+  });
+
+  categoriasPorTipo(tipo?: TipoArticulo): Categoria[] {
+    const cats = this.categoriasService.categorias().filter(c => c.activo);
+    if (!tipo) return cats;
+    return cats.filter(c => !c.tipoArticulo || c.tipoArticulo === tipo);
+  }
 
   // Filtros Maestro ERP
   public readonly filtroMaestroBuscar = signal<string>('');
@@ -2029,7 +2357,7 @@ export class CatalogosComponent implements OnInit {
   ngOnInit(): void {
     this.route.params.subscribe(params => {
       const seccion = params['seccion'];
-      if (seccion && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos'].includes(seccion)) {
+      if (seccion && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'].includes(seccion)) {
         this.tabActiva.set(seccion as any);
       }
     });
@@ -2041,7 +2369,7 @@ export class CatalogosComponent implements OnInit {
         this.filtroMaestroProveedorId.set(provIdStr);
         this.tabActiva.set('maestro');
       }
-      if (qp['tab'] && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos'].includes(qp['tab'])) {
+      if (qp['tab'] && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'].includes(qp['tab'])) {
         this.tabActiva.set(qp['tab']);
       }
       if (qp['accion'] === 'crear') {
@@ -2056,6 +2384,7 @@ export class CatalogosComponent implements OnInit {
     this.catalogosService.cargarToppings();
     this.catalogosService.cargarProductosSimples();
     this.proveedoresService.cargarProveedores();
+    this.categoriasService.cargarCategorias();
   }
 
   contarProductosPorProveedor(proveedorId: number): number {
@@ -2349,6 +2678,7 @@ export class CatalogosComponent implements OnInit {
     return {
       nombre: '',
       descripcion: '',
+      categoria: null,
       tipoArticulo: 'VENTA_DIRECTA',
       unidadMedida: 'UNIDAD',
       codigoBarra: '',
@@ -2418,6 +2748,7 @@ export class CatalogosComponent implements OnInit {
     this.productoMaestroForm = {
       nombre: prod.nombre,
       descripcion: prod.descripcion || '',
+      categoria: prod.categoria || null,
       tipoArticulo: prod.tipoArticulo,
       unidadMedida: prod.unidadMedida || 'UNIDAD',
       codigoBarra: prod.codigoBarra || '',
@@ -2539,6 +2870,7 @@ export class CatalogosComponent implements OnInit {
     const payload: ProductoRequest = {
       nombre: this.productoMaestroForm.nombre.trim(),
       descripcion: this.productoMaestroForm.descripcion?.trim() || null,
+      categoria: this.productoMaestroForm.categoria?.trim() || null,
       tipoArticulo: this.productoMaestroForm.tipoArticulo || 'VENTA_DIRECTA',
       unidadMedida: this.productoMaestroForm.unidadMedida || 'UNIDAD',
       codigoBarra: this.productoMaestroForm.codigoBarra?.trim() || null,
@@ -2635,6 +2967,69 @@ export class CatalogosComponent implements OnInit {
       case 'TOPPING': return 'badge-tipo-topping';
       case 'INSUMO': return 'badge-tipo-insumo';
       default: return 'badge-tipo-default';
+    }
+  }
+
+  // --- MÉTODOS GESTIÓN DE CATEGORÍAS ---
+  abrirModalCategoria(cat?: Categoria): void {
+    if (cat) {
+      this.categoriaEditando = cat;
+      this.categoriaForm = {
+        nombre: cat.nombre,
+        descripcion: cat.descripcion || '',
+        tipoArticulo: cat.tipoArticulo || null,
+        activo: cat.activo ?? true
+      };
+    } else {
+      this.categoriaEditando = null;
+      this.categoriaForm = {
+        nombre: '',
+        descripcion: '',
+        tipoArticulo: null,
+        activo: true
+      };
+    }
+    this.modalCategoriaAbierto.set(true);
+  }
+
+  guardarCategoria(): void {
+    if (!this.categoriaForm.nombre?.trim()) {
+      this.toast.warning('El nombre de la categoría es obligatorio.');
+      return;
+    }
+
+    this.guardandoCategoria.set(true);
+    const req: CategoriaRequest = {
+      nombre: this.categoriaForm.nombre.trim(),
+      descripcion: this.categoriaForm.descripcion?.trim() || null,
+      tipoArticulo: this.categoriaForm.tipoArticulo || null,
+      activo: this.categoriaForm.activo ?? true
+    };
+
+    const id = this.categoriaEditando?.id;
+    const op$ = id
+      ? this.categoriasService.actualizar(id, req)
+      : this.categoriasService.crear(req);
+
+    op$.subscribe({
+      next: () => {
+        this.guardandoCategoria.set(false);
+        this.modalCategoriaAbierto.set(false);
+      },
+      error: () => {
+        this.guardandoCategoria.set(false);
+      }
+    });
+  }
+
+  toggleEstadoCategoria(cat: Categoria): void {
+    const nuevoEstado = !cat.activo;
+    this.categoriasService.cambiarEstado(cat.id, nuevoEstado).subscribe();
+  }
+
+  confirmarEliminarCategoria(cat: Categoria): void {
+    if (confirm(`¿Estás seguro de eliminar la categoría "${cat.nombre}"?`)) {
+      this.categoriasService.eliminar(cat.id).subscribe();
     }
   }
 }

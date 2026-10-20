@@ -46,6 +46,7 @@ export interface Producto {
 
   // Específico SABOR
   categoriaSabor?: CategoriaSabor | null;
+  categoria?: string | null;
   aptoCeliaco?: boolean;
   esVegano?: boolean;
   sinAzucar?: boolean;
@@ -70,6 +71,7 @@ export interface ProductoRequest {
   stockMinimo?: number;
   unidadMedida?: UnidadMedida;
   activo?: boolean;
+  categoria?: string | null;
 
   // Atributos ENVASE
   maxSabores?: number | null;
