@@ -304,7 +304,7 @@ export interface ProductoMaestroFormModel {
                           </span>
                         }
                         @if (prod.sku) {
-                          <span class="text-muted text-xs font-mono">SKU: {{ prod.sku }}</span>
+                          <span class="code-badge-inline" title="Código SKU / Referencia POS">{{ prod.sku }}</span>
                         }
                         @if (!prod.codigoBarra && !prod.sku) {
                           <span class="text-muted">—</span>
@@ -1426,7 +1426,7 @@ export interface ProductoMaestroFormModel {
                 type="text"
                 class="form-control"
                 [(ngModel)]="productoMaestroForm.sku"
-                placeholder="Ej. POT-1KG-ECO"
+                placeholder="Ej. H-4, POT-1KG, P-1..."
               />
             </div>
           </div>
