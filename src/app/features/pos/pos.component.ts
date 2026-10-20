@@ -2904,6 +2904,9 @@ export class PosComponent implements OnInit {
     if (cat.includes('helado') || cat.includes('pote') || cat.includes('cucurucho')) return 'ice-cream';
     if (cat.includes('cafe') || cat.includes('café') || cat.includes('desayuno')) return 'coffee';
     if (cat.includes('bebida') || cat.includes('gaseosa') || cat.includes('agua') || cat.includes('jugo')) return 'cup-soda';
+    if (cat.includes('combo') || cat.includes('promo') || cat.includes('promoción')) return 'sparkles';
+    if (cat.includes('postre') || cat.includes('elaborado') || cat.includes('copa')) return 'cake';
+    if (cat.includes('servicio') || cat.includes('delivery') || cat.includes('flete')) return 'truck';
     return 'package';
   }
 

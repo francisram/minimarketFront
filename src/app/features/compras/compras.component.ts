@@ -873,6 +873,10 @@ interface ItemSeleccionMultiple {
                 <option value="ENVASE">Envase (Pote, Cucurucho, Vaso)</option>
                 <option value="SABOR">Sabor de Helado</option>
                 <option value="TOPPING">Topping / Agregado</option>
+                <option value="ELABORADO">Elaborado / Postre</option>
+                <option value="COMBO">Combo & Promoción</option>
+                <option value="SERVICIO">Servicio / Flete</option>
+                <option value="ACTIVO_FIJO">Activo Fijo / Equipamiento</option>
               </select>
             </div>
           </div>

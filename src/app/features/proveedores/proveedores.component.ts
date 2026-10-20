@@ -860,6 +860,10 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     .badge-tipo-sabor { background: #fef08a; color: #854d0e; }
     .badge-tipo-topping { background: #ede9fe; color: #6d28d9; }
     .badge-tipo-insumo { background: #dcfce7; color: #15803d; }
+    .badge-tipo-elaborado { background: #ffedd5; color: #c2410c; }
+    .badge-tipo-combo { background: #e0e7ff; color: #4338ca; }
+    .badge-tipo-servicio { background: #ccfbf1; color: #0f766e; }
+    .badge-tipo-activo-fijo { background: #e2e8f0; color: #334155; }
     .badge-tipo-default { background: #f1f5f9; color: #475569; }
     .text-xs { font-size: 0.75rem; }
     .ms-1 { margin-left: 0.25rem; }
@@ -925,6 +929,10 @@ export class ProveedoresComponent implements OnInit {
       case 'SABOR': return 'Sabor';
       case 'TOPPING': return 'Topping';
       case 'INSUMO': return 'Insumo';
+      case 'ELABORADO': return 'Elaborado / Postre';
+      case 'COMBO': return 'Combo / Promo';
+      case 'SERVICIO': return 'Servicio';
+      case 'ACTIVO_FIJO': return 'Activo Fijo';
       default: return tipo || 'Artículo';
     }
   }
@@ -936,6 +944,10 @@ export class ProveedoresComponent implements OnInit {
       case 'SABOR': return 'badge-tipo-sabor';
       case 'TOPPING': return 'badge-tipo-topping';
       case 'INSUMO': return 'badge-tipo-insumo';
+      case 'ELABORADO': return 'badge-tipo-elaborado';
+      case 'COMBO': return 'badge-tipo-combo';
+      case 'SERVICIO': return 'badge-tipo-servicio';
+      case 'ACTIVO_FIJO': return 'badge-tipo-activo-fijo';
       default: return 'badge-tipo-default';
     }
   }

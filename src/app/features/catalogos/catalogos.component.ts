@@ -10,7 +10,7 @@ import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
 import { Topping } from '../../core/models/topping.model';
 import { ProductoSimple } from '../../core/models/producto-simple.model';
-import { Producto, ProductoRequest, TipoArticulo, UnidadMedida, ProveedorVinculado } from '../../core/models/producto.model';
+import { Producto, ProductoRequest, TipoArticulo, UnidadMedida, ProveedorVinculado, ComboComponente } from '../../core/models/producto.model';
 import { Proveedor } from '../../core/models/proveedor.model';
 import { ProveedoresService } from '../../core/services/proveedores.service';
 import { CategoriasService } from '../../core/services/categorias.service';
@@ -51,6 +51,7 @@ export interface ProductoMaestroFormModel {
   esVegano?: boolean;
   sinAzucar?: boolean;
   proveedoresList: AsignarProveedorItem[];
+  componentes: ComboComponente[];
 }
 
 @Component({
@@ -216,6 +217,10 @@ export interface ProductoMaestroFormModel {
                   <option value="SABOR">Sabores de Helado</option>
                   <option value="TOPPING">Toppings / Agregados</option>
                   <option value="INSUMO">Insumos / Materia Prima</option>
+                  <option value="ELABORADO">Elaborados / Postres</option>
+                  <option value="COMBO">Combos & Promociones</option>
+                  <option value="SERVICIO">Servicios / Fletes</option>
+                  <option value="ACTIVO_FIJO">Activos Fijos / Equipos</option>
                 </select>
               </div>
 
@@ -294,6 +299,19 @@ export interface ProductoMaestroFormModel {
                       <span class="badge" [ngClass]="obtenerClaseTipoArticulo(prod.tipoArticulo)">
                         {{ obtenerTextoTipoArticulo(prod.tipoArticulo) }}
                       </span>
+                      @if (prod.tipoArticulo === 'COMBO') {
+                        <div class="mt-1">
+                          @if (prod.componentes && prod.componentes.length > 0) {
+                            <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.3); font-size: 0.6875rem; font-weight: 600;" title="Deduce stock de cada componente al venderse">
+                              🧩 Compuesto ({{ prod.componentes.length }})
+                            </span>
+                          } @else {
+                            <span class="badge" style="background: rgba(107, 114, 128, 0.12); color: #4b5563; border: 1px solid rgba(107, 114, 128, 0.25); font-size: 0.6875rem;" title="Venta directa a precio cerrado">
+                              ⚡ Simple
+                            </span>
+                          }
+                        </div>
+                      }
                     </td>
                     <td>
                       <div class="d-flex flex-column gap-1">
@@ -847,6 +865,10 @@ export interface ProductoMaestroFormModel {
                   <option value="ENVASE">Envases / Potes</option>
                   <option value="TOPPING">Toppings / Agregados</option>
                   <option value="INSUMO">Insumos / Materia Prima</option>
+                  <option value="ELABORADO">Elaborados / Postres</option>
+                  <option value="COMBO">Combos & Promociones</option>
+                  <option value="SERVICIO">Servicios / Fletes</option>
+                  <option value="ACTIVO_FIJO">Activos Fijos / Equipos</option>
                   <option value="GENERAL">General / Sin Tipo Fijo</option>
                 </select>
               </div>
@@ -1289,6 +1311,10 @@ export interface ProductoMaestroFormModel {
                 <option value="SABOR">Sabor de Helado</option>
                 <option value="TOPPING">Topping / Agregado</option>
                 <option value="INSUMO">Insumo / Materia Prima</option>
+                <option value="ELABORADO">Elaborado / Postre / Copa Helada</option>
+                <option value="COMBO">Combo & Promoción Compuesta</option>
+                <option value="SERVICIO">Servicio / Delivery / Evento</option>
+                <option value="ACTIVO_FIJO">Activo Fijo / Equipamiento</option>
               </select>
             </div>
           </div>
@@ -1536,6 +1562,165 @@ export interface ProductoMaestroFormModel {
             </div>
           }
 
+          <!-- SECCIÓN COMPOSICIÓN DEL COMBO (HÍBRIDO SIMPLE / COMPUESTO) -->
+          @if (productoMaestroForm.tipoArticulo === 'COMBO') {
+            <div class="combo-composition-card">
+              <div class="combo-card-header">
+                <div class="d-flex align-center gap-2">
+                  <app-icon name="sparkles" [size]="18" />
+                  <h4 class="m-0">Composición y Despiece del Combo</h4>
+                </div>
+                <div>
+                  @if (productoMaestroForm.componentes && productoMaestroForm.componentes.length > 0) {
+                    <span class="combo-mode-badge combo-mode-compound">
+                      🧩 Combo Compuesto (descuenta {{ productoMaestroForm.componentes.length }} componentes al vender)
+                    </span>
+                  } @else {
+                    <span class="combo-mode-badge combo-mode-simple">
+                      ⚡ Combo Simple (sin despiece, venta directa a precio cerrado)
+                    </span>
+                  }
+                </div>
+              </div>
+
+              <p class="text-xs text-muted mb-2">
+                Si agregas componentes, al vender este combo en el POS se descontará automáticamente el stock de cada artículo (envases, sabores, bebidas, insumos, etc.). Si no agregas ninguno, funcionará como un combo simple directo.
+              </p>
+
+              <!-- Tabla de Componentes del Combo -->
+              @if (productoMaestroForm.componentes && productoMaestroForm.componentes.length > 0) {
+                <div class="table-responsive mb-3">
+                  <table class="table-sm table-custom">
+                    <thead>
+                      <tr>
+                        <th>Componente / Artículo</th>
+                        <th>Tipo</th>
+                        <th style="width: 100px;" class="text-center">Cant. Descuento</th>
+                        <th>Costo Unit.</th>
+                        <th>Subtotal Costo</th>
+                        <th>Notas / Obs</th>
+                        <th class="text-right">Quitar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (comp of productoMaestroForm.componentes; track comp.componenteId; let idx = $index) {
+                        <tr>
+                          <td>
+                            <strong>{{ comp.componenteNombre || obtenerNombreComponente(comp.componenteId) }}</strong>
+                            @if (comp.componenteSku) {
+                              <span class="text-muted text-xs ms-1">({{ comp.componenteSku }})</span>
+                            }
+                          </td>
+                          <td>
+                            <span class="badge" [ngClass]="obtenerClaseTipoArticulo(obtenerTipoComponente(comp.componenteId))" style="font-size: 0.6875rem;">
+                              {{ obtenerTextoTipoArticulo(obtenerTipoComponente(comp.componenteId)) }}
+                            </span>
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0.01"
+                              class="form-control form-control-sm font-bold text-center"
+                              [(ngModel)]="comp.cantidad"
+                            />
+                          </td>
+                          <td>
+                            {{ obtenerCostoComponente(comp.componenteId) | appCurrency }}
+                          </td>
+                          <td class="font-bold">
+                            {{ (comp.cantidad * obtenerCostoComponente(comp.componenteId)) | appCurrency }}
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              class="form-control form-control-sm"
+                              [(ngModel)]="comp.notas"
+                              placeholder="Ej. Sabor o tamaño..."
+                            />
+                          </td>
+                          <td class="text-right">
+                            <button
+                              type="button"
+                              class="btn-icon-danger"
+                              (click)="quitarComponenteDelCombo(idx)"
+                              title="Quitar componente"
+                            >
+                              <app-icon name="trash" [size]="14" />
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                    <tfoot>
+                      <tr class="combo-footer-row">
+                        <td colspan="4" class="text-right font-bold">Costo Total Componentes:</td>
+                        <td class="font-bold text-primary">{{ calcularCostoTotalComponentes() | appCurrency }}</td>
+                        <td colspan="2">
+                          <button
+                            type="button"
+                            class="btn-apply-cost"
+                            (click)="aplicarCostoComponentesComoCostoCombo()"
+                            title="Actualizar el precio de costo del combo con la suma de costos de sus componentes"
+                          >
+                            <app-icon name="arrow-right" [size]="12" />
+                            <span>Usar como costo del combo</span>
+                          </button>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              }
+
+              <!-- Fila para agregar nuevo componente -->
+              <div class="add-supplier-row">
+                <div class="form-group flex-2">
+                  <label class="form-label text-xs">Seleccionar Artículo / Componente</label>
+                  <select class="form-control form-control-sm" [(ngModel)]="nuevoComponenteId">
+                    <option [ngValue]="null">-- Seleccionar Artículo / Insumo / Sabor --</option>
+                    @for (item of productosDisponiblesComoComponente(); track item.id) {
+                      <option [ngValue]="item.id">
+                        {{ item.nombre }} ({{ obtenerTextoTipoArticulo(item.tipoArticulo) }}) - Stock: {{ item.stock }}
+                      </option>
+                    }
+                  </select>
+                </div>
+                <div class="form-group" style="width: 100px;">
+                  <label class="form-label text-xs">Cantidad</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.1"
+                    class="form-control form-control-sm font-bold"
+                    [(ngModel)]="nuevoComponenteCantidad"
+                    placeholder="1"
+                  />
+                </div>
+                <div class="form-group flex-1">
+                  <label class="form-label text-xs">Notas / Indicación (Opcional)</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    [(ngModel)]="nuevoComponenteNotas"
+                    placeholder="Ej. Topping o crocante..."
+                  />
+                </div>
+                <div class="form-group flex-auto d-flex align-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    (click)="agregarComponenteAlCombo()"
+                    [disabled]="!nuevoComponenteId"
+                  >
+                    <app-icon name="plus" [size]="14" />
+                    <span>Agregar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+
           <!-- SECCIÓN PROVEEDORES VINCULADOS (N:M MULTI-PROVEEDOR) -->
           <div class="suppliers-management-card">
             <div class="suppliers-card-header">
@@ -1713,6 +1898,10 @@ export interface ProductoMaestroFormModel {
               <option value="ENVASE">Envase / Pote de Helado</option>
               <option value="TOPPING">Topping / Agregado</option>
               <option value="INSUMO">Insumo / Materia Prima</option>
+              <option value="ELABORADO">Elaborado / Postre / Copa Helada</option>
+              <option value="COMBO">Combo & Promoción Compuesta</option>
+              <option value="SERVICIO">Servicio / Delivery / Evento</option>
+              <option value="ACTIVO_FIJO">Activo Fijo / Equipamiento</option>
             </select>
             <span class="small text-muted mt-1">Si seleccionas un tipo, esta categoría se sugerirá específicamente al crear artículos de esa clase.</span>
           </div>
@@ -2054,6 +2243,10 @@ export interface ProductoMaestroFormModel {
     .badge-tipo-sabor { background: #fef08a; color: #854d0e; }
     .badge-tipo-topping { background: #ede9fe; color: #6d28d9; }
     .badge-tipo-insumo { background: #dcfce7; color: #15803d; }
+    .badge-tipo-elaborado { background: #ffedd5; color: #c2410c; }
+    .badge-tipo-combo { background: #e0e7ff; color: #4338ca; }
+    .badge-tipo-servicio { background: #ccfbf1; color: #0f766e; }
+    .badge-tipo-activo-fijo { background: #e2e8f0; color: #334155; }
     .badge-tipo-default { background: #f1f5f9; color: #475569; }
     .font-mono { font-family: monospace; }
     .specific-attributes-box {
@@ -2068,6 +2261,68 @@ export interface ProductoMaestroFormModel {
       color: #475569;
       margin: 0 0 0.5rem 0;
     }
+    /* ESTILOS COMPOSICIÓN DEL COMBO */
+    .combo-composition-card {
+      background: #f8fafc;
+      border: 1px solid #c7d2fe;
+      border-radius: 0.5rem;
+      padding: 0.875rem;
+    }
+    .combo-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .combo-card-header h4 {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #312e81;
+    }
+    .combo-mode-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .combo-mode-compound {
+      background: #e0e7ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+    }
+    .combo-mode-simple {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+    .combo-footer-row td {
+      background: #f1f5f9;
+      padding: 0.5rem;
+      border-top: 2px solid #cbd5e1;
+    }
+    .btn-apply-cost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      color: #4338ca;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-apply-cost:hover {
+      background: #e0e7ff;
+      color: #312e81;
+    }
+
     .suppliers-management-card {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -2354,6 +2609,10 @@ export class CatalogosComponent implements OnInit {
   public nuevoVinculoCosto: number | null = null;
   public nuevoVinculoRef: string = '';
   public nuevoVinculoEsPrincipal: boolean = false;
+
+  public nuevoComponenteId: number | null = null;
+  public nuevoComponenteCantidad: number = 1;
+  public nuevoComponenteNotas: string = '';
 
   public readonly productosMaestrosFiltrados = computed(() => {
     let list = this.productosService.productos();
@@ -2774,7 +3033,8 @@ export class CatalogosComponent implements OnInit {
       aptoCeliaco: true,
       esVegano: false,
       sinAzucar: false,
-      proveedoresList: []
+      proveedoresList: [],
+      componentes: []
     };
   }
 
@@ -2802,6 +3062,9 @@ export class CatalogosComponent implements OnInit {
     this.nuevoVinculoCosto = null;
     this.nuevoVinculoRef = '';
     this.nuevoVinculoEsPrincipal = false;
+    this.nuevoComponenteId = null;
+    this.nuevoComponenteCantidad = 1;
+    this.nuevoComponenteNotas = '';
     this.modalMaestroAbierto.set(true);
   }
 
@@ -2844,12 +3107,16 @@ export class CatalogosComponent implements OnInit {
       aptoCeliaco: prod.aptoCeliaco ?? true,
       esVegano: prod.esVegano ?? false,
       sinAzucar: prod.sinAzucar ?? false,
-      proveedoresList
+      proveedoresList,
+      componentes: prod.componentes ? prod.componentes.map(c => ({ ...c })) : []
     };
     this.nuevoVinculoProveedorId = null;
     this.nuevoVinculoCosto = null;
     this.nuevoVinculoRef = '';
     this.nuevoVinculoEsPrincipal = false;
+    this.nuevoComponenteId = null;
+    this.nuevoComponenteCantidad = 1;
+    this.nuevoComponenteNotas = '';
     this.modalMaestroAbierto.set(true);
   }
 
@@ -2937,6 +3204,93 @@ export class CatalogosComponent implements OnInit {
     }
   }
 
+  // --- MÉTODOS COMPONENTES DE COMBO (HÍBRIDO SIMPLE / COMPUESTO) ---
+  productosDisponiblesComoComponente(): Producto[] {
+    const editId = this.productoMaestroEditando?.id;
+    return this.productosService.productos().filter(p => p.id !== editId && p.tipoArticulo !== 'COMBO' && p.activo);
+  }
+
+  obtenerNombreComponente(id: number): string {
+    const p = this.productosService.productos().find(prod => prod.id === id);
+    return p?.nombre || `Artículo #${id}`;
+  }
+
+  obtenerTipoComponente(id: number): TipoArticulo {
+    const p = this.productosService.productos().find(prod => prod.id === id);
+    return p?.tipoArticulo || 'VENTA_DIRECTA';
+  }
+
+  obtenerCostoComponente(id: number): number {
+    const p = this.productosService.productos().find(prod => prod.id === id);
+    return Number(p?.precioCosto) || 0;
+  }
+
+  calcularCostoTotalComponentes(): number {
+    if (!this.productoMaestroForm.componentes || this.productoMaestroForm.componentes.length === 0) {
+      return 0;
+    }
+    return this.productoMaestroForm.componentes.reduce((acc, c) => {
+      const costo = c.componentePrecioCosto !== undefined && c.componentePrecioCosto !== null
+        ? Number(c.componentePrecioCosto)
+        : this.obtenerCostoComponente(c.componenteId);
+      return acc + (costo * (Number(c.cantidad) || 0));
+    }, 0);
+  }
+
+  aplicarCostoComponentesComoCostoCombo(): void {
+    const costoTotal = this.calcularCostoTotalComponentes();
+    this.productoMaestroForm.precioCosto = Math.round(costoTotal);
+    this.onCostoOMargenChange();
+    this.toast.info(`Precio de costo actualizado a ${this.productoMaestroForm.precioCosto.toLocaleString('es-PY')} Gs. en base a sus componentes.`);
+  }
+
+  agregarComponenteAlCombo(): void {
+    if (!this.nuevoComponenteId) {
+      this.toast.warning('Selecciona un artículo para agregarlo al combo.');
+      return;
+    }
+    const compId = Number(this.nuevoComponenteId);
+    const cant = Number(this.nuevoComponenteCantidad);
+    if (!cant || cant <= 0) {
+      this.toast.warning('La cantidad debe ser mayor a 0.');
+      return;
+    }
+    const prod = this.productosService.productos().find(p => p.id === compId);
+    if (!prod) return;
+
+    if (!this.productoMaestroForm.componentes) {
+      this.productoMaestroForm.componentes = [];
+    }
+
+    const existente = this.productoMaestroForm.componentes.find(c => c.componenteId === compId);
+    if (existente) {
+      existente.cantidad = Number(existente.cantidad) + cant;
+      if (this.nuevoComponenteNotas) {
+        existente.notas = this.nuevoComponenteNotas.trim();
+      }
+      this.toast.info(`Se actualizó la cantidad de "${prod.nombre}" a ${existente.cantidad}.`);
+    } else {
+      this.productoMaestroForm.componentes.push({
+        componenteId: prod.id,
+        componenteNombre: prod.nombre,
+        componenteSku: prod.sku || undefined,
+        componenteTipo: prod.tipoArticulo,
+        componentePrecioCosto: prod.precioCosto || 0,
+        componentePrecioVenta: prod.precioVenta || 0,
+        cantidad: cant,
+        notas: this.nuevoComponenteNotas?.trim() || null
+      });
+    }
+
+    this.nuevoComponenteId = null;
+    this.nuevoComponenteCantidad = 1;
+    this.nuevoComponenteNotas = '';
+  }
+
+  quitarComponenteDelCombo(index: number): void {
+    this.productoMaestroForm.componentes.splice(index, 1);
+  }
+
   guardarProductoMaestro(): void {
     if (!this.productoMaestroForm.nombre?.trim() || this.productoMaestroForm.precioVenta === undefined) {
       this.toast.warning('Completa el nombre y precio de venta del artículo.');
@@ -2970,7 +3324,12 @@ export class CatalogosComponent implements OnInit {
         codigoReferencia: p.codigoReferencia || null,
         costoCompra: p.costoCompra || null,
         esPrincipal: p.esPrincipal
-      }))
+      })),
+      componentes: this.productoMaestroForm.tipoArticulo === 'COMBO' ? this.productoMaestroForm.componentes.map(c => ({
+        componenteId: c.componenteId,
+        cantidad: Number(c.cantidad) || 1,
+        notas: c.notas || null
+      })) : []
     };
 
     const id = this.productoMaestroEditando?.id;
@@ -3033,6 +3392,10 @@ export class CatalogosComponent implements OnInit {
       case 'SABOR': return 'Sabor';
       case 'TOPPING': return 'Topping';
       case 'INSUMO': return 'Insumo';
+      case 'ELABORADO': return 'Elaborado / Postre';
+      case 'COMBO': return 'Combo / Promo';
+      case 'SERVICIO': return 'Servicio';
+      case 'ACTIVO_FIJO': return 'Activo Fijo';
       default: return tipo || 'Artículo';
     }
   }
@@ -3044,6 +3407,10 @@ export class CatalogosComponent implements OnInit {
       case 'SABOR': return 'badge-tipo-sabor';
       case 'TOPPING': return 'badge-tipo-topping';
       case 'INSUMO': return 'badge-tipo-insumo';
+      case 'ELABORADO': return 'badge-tipo-elaborado';
+      case 'COMBO': return 'badge-tipo-combo';
+      case 'SERVICIO': return 'badge-tipo-servicio';
+      case 'ACTIVO_FIJO': return 'badge-tipo-activo-fijo';
       default: return 'badge-tipo-default';
     }
   }

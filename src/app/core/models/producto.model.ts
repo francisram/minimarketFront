@@ -1,7 +1,7 @@
 import { TipoIva } from './tipo-iva.model';
 export type { TipoIva };
 
-export type TipoArticulo = 'VENTA_DIRECTA' | 'ENVASE' | 'SABOR' | 'TOPPING' | 'INSUMO';
+export type TipoArticulo = 'VENTA_DIRECTA' | 'ENVASE' | 'SABOR' | 'TOPPING' | 'INSUMO' | 'ELABORADO' | 'COMBO' | 'SERVICIO' | 'ACTIVO_FIJO';
 
 export type UnidadMedida = 'UNIDAD' | 'KG' | 'LITRO' | 'GRAMO';
 
@@ -23,6 +23,21 @@ export interface AsignarProveedorRequest {
   codigoReferencia?: string | null;
   costoCompra?: number | null;
   esPrincipal?: boolean;
+}
+
+export interface ComboComponente {
+  id?: number;
+  comboId?: number;
+  componenteId: number;
+  componenteNombre?: string;
+  componenteSku?: string;
+  componenteTipo?: TipoArticulo;
+  componentePrecioCosto?: number;
+  componentePrecioVenta?: number;
+  costoUnitario?: number;
+  precioUnitario?: number;
+  cantidad: number;
+  notas?: string | null;
 }
 
 export interface Producto {
@@ -56,6 +71,7 @@ export interface Producto {
 
   proveedores: ProveedorVinculado[];
   proveedorPrincipal?: ProveedorVinculado | null;
+  componentes?: ComboComponente[];
 }
 
 export interface ProductoRequest {
@@ -84,4 +100,5 @@ export interface ProductoRequest {
   sinAzucar?: boolean;
 
   proveedores?: AsignarProveedorRequest[];
+  componentes?: ComboComponente[];
 }

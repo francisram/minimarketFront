@@ -13,12 +13,16 @@ El módulo de **Catálogos** es el núcleo de la oferta comercial y operativa de
 La pantalla se organiza en 5 pestañas especializadas:
 
 1. 📦 **Pestaña "Maestro ERP" (Recomendada)**:
-   * Vista consolidada de todo el inventario clasificado en 5 categorías de negocio:
+   * Vista consolidada de todo el inventario clasificado en las categorías de negocio del ERP:
      - **Venta Directa**: Bebidas envasadas, alfajores, snacks, artículos de minimarket.
      - **Envases**: Potes térmicos (1/4 kg, 1/2 kg, 1 kg), cucuruchos, vasos plásticos.
      - **Sabores**: Gustos de helado en bacha con atributos dietarios (Apto celíacos/Sin TACC, Vegano, Sin Azúcar).
      - **Toppings**: Salsas, chocolates, granas y agregados dulces.
      - **Insumos**: Materia prima para elaboración (leche, crema, bases neutras, azúcar).
+     - **Elaborados**: Copas heladas, postres, tortas heladas o milkshakes.
+     - **Combos & Promociones**: Promociones simples o compuestas con despiece de stock.
+     - **Servicios**: Delivery, fletes o eventos.
+     - **Activos Fijos**: Maquinarias, freezers y equipamiento.
    * Soporta **relación multi-proveedor (N:M)**: asignación de múltiples distribuidores por artículo con costos de compra individuales, códigos de referencia y marca de **⭐ Proveedor Principal**.
    * Filtro por Tipo de Artículo y por Proveedor específico.
 2. 🍦 **Pestaña "Sabores"**:
@@ -86,3 +90,36 @@ Al crear o editar cualquier artículo en el Catálogo Maestro o en el alta rápi
 1. En la pestaña **"Envases"**, presiona **"+ Nuevo Envase"**.
 2. Completa el Nombre (ej. *Pote Térmico 1/2 Kg*), Precio de Venta (ej. `45.000`) y la **Capacidad Máxima de Sabores** (ej. `3`).
 3. Guarda los cambios. En el POS, el cajero solo podrá marcar hasta 3 gustos para esta presentación.
+
+---
+
+### Procedimiento D: Cómo Armar y Gestionar Combos y Promociones (Simples y Compuestos)
+
+El sistema cuenta con soporte híbrido para combos comerciales:
+
+#### 1. Crear un Combo Simple (Venta directa / Precio cerrado)
+* **Paso 1**: Ve a **Catálogos > Maestro ERP** y pulsa **"+ Nuevo Artículo"**.
+* **Paso 2**: En *Tipo de Artículo*, selecciona **`Combo & Promoción Compuesta`**.
+* **Paso 3**: En *Categoría / Familia*, elige una categoría comercial (ej. *Promociones & Combos*).
+* **Paso 4**: Completa Nombre, SKU, Precio de Costo y Precio de Venta.
+* **Paso 5**: Deja la sección de componentes vacía (verás la insignia **`⚡ Combo Simple`**).
+* **Paso 6**: Haz clic en **"Crear Artículo ERP"**. El combo se sincroniza al POS y se venderá a precio cerrado directo.
+
+#### 2. Crear un Combo Compuesto (Con despiece y descuento atómico de stock)
+* **Paso 1**: Sigue los pasos 1 a 3 anteriores seleccionando `Tipo de Artículo: COMBO`.
+* **Paso 2**: En la tarjeta **"Composición y Despiece del Combo"**:
+  - En el selector, busca el artículo componente (ej. *Pote 1 Kg*, *Cucurucho Extra*, *Agua mineral*, *Café* o *Insumo*).
+  - Define la **Cantidad** que descuenta el combo (ej. `1` o `2`).
+  - *(Opcional)* Escribe una nota de preparación.
+  - Pulsa **"+ Agregar"**. Repite para cada uno de los productos que componen la promoción.
+* **Paso 3**: Observa la insignia superior que cambiará a **`🧩 Combo Compuesto (N componentes)`**.
+* **Paso 4**: Haz clic en el botón **"Usar como costo del combo"** (flecha azul): el sistema sumará automáticamente los costos unitarios de todas las partes y actualizará el *Precio Costo* del combo.
+* **Paso 5**: Aplica el margen comercial deseado (**15%**, **20%**, **30%**, **50%**) o tipea tu Precio de Venta al público.
+* **Paso 6**: Haz clic en **"Crear Artículo ERP"**.
+
+#### 3. Venta en el Punto de Venta (POS) y Descuento de Stock
+* En el POS (`/pos`), el combo estará disponible en la pestaña con ícono de destellos ✨ (*Promociones & Combos*).
+* Al agregarlo al ticket y cobrar la venta:
+  - Si es **Compuesto**: Se descontará automáticamente el stock de cada parte (el envase, los cucuruchos, las bebidas o insumos) multiplicando la cantidad de combos vendidos por la receta.
+  - Se genera un asiento de auditoría en el Kardex y en `movimientos_stock` con el número de ticket (`SALIDA_VENTA`).
+  - Si es **Simple**: Se vende directamente sin descomponer inventario de terceros.

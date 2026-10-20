@@ -124,10 +124,12 @@ mindmap
 
 ### ÁREA 3: CATÁLOGOS RETAIL ERP
 
-#### 10. Catálogo Maestro ERP Multi-Proveedor (`/catalogos/maestro`)
-* **Propósito:** Gestión integral de la lista de artículos comerciales.
-* **Funcionalidades:** Clasificación en 5 categorías (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`), asignación multi-proveedor N:M con costos individuales, proveedor principal ⭐ y **Calculadora Inteligente de Margen Comercial** (**15%**, **20%**, **30%**, **50%**).
-* **Bondades:** Unifica el modelo comercial y productivo, asegurando la rentabilidad operativa.
+#### 10. Catálogo Maestro ERP Multi-Proveedor y Motor Híbrido de Combos (`/catalogos/maestro`)
+* **Propósito:** Gestión integral de la lista de artículos comerciales y promociones.
+* **Funcionalidades:** Clasificación en tipos comerciales (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`, `ELABORADO`, `COMBO`, `SERVICIO`, `ACTIVO_FIJO`), asignación multi-proveedor N:M con costos individuales, proveedor principal ⭐, **Calculadora Inteligente de Margen Comercial** (**15%**, **20%**, **30%**, **50%**) y **Motor Híbrido de Combos**:
+  * **⚡ Combos Simples**: Promociones a precio cerrado directo.
+  * **🧩 Combos Compuestos**: Con despiece y receta de partes (envases, sabores, bebidas, insumos) que descuentan atómicamente el stock individual al cobrarse en el POS, con cálculo automático del costo acumulado.
+* **Bondades:** Unifica el modelo comercial y productivo, asegura márgenes de ganancia exactos en combos y previene el desabastecimiento silencioso de ingredientes.
 
 #### 11. Catálogos de Sabores, Presentaciones y Toppings (`/catalogos/*`)
 * **Propósito:** Parametrización de bachas, potes térmicos y agregados dulces con límites de porciones.

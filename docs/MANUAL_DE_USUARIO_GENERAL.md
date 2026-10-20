@@ -17,7 +17,7 @@
 9. [Módulo 6: Directorio y Gestión de Clientes (RUC / CI)](#9-módulo-6-directorio-y-gestión-de-clientes-ruc--ci)
 10. [Módulo 7: Control de Inventario, Bachas y Kardex Físico](#10-módulo-7-control-de-inventario-bachas-y-kardex-físico)
 11. [Módulo 8: Auditoría y Conteo Físico a Ciegas (Blind Stocktaking)](#11-módulo-8-auditoría-y-conteo-físico-a-ciegas-blind-stocktaking)
-12. [Módulo 9: Catálogo Maestro Retail ERP, Multi-Proveedor y Calculadora de Margen](#12-módulo-9-catálogo-maestro-retail-erp-multi-proveedor-y-calculadora-de-margen)
+12. [Módulo 9: Catálogo Maestro Retail ERP, Multi-Proveedor, Combos y Calculadora de Margen](#12-módulo-9-catálogo-maestro-retail-erp-multi-proveedor-combos-y-calculadora-de-margen)
 13. [Módulo 10: Reportes Fiscales SET, Libro Ventas IVA, Compras a Proveedores y Analítica](#13-módulo-10-reportes-fiscales-set-libro-ventas-iva-compras-a-proveedores-y-analítica)
 14. [Módulo 11: Gestión de Usuarios y Personal](#14-módulo-11-gestión-de-usuarios-y-personal)
 15. [Módulo 12: Roles y Matriz de Permisos](#15-módulo-12-roles-y-matriz-de-permisos)
@@ -28,7 +28,7 @@
 20. [Módulo 17: Padrón de Proveedores y Artículos Suministrados](#20-módulo-17-padrón-de-proveedores-y-artículos-suministrados)
 21. [Módulo 18: Facturas de Compra de Proveedores e Ingreso a Stock](#21-módulo-18-facturas-de-compra-de-proveedores-e-ingreso-a-stock)
 22. [Módulo 19: Bitácora Centralizada de Auditoría (Audit Trail)](#22-módulo-19-bitácora-centralizada-de-auditoría-audit-trail)
-23. [Preguntas Frecuentes y Solución de Incidencias](#23-preguntas-frecuentes-y-solución-de-incidencias)
+23. [Preguntas Frecuentes y Solución de Incidencias (Combos, POS, Stock y Fiscal)](#23-preguntas-frecuentes-y-solución-de-incidencias)
 
 ---
 
@@ -150,9 +150,10 @@ Un día habitual de operación sigue este flujo estándar:
 
 ---
 
-## 12. Módulo 9: Catálogo Maestro Retail ERP, Multi-Proveedor y Calculadora de Margen
+## 12. Módulo 9: Catálogo Maestro Retail ERP, Multi-Proveedor, Combos y Calculadora de Margen
 * **Acceso**: Menú Lateral > **Artículos & Catálogo ERP** (`/catalogos/maestro`).
-* Catálogo clasificado en 5 tipos comerciales (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`), asignación multi-proveedor N:M con costos pactados y calculadora de margen comercial (15%, 20%, 30%, 50%).
+* Catálogo clasificado en tipos comerciales (`VENTA_DIRECTA`, `ENVASE`, `SABOR`, `TOPPING`, `INSUMO`, `ELABORADO`, `COMBO`, `SERVICIO`, `ACTIVO_FIJO`), asignación multi-proveedor N:M con costos pactados, vinculación a familias de categorías y calculadora inteligente de margen comercial (15%, 20%, 30%, 50%).
+* **Motor Híbrido de Combos**: Permite crear tanto *Combos Simples* (venta directa a precio cerrado) como *Combos Compuestos* (con receta y despiece de componentes: potes, sabores, toppings, bebidas o insumos, con descuento atómico e individual de stock en el POS al venderse).
 
 ---
 
@@ -256,6 +257,65 @@ Registro oficial, inmutable y cronológico de todas las operaciones y modificaci
 
 ### 5. ¿Qué pasa si borro todo incluyendo los volúmenes de Docker y vuelvo a levantar desde Docker? ¿Servirá el backup descargado?
 * **Sí, servirá perfectamente.** Al levantar de cero, inicia sesión con el usuario de fábrica `admin` / `admin123`. Ve a `/backup`, arrastra tu archivo `.dump` descargado y confirma la restauración. El motor reconstruirá el 100% de tus datos originales.
+
+---
+
+### 6. ¿Cómo se crean y gestionan los Combos y Promociones? (Paso a Paso)
+
+El sistema cuenta con un motor **híbrido de combos** que se adapta a cualquier necesidad comercial de la heladería:
+
+#### A. Tipos de Combos disponibles:
+* **⚡ Combo Simple (Venta directa / Precio cerrado)**: No tiene componentes registrados. Se cobra al precio fijado y descuenta su propio stock si está configurado. Es ideal para promociones rápidas, vales o combos de mostrador sencillos.
+* **🧩 Combo Compuesto (Con despiece y descuento atómico de stock)**: Contiene una lista de ingredientes o artículos del inventario (ejemplo: *1 Pote de 1 Kg + 2 Cucuruchos crocantes + 1 Botella de Agua*). Al venderse en el POS, el sistema descuenta de forma automática el stock individual de cada una de sus partes según la receta indicada.
+
+#### B. Paso a Paso para armar un Combo en el Catálogo Maestro ERP:
+1. **Acceder al Catálogo Maestro**:
+   * En el menú lateral, ve a **Artículos & Catálogo ERP** (`/catalogos`) y asegúrate de estar en la pestaña **Maestro ERP**.
+2. **Crear o Editar el Combo**:
+   * Pulsa el botón azul **"+ Nuevo Artículo"** (o el botón de edición sobre un combo existente).
+3. **Seleccionar Tipo y Categoría**:
+   * En **Tipo de Artículo**, elige: **`Combo & Promoción Compuesta`**.
+   * En **Categoría / Familia**, selecciona una categoría afín, por ejemplo: **`Promociones & Combos`**.
+4. **Completar datos comerciales**:
+   * Asigna un **Nombre comercial** (ej. *Super Promo Familiar 1Kg*), **Código SKU** (ej. *CMB-FAM-01*) y descripción.
+5. **Definir la Composición (Solo si es Combo Compuesto)**:
+   * Al elegir el tipo *COMBO*, aparecerá automáticamente la tarjeta **"Composición y Despiece del Combo"**.
+   * En el selector desplegable, busca el primer artículo integrante (ej. *Pote 1 Kg*).
+   * Escribe la **Cantidad** que incluye el combo (ej. `1`).
+   * *(Opcional)* Agrega una nota o indicación (ej. *Envase térmico principal*).
+   * Pulsa el botón **"+ Agregar"**.
+   * Repite el proceso para los demás componentes (ej. *Cucurucho Extra* con cantidad `2`).
+   * *Nota: La insignia superior cambiará automáticamente de `⚡ Combo Simple` a `🧩 Combo Compuesto (2 componentes)`.*
+6. **Calcular el Costo y Fijar el Margen Comercial**:
+   * Al pie de la tabla de componentes verás el **Costo Total Componentes**.
+   * Haz clic en el botón inteligente **"Usar como costo del combo"** (flecha azul): esto copiará la sumatoria exacta de costos de sus partes al campo *Precio Costo* del combo.
+   * Selecciona el margen deseado con los botones rápidos (**15%**, **20%**, **30%**, **50%**) o tipea tu **Precio de Venta** final.
+7. **Guardar el Artículo**:
+   * Haz clic en **"Crear Artículo ERP"** (o *Guardar Cambios*).
+
+#### C. ¿Cómo se vende y descuenta en el Punto de Venta (POS)?
+1. En el **POS (`/pos`)**, el combo aparecerá automáticamente en la botonera de categorías bajo la pestaña con ícono de destellos ✨ (*Promociones & Combos*) o al teclear su código SKU/nombre.
+2. Al pulsar sobre el combo o escanear su código, se agrega al ticket como una línea de venta normal al precio cerrado promocional.
+3. Al cobrar y emitir el ticket/factura:
+   * Si es **Compuesto**: El sistema descuenta atómicamente el stock de cada uno de sus integrantes en sus respectivos módulos de inventario (el pote baja 1 unidad, los cucuruchos bajan 2 unidades, etc.) y genera asientos auditables en `movimientos_stock` con el número de transacción.
+   * Si es **Simple**: El sistema procesa la venta a precio cerrado sin tocar otros insumos.
+
+---
+
+### 7. ¿Qué artículos se pueden agregar a un combo de heladería?
+Puedes combinar libremente cualquiera de los artículos del catálogo:
+* **Envases/Potes térmicos** (Pote 1/4 kg, 1/2 kg, 1 kg, vasitos).
+* **Sabores de helado en bacha** (descuenta por peso en kg o fracción).
+* **Toppings y agregados** (cucuruchos, obleas, salsas, chocolates, granas).
+* **Bebidas y cafetería** (gaseosas, aguas minerales, cafés envasados).
+* **Insumos y materias primas** (para postres o copas especiales).
+
+---
+
+### 8. ¿Puedo cambiar un combo de "Simple" a "Compuesto" más adelante?
+**Sí, en cualquier momento.** 
+* Para convertir un combo simple en compuesto: simplemente edítalo en el Catálogo Maestro y agrégale componentes en la sección de despiece.
+* Para convertir un combo compuesto en simple: quita todos los componentes de su lista pulsando el ícono de papelera y guarda los cambios. El sistema lo tratará inmediatamente como un combo directo.
 
 ---
 *Manual elaborado conforme a la versión vigente del Sistema Retail ERP Heladería & Minimarket.*  
