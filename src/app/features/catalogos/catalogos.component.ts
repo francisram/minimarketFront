@@ -1172,20 +1172,16 @@ export interface ProductoMaestroFormModel {
               <input id="catProdPrecio" type="number" step="1000" class="form-control" [(ngModel)]="productoForm.precio" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="catProdCat">Categoría</label>
-              <input
-                id="catProdCat"
-                type="text"
-                list="listaCategoriasVentaDirecta"
-                class="form-control"
-                [(ngModel)]="productoForm.categoria"
-                placeholder="Ej. BEBIDAS, CAFETERIA..."
-              />
-              <datalist id="listaCategoriasVentaDirecta">
+              <label class="form-label" for="catProdCat">Categoría (de la vista de Categorías)</label>
+              <select id="catProdCat" class="form-control" [(ngModel)]="productoForm.categoria">
+                <option value="">-- Sin categoría asignada --</option>
                 @for (c of categoriasService.categoriasVentaDirecta(); track c.id) {
-                  <option [value]="c.nombre"></option>
+                  <option [value]="c.nombre">{{ c.nombre }}</option>
                 }
-              </datalist>
+                @if (productoForm.categoria && !categoriaExiste(productoForm.categoria)) {
+                  <option [value]="productoForm.categoria">{{ productoForm.categoria }} (Personalizada)</option>
+                }
+              </select>
             </div>
           </div>
           <div class="form-row-2">
@@ -1286,7 +1282,7 @@ export interface ProductoMaestroFormModel {
               />
             </div>
             <div class="form-group">
-              <label class="form-label" for="maestroTipo">Tipo de Artículo (Categoría ERP) *</label>
+              <label class="form-label" for="maestroTipo">Tipo de Artículo (Módulo / Naturaleza) *</label>
               <select id="maestroTipo" class="form-control" [(ngModel)]="productoMaestroForm.tipoArticulo">
                 <option value="VENTA_DIRECTA">Venta Directa / Cafetería Envasada</option>
                 <option value="ENVASE">Envase / Pote de Helado</option>
@@ -1299,20 +1295,32 @@ export interface ProductoMaestroFormModel {
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="maestroCategoria">Categoría / Familia</label>
-              <input
+              <label class="form-label" for="maestroCategoria">Categoría / Familia (de la vista de Categorías)</label>
+              <select
                 id="maestroCategoria"
-                type="text"
-                list="listaCategoriasMaestro"
                 class="form-control"
                 [(ngModel)]="productoMaestroForm.categoria"
-                placeholder="Selecciona o escribe..."
-              />
-              <datalist id="listaCategoriasMaestro">
-                @for (c of categoriasPorTipo(productoMaestroForm.tipoArticulo); track c.id) {
-                  <option [value]="c.nombre"></option>
+                (ngModelChange)="alSeleccionarCategoriaMaestro($event)"
+              >
+                <option [ngValue]="null">-- Sin categoría asignada --</option>
+                @if (categoriasPorTipo(productoMaestroForm.tipoArticulo).length > 0) {
+                  <optgroup [label]="'Categorías para ' + obtenerTextoTipoArticulo(productoMaestroForm.tipoArticulo)">
+                    @for (c of categoriasPorTipo(productoMaestroForm.tipoArticulo); track c.id) {
+                      <option [value]="c.nombre">{{ c.nombre }}</option>
+                    }
+                  </optgroup>
                 }
-              </datalist>
+                @if (categoriasOtras(productoMaestroForm.tipoArticulo).length > 0) {
+                  <optgroup label="Otras categorías del sistema">
+                    @for (c of categoriasOtras(productoMaestroForm.tipoArticulo); track c.id) {
+                      <option [value]="c.nombre">{{ c.nombre }} ({{ c.tipoArticulo || 'General' }})</option>
+                    }
+                  </optgroup>
+                }
+                @if (productoMaestroForm.categoria && !categoriaExiste(productoMaestroForm.categoria)) {
+                  <option [value]="productoMaestroForm.categoria">{{ productoMaestroForm.categoria }} (Personalizada)</option>
+                }
+              </select>
             </div>
             <div class="form-group">
               <label class="form-label" for="maestroDesc">Descripción / Detalles</label>
@@ -2311,6 +2319,25 @@ export class CatalogosComponent implements OnInit {
     const cats = this.categoriasService.categorias().filter(c => c.activo);
     if (!tipo) return cats;
     return cats.filter(c => !c.tipoArticulo || c.tipoArticulo === tipo);
+  }
+
+  categoriasOtras(tipo?: TipoArticulo): Categoria[] {
+    const cats = this.categoriasService.categorias().filter(c => c.activo);
+    if (!tipo) return [];
+    return cats.filter(c => c.tipoArticulo && c.tipoArticulo !== tipo);
+  }
+
+  categoriaExiste(nombre?: string | null): boolean {
+    if (!nombre) return false;
+    return this.categoriasService.categorias().some(c => c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
+  }
+
+  alSeleccionarCategoriaMaestro(nombreCat: string | null): void {
+    if (!nombreCat) return;
+    const cat = this.categoriasService.categorias().find(c => c.nombre.trim().toLowerCase() === nombreCat.trim().toLowerCase());
+    if (cat && cat.tipoArticulo && cat.tipoArticulo !== this.productoMaestroForm.tipoArticulo) {
+      this.productoMaestroForm.tipoArticulo = cat.tipoArticulo;
+    }
   }
 
   // Filtros Maestro ERP
