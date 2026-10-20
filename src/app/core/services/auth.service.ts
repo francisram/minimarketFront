@@ -98,6 +98,12 @@ export class AuthService {
     if (c === 'compras') {
       return this._permisos().some(p => p === 'compras' || p === 'proveedores' || p === 'stock');
     }
+    if (c === 'catalogos') {
+      return this._permisos().some(p => ['catalogos', 'productos', 'sabores', 'presentaciones', 'toppings', 'categorias'].includes(p));
+    }
+    if (c === 'categorias') {
+      return this._permisos().some(p => p === 'categorias' || p === 'productos' || p === 'sabores');
+    }
     return this._permisos().some(p => p === c);
   }
 

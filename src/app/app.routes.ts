@@ -112,11 +112,13 @@ export const routes: Routes = [
       },
       {
         path: 'catalogos',
-        loadComponent: () => import('./features/catalogos/catalogos.component').then(m => m.CatalogosComponent)
+        loadComponent: () => import('./features/catalogos/catalogos.component').then(m => m.CatalogosComponent),
+        canActivate: [permissionGuard('catalogos')]
       },
       {
         path: 'catalogos/:seccion',
-        loadComponent: () => import('./features/catalogos/catalogos.component').then(m => m.CatalogosComponent)
+        loadComponent: () => import('./features/catalogos/catalogos.component').then(m => m.CatalogosComponent),
+        canActivate: [permissionGuard('catalogos')]
       },
       {
         path: 'sabores',

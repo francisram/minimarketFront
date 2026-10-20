@@ -479,18 +479,22 @@ export class RolesComponent implements OnInit {
     { clave: 'pedidos', nombre: 'Punto de Venta / POS', descripcion: 'Cobro de ventas, comandas de heladería y tickets', icono: 'shopping-cart' },
     { clave: 'caja', nombre: 'Control de Caja', descripcion: 'Turnos, apertura, arqueo de ventas y cierres de caja', icono: 'banknote' },
     { clave: 'clientes', nombre: 'Directorio de Clientes', descripcion: 'Búsqueda, registro de clientes, RUC y fidelización', icono: 'users' },
+    { clave: 'proveedores', nombre: 'Proveedores Comerciales', descripcion: 'Directorio y gestión de proveedores mayoristas', icono: 'truck' },
+    { clave: 'compras', nombre: 'Facturas de Compra', descripcion: 'Recepción de mercadería, carga de facturas y actualización de stock', icono: 'file-text' },
     { clave: 'reportes', nombre: 'Reportes y Analítica SET', descripcion: 'Auditoría, Libro IVA, reimpresiones térmicas y talonarios', icono: 'bar-chart-3' },
     { clave: 'stock', nombre: 'Control de Stock', descripcion: 'Inventario general y alertas de reposición', icono: 'warehouse' },
     { clave: 'sabores', nombre: 'Catálogo de Sabores', descripcion: 'Gestión y disponibilidad de sabores en bacha', icono: 'sparkles' },
     { clave: 'presentaciones', nombre: 'Envases y Cucuruchos', descripcion: 'Potes térmicos, vasitos y conos', icono: 'package' },
     { clave: 'toppings', nombre: 'Toppings y Agregados', descripcion: 'Salsas, confites y adicionales', icono: 'cup-soda' },
-    { clave: 'productos', nombre: 'Productos Simples', descripcion: 'Bebidas, cafetería y snacks empaquetados', icono: 'coffee' },
+    { clave: 'productos', nombre: 'Artículos & Maestro ERP', descripcion: 'Catálogo unificado de venta directa, envases, sabores y materias primas', icono: 'package' },
+    { clave: 'categorias', nombre: 'Categorías y Familias', descripcion: 'Gestión dinámica de familias para helados, cafetería e insumos', icono: 'tag' },
     { clave: 'impresoras', nombre: 'Impresoras ESC/POS', descripcion: 'Configuración de impresoras térmicas de tickets', icono: 'printer' },
     { clave: 'institucion', nombre: 'Datos del Negocio', descripcion: 'Razón social, RUC emisor, timbrados fiscales y logo', icono: 'building' },
     { clave: 'usuarios', nombre: 'Gestión de Usuarios', descripcion: 'Cuentas de usuario y accesos al sistema', icono: 'user' },
     { clave: 'roles', nombre: 'Roles y Permisos', descripcion: 'Definición de perfiles y páginas autorizadas', icono: 'shield' },
     { clave: 'licencia', nombre: 'Licenciamiento', descripcion: 'Estado de suscripción y vigencia del software', icono: 'verified' },
     { clave: 'auditoria', nombre: 'Auditoría & Conteo Físico', descripcion: 'Planilla de conteo físico a ciegas, actas y comparativo de existencias', icono: 'clipboard-check' },
+    { clave: 'bitacora', nombre: 'Bitácora de Auditoría', descripcion: 'Registro histórico de accesos y modificaciones en el sistema', icono: 'history' },
     { clave: 'backup', nombre: 'Copias de Seguridad', descripcion: 'Respaldo y restauración integral de la base de datos', icono: 'database' }
   ];
 
@@ -524,11 +528,14 @@ export class RolesComponent implements OnInit {
       pedidos: 'Punto de Venta / Pedidos',
       caja: 'Control de Caja',
       clientes: 'Directorio de Clientes',
+      proveedores: 'Proveedores Comerciales',
+      compras: 'Facturas de Compra',
       reportes: 'Reportes y Analítica SET',
       sabores: 'Catálogo de Sabores',
       presentaciones: 'Envases y Cucuruchos',
       toppings: 'Toppings y Agregados',
-      productos: 'Bebidas y Cafetería',
+      productos: 'Artículos & Maestro ERP',
+      categorias: 'Categorías y Familias',
       stock: 'Control de Stock',
       impresoras: 'Impresoras ESC/POS',
       institucion: 'Datos del Negocio',
@@ -536,6 +543,7 @@ export class RolesComponent implements OnInit {
       roles: 'Roles y Permisos',
       licencia: 'Licenciamiento',
       auditoria: 'Auditoría & Conteo Físico',
+      bitacora: 'Bitácora de Auditoría',
       backup: 'Copias de Seguridad'
     };
     return mapa[clave.toLowerCase()] || clave;

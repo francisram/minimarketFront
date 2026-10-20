@@ -44,6 +44,7 @@ export class MenuService {
     { clave: 'presentaciones', nombre: 'Presentaciones', ruta: '/catalogos/presentaciones', icono: 'cup-soda' },
     { clave: 'toppings', nombre: 'Toppings', ruta: '/catalogos/toppings', icono: 'sparkles' },
     { clave: 'productos', nombre: 'Artículos & Catálogo ERP', ruta: '/catalogos/maestro', icono: 'package' },
+    { clave: 'categorias', nombre: 'Categorías y Familias', ruta: '/catalogos/categorias', icono: 'tag' },
     { clave: 'impresoras', nombre: 'Impresoras ESC/POS', ruta: '/impresoras', icono: 'printer', adminOnly: true },
     { clave: 'usuarios', nombre: 'Usuarios', ruta: '/usuarios', icono: 'user', adminOnly: true },
     { clave: 'roles', nombre: 'Roles y Permisos', ruta: '/roles', icono: 'shield', adminOnly: true },
@@ -72,7 +73,7 @@ export class MenuService {
       }
 
       // 2. Módulos esenciales de administración para ADMIN / OWNER:
-      if (isAdminOrOwner && ['stock', 'auditoria', 'bitacora', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'proveedores', 'compras', 'pedidos', 'backup'].includes(item.clave)) {
+      if (isAdminOrOwner && ['stock', 'auditoria', 'bitacora', 'reportes', 'impresoras', 'institucion', 'dashboard', 'caja', 'clientes', 'proveedores', 'compras', 'pedidos', 'backup', 'categorias'].includes(item.clave)) {
         return true;
       }
 

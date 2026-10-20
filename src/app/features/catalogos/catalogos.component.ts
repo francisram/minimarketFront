@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { CatalogosService } from '../../core/services/catalogos.service';
 import { ProductosService } from '../../core/services/productos.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
@@ -65,32 +66,32 @@ export interface ProductoMaestroFormModel {
         </div>
 
         <div class="header-actions">
-          @if (tabActiva() === 'maestro') {
+          @if (tabActiva() === 'maestro' && authService.hasPermission('productos')) {
             <button type="button" class="btn btn-primary" (click)="abrirModalMaestroCrear()">
               <app-icon name="plus" [size]="16" />
               <span>Nuevo Artículo ERP</span>
             </button>
-          } @else if (tabActiva() === 'sabores') {
+          } @else if (tabActiva() === 'sabores' && authService.hasPermission('sabores')) {
             <button type="button" class="btn btn-primary" (click)="abrirModalSabor()">
               <app-icon name="plus" [size]="16" />
               <span>Nuevo Sabor</span>
             </button>
-          } @else if (tabActiva() === 'presentaciones') {
+          } @else if (tabActiva() === 'presentaciones' && authService.hasPermission('presentaciones')) {
             <button type="button" class="btn btn-primary" (click)="abrirModalPresentacion()">
               <app-icon name="plus" [size]="16" />
               <span>Nuevo Envase</span>
             </button>
-          } @else if (tabActiva() === 'toppings') {
+          } @else if (tabActiva() === 'toppings' && authService.hasPermission('toppings')) {
             <button type="button" class="btn btn-primary" (click)="abrirModalTopping()">
               <app-icon name="plus" [size]="16" />
               <span>Nuevo Topping</span>
             </button>
-          } @else if (tabActiva() === 'productos') {
+          } @else if (tabActiva() === 'productos' && authService.hasPermission('productos')) {
             <button type="button" class="btn btn-primary" (click)="abrirModalProducto()">
               <app-icon name="plus" [size]="16" />
               <span>Nuevo Producto</span>
             </button>
-          } @else if (tabActiva() === 'categorias') {
+          } @else if (tabActiva() === 'categorias' && authService.hasPermission('categorias')) {
             <button type="button" class="btn btn-primary" (click)="abrirModalCategoria()">
               <app-icon name="plus" [size]="16" />
               <span>Nueva Categoría</span>
@@ -98,60 +99,72 @@ export interface ProductoMaestroFormModel {
           }
 
           <div class="tabs-nav">
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'maestro'"
-              (click)="tabActiva.set('maestro')"
-            >
-              <app-icon name="package" [size]="16" />
-              <span>Maestro ERP ({{ productosService.productos().length }})</span>
-            </button>
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'sabores'"
-              (click)="tabActiva.set('sabores')"
-            >
-              <app-icon name="ice-cream" [size]="16" />
-              <span>Sabores ({{ catalogosService.sabores().length }})</span>
-            </button>
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'presentaciones'"
-              (click)="tabActiva.set('presentaciones')"
-            >
-              <app-icon name="cup-soda" [size]="16" />
-              <span>Envases ({{ catalogosService.presentaciones().length }})</span>
-            </button>
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'toppings'"
-              (click)="tabActiva.set('toppings')"
-            >
-              <app-icon name="sparkles" [size]="16" />
-              <span>Toppings ({{ catalogosService.toppings().length }})</span>
-            </button>
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'productos'"
-              (click)="tabActiva.set('productos')"
-            >
-              <app-icon name="coffee" [size]="16" />
-              <span>Cafetería ({{ catalogosService.productosSimples().length }})</span>
-            </button>
-            <button 
-              type="button" 
-              class="tab-btn" 
-              [class.active]="tabActiva() === 'categorias'"
-              (click)="tabActiva.set('categorias')"
-            >
-              <app-icon name="tag" [size]="16" />
-              <span>Categorías ({{ categoriasService.categorias().length }})</span>
-            </button>
+            @if (authService.hasPermission('productos')) {
+              <button 
+                type="button" 
+                class="tab-btn" 
+                [class.active]="tabActiva() === 'maestro'"
+                (click)="tabActiva.set('maestro')"
+              >
+                <app-icon name="package" [size]="16" />
+                <span>Maestro ERP ({{ productosService.productos().length }})</span>
+              </button>
+            }
+            @if (authService.hasPermission('sabores')) {
+              <button 
+                type="button" 
+                class="tab-btn" 
+                [class.active]="tabActiva() === 'sabores'"
+                (click)="tabActiva.set('sabores')"
+              >
+                <app-icon name="ice-cream" [size]="16" />
+                <span>Sabores ({{ catalogosService.sabores().length }})</span>
+              </button>
+            }
+            @if (authService.hasPermission('presentaciones')) {
+              <button 
+                type="button" 
+                class="tab-btn" 
+                [class.active]="tabActiva() === 'presentaciones'"
+                (click)="tabActiva.set('presentaciones')"
+              >
+                <app-icon name="cup-soda" [size]="16" />
+                <span>Envases ({{ catalogosService.presentaciones().length }})</span>
+              </button>
+            }
+            @if (authService.hasPermission('toppings')) {
+              <button 
+                type="button" 
+                class="tab-btn" 
+                [class.active]="tabActiva() === 'toppings'"
+                (click)="tabActiva.set('toppings')"
+              >
+                <app-icon name="sparkles" [size]="16" />
+                <span>Toppings ({{ catalogosService.toppings().length }})</span>
+              </button>
+            }
+            @if (authService.hasPermission('productos')) {
+              <button 
+                type="button" 
+                class="tab-btn" 
+                [class.active]="tabActiva() === 'productos'"
+                (click)="tabActiva.set('productos')"
+              >
+                <app-icon name="coffee" [size]="16" />
+                <span>Cafetería ({{ catalogosService.productosSimples().length }})</span>
+              </button>
+            }
+            @if (authService.hasPermission('categorias')) {
+              <button 
+                type="button" 
+                class="tab-btn" 
+                [class.active]="tabActiva() === 'categorias'"
+                (click)="tabActiva.set('categorias')"
+              >
+                <app-icon name="tag" [size]="16" />
+                <span>Categorías ({{ categoriasService.categorias().length }})</span>
+              </button>
+            }
           </div>
         </div>
       </div>
@@ -2216,6 +2229,7 @@ export interface ProductoMaestroFormModel {
   `]
 })
 export class CatalogosComponent implements OnInit {
+  public readonly authService = inject(AuthService);
   public readonly catalogosService = inject(CatalogosService);
   public readonly productosService = inject(ProductosService);
   public readonly proveedoresService = inject(ProveedoresService);
@@ -2227,6 +2241,37 @@ export class CatalogosComponent implements OnInit {
 
   public readonly tabActiva = signal<'maestro' | 'sabores' | 'presentaciones' | 'toppings' | 'productos' | 'categorias'>('maestro');
   public readonly guardandoItem = signal<boolean>(false);
+
+  esTabPermitida(tab: string): boolean {
+    switch (tab) {
+      case 'maestro':
+        return this.authService.hasPermission('productos');
+      case 'sabores':
+        return this.authService.hasPermission('sabores');
+      case 'presentaciones':
+        return this.authService.hasPermission('presentaciones');
+      case 'toppings':
+        return this.authService.hasPermission('toppings');
+      case 'productos':
+        return this.authService.hasPermission('productos');
+      case 'categorias':
+        return this.authService.hasPermission('categorias');
+      default:
+        return false;
+    }
+  }
+
+  obtenerPrimerTabPermitida(): 'maestro' | 'sabores' | 'presentaciones' | 'toppings' | 'productos' | 'categorias' {
+    const tabs: ('maestro' | 'sabores' | 'presentaciones' | 'toppings' | 'productos' | 'categorias')[] = [
+      'maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'
+    ];
+    for (const t of tabs) {
+      if (this.esTabPermitida(t)) {
+        return t;
+      }
+    }
+    return 'maestro';
+  }
 
   // Filtros y Estado Categorías
   public readonly filtroCategoriaBuscar = signal<string>('');
@@ -2355,9 +2400,13 @@ export class CatalogosComponent implements OnInit {
   public productoForm: Partial<ProductoSimple> = this.getProductoFormInicial();
 
   ngOnInit(): void {
+    if (!this.esTabPermitida(this.tabActiva())) {
+      this.tabActiva.set(this.obtenerPrimerTabPermitida());
+    }
+
     this.route.params.subscribe(params => {
       const seccion = params['seccion'];
-      if (seccion && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'].includes(seccion)) {
+      if (seccion && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'].includes(seccion) && this.esTabPermitida(seccion)) {
         this.tabActiva.set(seccion as any);
       }
     });
@@ -2367,12 +2416,14 @@ export class CatalogosComponent implements OnInit {
         const provIdStr = String(qp['proveedorId']);
         this.filtroProveedorId.set(provIdStr);
         this.filtroMaestroProveedorId.set(provIdStr);
-        this.tabActiva.set('maestro');
+        if (this.esTabPermitida('maestro')) {
+          this.tabActiva.set('maestro');
+        }
       }
-      if (qp['tab'] && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'].includes(qp['tab'])) {
+      if (qp['tab'] && ['maestro', 'sabores', 'presentaciones', 'toppings', 'productos', 'categorias'].includes(qp['tab']) && this.esTabPermitida(qp['tab'])) {
         this.tabActiva.set(qp['tab']);
       }
-      if (qp['accion'] === 'crear') {
+      if (qp['accion'] === 'crear' && this.authService.hasPermission('productos')) {
         const provId = qp['proveedorId'] ? Number(qp['proveedorId']) : null;
         this.abrirModalMaestroCrear(provId);
       }
