@@ -175,84 +175,88 @@ export interface ItemCatalogoPOS {
                   [class.out-of-stock]="item.stock !== undefined && item.stock <= 0"
                   (click)="agregarItemAlTicket(item)"
                 >
-                  <!-- BADGE STOCK SUPERIOR -->
-                  <div class="card-badges-top">
-                    <span class="badge-cat">{{ item.categoria }}</span>
-                    @if (item.stock !== undefined) {
-                      @if (item.stock <= 0) {
-                        <span class="badge-stock-empty">Sin stock</span>
-                      } @else if (item.stockMinimo !== undefined && item.stock <= item.stockMinimo) {
-                        <span class="badge-stock-low">Poco stock ({{ item.stock }})</span>
-                      } @else {
-                        <span class="badge-stock-ok">{{ item.stock }} disp.</span>
-                      }
-                    }
-                  </div>
-
-                  <!-- ICONO O FOTO PRINCIPAL DEL PRODUCTO -->
-                  <div class="card-icon-wrapper" [class.icon-helado]="item.tipo === 'HELADO'" [class.icon-topping]="item.tipo === 'TOPPING'" [class.has-image]="!!item.imagenUrl">
+                  <!-- BANNER SUPERIOR CON FOTO O ICONO TEMATICO -->
+                  <div class="card-banner-header" [class.has-image]="!!item.imagenUrl" [class.banner-helado]="item.tipo === 'HELADO'" [class.banner-topping]="item.tipo === 'TOPPING'">
                     @if (item.imagenUrl) {
-                      <img [src]="item.imagenUrl" class="card-product-img" [alt]="item.nombre" />
+                      <img [src]="item.imagenUrl" class="card-banner-img" [alt]="item.nombre" />
                     } @else {
-                      <app-icon [name]="item.icon" [size]="32" />
-                    }
-                  </div>
-
-                  <!-- DETALLES DEL PRODUCTO -->
-                  <div class="card-body">
-                    <h4 class="card-title" [title]="item.nombre">{{ item.nombre }}</h4>
-                    
-                    @if (item.detalles) {
-                      @if (item.categoria === 'Promociones & Combos' || (item.codigoItem && item.codigoItem.startsWith('CMB-'))) {
-                        <div class="card-combo-ingredients" [title]="item.detalles">
-                          <app-icon name="sparkles" [size]="12" />
-                          <span>{{ item.detalles }}</span>
-                        </div>
-                      } @else {
-                        <div class="card-detail-text">{{ item.detalles }}</div>
-                      }
+                      <div class="card-banner-placeholder">
+                        <app-icon [name]="item.icon" [size]="42" />
+                      </div>
                     }
 
-                    <div class="card-tags-row">
-                      @if (item.codigoItem) {
-                        <span class="card-code-tag" title="Código de producto / ID rápido">
-                          <app-icon name="hash" [size]="10" />
-                          <span>{{ item.codigoItem }}</span>
-                        </span>
-                      }
-                      @if (item.codigoBarra) {
-                        <span class="card-barcode-tag" title="Código de barras para lector óptico">
-                          <app-icon name="barcode" [size]="11" />
-                          <span>{{ item.codigoBarra }}</span>
-                        </span>
+                    <!-- INSIGNIAS SUPERPUESTAS -->
+                    <div class="card-badges-overlay">
+                      <span class="badge-cat-overlay">{{ item.categoria }}</span>
+                      @if (item.stock !== undefined) {
+                        @if (item.stock <= 0) {
+                          <span class="badge-stock-empty">Sin stock</span>
+                        } @else if (item.stockMinimo !== undefined && item.stock <= item.stockMinimo) {
+                          <span class="badge-stock-low">Poco ({{ item.stock }})</span>
+                        } @else {
+                          <span class="badge-stock-ok">{{ item.stock }} disp.</span>
+                        }
                       }
                     </div>
                   </div>
 
-                  <!-- PRECIO Y BOTÓN ACCIÓN -->
-                  <div class="card-footer">
-                    <div class="card-price">{{ item.precio | appCurrency }}</div>
-                    <div class="card-action-group">
-                      @if (item.tipo === 'HELADO') {
+                  <!-- CONTENIDO DE LA TARJETA -->
+                  <div class="card-content-area">
+                    <div class="card-body">
+                      <h4 class="card-title" [title]="item.nombre">{{ item.nombre }}</h4>
+                      
+                      @if (item.detalles) {
+                        @if (item.categoria === 'Promociones & Combos' || (item.codigoItem && item.codigoItem.startsWith('CMB-'))) {
+                          <div class="card-combo-ingredients" [title]="item.detalles">
+                            <app-icon name="sparkles" [size]="12" />
+                            <span>{{ item.detalles }}</span>
+                          </div>
+                        } @else {
+                          <div class="card-detail-text">{{ item.detalles }}</div>
+                        }
+                      }
+
+                      <div class="card-tags-row">
+                        @if (item.codigoItem) {
+                          <span class="card-code-tag" title="Código de producto / ID rápido">
+                            <app-icon name="hash" [size]="10" />
+                            <span>{{ item.codigoItem }}</span>
+                          </span>
+                        }
+                        @if (item.codigoBarra) {
+                          <span class="card-barcode-tag" title="Código de barras para lector óptico">
+                            <app-icon name="barcode" [size]="11" />
+                            <span>{{ item.codigoBarra }}</span>
+                          </span>
+                        }
+                      </div>
+                    </div>
+
+                    <!-- PRECIO Y BOTÓN ACCIÓN -->
+                    <div class="card-footer">
+                      <div class="card-price">{{ item.precio | appCurrency }}</div>
+                      <div class="card-action-group">
+                        @if (item.tipo === 'HELADO') {
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary card-flavor-quick-btn"
+                            title="Elegir y personalizar sabores en bacha para este helado"
+                            (click)="$event.stopPropagation(); abrirPersonalizadorSabor(item.rawItem)"
+                          >
+                            <app-icon name="sparkles" [size]="13" />
+                            <span>Sabores</span>
+                          </button>
+                        }
                         <button
                           type="button"
-                          class="btn btn-sm btn-outline-primary card-flavor-quick-btn"
-                          title="Elegir y personalizar sabores en bacha para este helado"
-                          (click)="$event.stopPropagation(); abrirPersonalizadorSabor(item.rawItem)"
+                          class="btn btn-sm btn-primary card-add-btn"
+                          [disabled]="item.stock !== undefined && item.stock <= 0"
+                          (click)="$event.stopPropagation(); agregarItemAlTicket(item)"
+                          title="Agregar al ticket"
                         >
-                          <app-icon name="sparkles" [size]="13" />
-                          <span>Sabores</span>
+                          <app-icon name="plus" [size]="16" />
                         </button>
-                      }
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-primary card-add-btn"
-                        [disabled]="item.stock !== undefined && item.stock <= 0"
-                        (click)="$event.stopPropagation(); agregarItemAlTicket(item)"
-                        title="Agregar al ticket"
-                      >
-                        <app-icon name="plus" [size]="16" />
-                      </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1377,7 +1381,7 @@ export interface ItemCatalogoPOS {
     .catalog-card {
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
-      padding: 1rem;
+      padding: 0;
       background: var(--bg-surface);
       display: flex;
       flex-direction: column;
@@ -1385,11 +1389,12 @@ export interface ItemCatalogoPOS {
       cursor: pointer;
       position: relative;
       transition: all 0.18s ease;
+      overflow: hidden;
     }
 
     .catalog-card:hover:not(.out-of-stock) {
       transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
       border-color: #3b82f6;
     }
 
@@ -1399,27 +1404,78 @@ export interface ItemCatalogoPOS {
       cursor: not-allowed;
     }
 
-    .card-badges-top {
+    /* BANNER SUPERIOR CON FOTO O ICONO */
+    .card-banner-header {
+      position: relative;
+      width: 100%;
+      height: 115px;
+      background: #eff6ff;
+      color: #2563eb;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-banner-header.banner-helado {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      color: #d97706;
+    }
+
+    .card-banner-header.banner-topping {
+      background: linear-gradient(135deg, #fdf4ff 0%, #f5d0fe 100%);
+      color: #c026d3;
+    }
+
+    .card-banner-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.25s ease;
+    }
+
+    .catalog-card:hover:not(.out-of-stock) .card-banner-img {
+      transform: scale(1.05);
+    }
+
+    .card-banner-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      background: inherit;
+    }
+
+    .card-badges-overlay {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      right: 0.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.65rem;
-      gap: 0.5rem;
+      z-index: 2;
+      pointer-events: none;
+      gap: 0.35rem;
     }
 
-    .badge-cat {
+    .badge-cat-overlay {
       font-size: 0.6875rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.025em;
-      color: #64748b;
-      background: var(--bg-subtle);
-      padding: 0.15rem 0.45rem;
+      color: #ffffff;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(4px);
+      padding: 0.18rem 0.45rem;
       border-radius: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 110px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
     .badge-stock-ok {
@@ -1430,6 +1486,7 @@ export interface ItemCatalogoPOS {
       background: #dcfce7;
       color: #166534;
       white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     }
 
     .badge-stock-low {
@@ -1440,6 +1497,7 @@ export interface ItemCatalogoPOS {
       background: #ffedd5;
       color: #9a3412;
       white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     }
 
     .badge-stock-empty {
@@ -1450,43 +1508,16 @@ export interface ItemCatalogoPOS {
       background: #fee2e2;
       color: #991b1b;
       white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     }
 
-    .card-icon-wrapper {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      background: #eff6ff;
-      color: #2563eb;
+    .card-content-area {
+      padding: 0.85rem 0.95rem 0.95rem 0.95rem;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0.25rem 0 0.75rem 0;
-    }
-
-    .card-icon-wrapper.icon-helado {
-      background: #fef3c7;
-      color: #d97706;
-    }
-
-    .card-icon-wrapper.icon-topping {
-      background: #fdf4ff;
-      color: #c026d3;
-    }
-
-    .card-icon-wrapper.has-image {
-      padding: 0;
-      overflow: hidden;
-      background: #f8fafc;
-      border: 1px solid var(--border-color);
-    }
-
-    .card-product-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      border-radius: 12px;
+      flex-direction: column;
+      flex: 1;
+      justify-content: space-between;
+      gap: 0.5rem;
     }
 
     .card-action-group {
