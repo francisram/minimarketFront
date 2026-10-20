@@ -71,8 +71,10 @@ export class PosService {
     return this.ticketItems().reduce((acc, item) => acc + item.cantidad, 0);
   });
 
-  cargarCatalogos(): void {
-    this.cargandoCatalogos.set(true);
+  cargarCatalogos(silencioso: boolean = false): void {
+    if (!silencioso) {
+      this.cargandoCatalogos.set(true);
+    }
 
     forkJoin({
       sabores: this.http.get<Sabor[]>(`${this.apiUrl}/api/sabores`).pipe(catchError(() => of([]))),
@@ -88,7 +90,9 @@ export class PosService {
         this.cargandoCatalogos.set(false);
       },
       error: () => {
-        this.toast.error('Error al cargar catálogos del POS.');
+        if (!silencioso) {
+          this.toast.error('Error al cargar catálogos del POS.');
+        }
         this.cargandoCatalogos.set(false);
       }
     });

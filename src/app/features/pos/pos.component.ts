@@ -3190,6 +3190,7 @@ export class PosComponent implements OnInit {
 
   cerrarModalComprobante(): void {
     this.modalComprobanteAbierto.set(false);
+    this.posService.cargarCatalogos(true);
   }
 
   confirmarVenta(): void {
@@ -3255,6 +3256,7 @@ export class PosComponent implements OnInit {
         this.toast.success(msg);
 
         this.cajaService.cargarResumen().subscribe();
+        this.posService.cargarCatalogos(true);
         this.cerrarModalCheckout();
 
         // Mostrar vista previa del comprobante emitido
