@@ -1093,6 +1093,15 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               </div>
             </div>
 
+            <!-- AVISO INFORMATIVO COMPRAS -->
+            <div class="compras-redirect-notice">
+              <app-icon name="info" [size]="16" />
+              <div class="notice-text">
+                <strong>¿Cuándo usar este ajuste?</strong> Para producción propia de helado o recuentos físicos. Si compraste mercadería a un distribuidor con factura, regístrala en 
+                <a routerLink="/compras" (click)="cerrarModalAjuste()" class="link-compras">Compras a Proveedores</a> para computar crédito fiscal y costo.
+              </div>
+            </div>
+
             <!-- MODO DE AJUSTE -->
             <div class="form-group">
               <label class="form-label">Tipo de Modificación</label>

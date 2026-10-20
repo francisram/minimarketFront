@@ -73,3 +73,31 @@ Cuando se derrama una bacha de helado, se rompe un envase o se realiza una degus
 ### Procedimiento D: Consultar la Valorización Monetaria del Stock (Gs.)
 1. Haz clic en la pestaña **Valorización en Gs.**.
 2. Consulta el **Capital Total Invertido en Stock** en Guaraníes y el desglose monetario por categoría (*Sabores*, *Envases*, *Productos*).
+
+---
+
+## 4. Preguntas Frecuentes
+
+### ¿Para qué sirve el botón "Reponer Stock" en Alertas y cuál es la diferencia con Compras a Proveedores?
+
+* **Botón "Reponer Stock" (Ajuste Rápido Operativo):**
+  - **Función:** Permite sumar mercadería o corregir de forma inmediata la cantidad en almacén desde la tabla de Alertas Críticas.
+  - **Uso exclusivo interno:** Diseñado para **producción propia de helado artesanal en el local** (bachas elaboradas por el maestro heladero) o para **regularizaciones directas por recuento físico**.
+  - **Sin impacto fiscal ni contable:** No genera factura, no solicita timbrado ni RUC, y **no mueve dinero de la caja registradora**.
+
+* **Módulo "Compras a Proveedores" (`/compras`):**
+  - **Función:** Canal oficial para registrar la entrada de mercadería comprada a distribuidores externos (potes, conos, bebidas, lácteos, materias primas).
+  - **Fiscalidad e impuestos:** Exige factura legal con timbrado vigente y liquida el **Crédito Fiscal IVA (10%, 5% y Exentas)** para el informe contable.
+  - **Impacto financiero:** Si la compra es al contado, genera automáticamente un **egreso de dinero en la sesión de caja activa** (`EGRESO_COMPRA`). Además, actualiza el costo de adquisición promedio y márgenes de ganancia.
+
+#### Cuadro Comparativo Rápido:
+
+| Criterio | ⚡ Reponer Stock (Alertas) | 📑 Compras a Proveedores (`/compras`) |
+| :--- | :--- | :--- |
+| **Naturaleza** | Ajuste operativo interno. | Operación comercial y fiscal con proveedor. |
+| **Comprobante** | Sin comprobante (interno). | Factura legal obligatoria con Timbrado. |
+| **Crédito Fiscal IVA** | No genera. | Genera Crédito Fiscal para Libro Compras. |
+| **Caja Registradora** | No mueve fondos de caja. | Genera egreso de dinero (si es contado). |
+| **Costos Unitarios** | Mantiene el costo existente. | Actualiza costo de compra y márgenes. |
+| **Cuándo usarlo** | Producción propia de helado / Conteo físico. | Mercadería recibida de distribuidores. |
+

@@ -318,5 +318,46 @@ Puedes combinar libremente cualquiera de los artículos del catálogo:
 * Para convertir un combo compuesto en simple: quita todos los componentes de su lista pulsando el ícono de papelera y guarda los cambios. El sistema lo tratará inmediatamente como un combo directo.
 
 ---
+
+### 9. ¿Para qué sirve el botón "Reponer Stock" en Alertas y cuál es la diferencia con Compras a Proveedores?
+
+Ambas opciones permiten aumentar existencias de mercadería, pero responden a propósitos y requerimientos comerciales muy distintos:
+
+#### A. Botón "Reponer Stock" (Ajuste Rápido Operativo):
+* **Propósito:** Es un atajo operativo directo de almacén o mostrador para solucionar un desabastecimiento inmediato o regularizar una existencia real.
+* **Sin Factura ni Comprobante Legal:** No solicita timbrado, RUC de distribuidor ni desglose de impuestos IVA.
+* **Sin Impacto en Dinero / Caja:** No genera salidas de efectivo ni movimientos de dinero en la sesión de caja activa.
+* **Modos de carga:**
+  - *➕ Sumar ingreso (+mercadería):* Suma una cantidad recibida directamente al stock actual.
+  - *✏️ Sobreescribir stock absoluto:* Ajusta la cifra exacta contada físicamente en el freezer o estantería.
+* **Casos de uso ideales:**
+  1. **Producción propia de helado artesanal:** Cuando el maestro heladero termina una tanda de producción en el obrador (ej. 10 kg de Dulce de Leche) y se cargan las bachas a los pozos.
+  2. **Correcciones de recuento físico:** Cuando el sistema marcaba 0 kg o bajo mínimo, pero físicamente aún quedan existencias en mostrador.
+  3. **Ajuste del umbral mínimo de alerta:** Permite redefinir el stock mínimo de seguridad en la misma pantalla.
+
+#### B. Módulo "Compras a Proveedores" (`/compras`):
+* **Propósito:** Es la operación formal y mercantil de compra de mercaderías e insumos a terceros (distribuidores, fábricas, mayoristas).
+* **Factura Legal Obligatoria:** Requiere número de factura oficial, timbrado tributario vigente, fecha de emisión, condición de compra (Contado / Crédito) y cálculo automático del **Crédito Fiscal IVA (10%, 5% y Exentas)** para el Libro Compras SET.
+* **Impacto Financiero y Contable:**
+  - Si la compra es al **Contado**, deduce automáticamente el dinero de la **Caja Diaria activa** (`EGRESO_COMPRA`) con su respectivo recibo o comprobante.
+  - Si es a **Crédito**, genera la cuenta por pagar al proveedor y establece la fecha de vencimiento.
+* **Costo y Márgenes:** Actualiza el costo de adquisición del artículo y recalcula la valorización del inventario de la empresa.
+* **Auditoría Legal:** Genera un asiento inmutable en el Kardex (`ENTRADA_COMPRA`) y en la Bitácora de Auditoría (`/bitacora`). Si la factura es anulada por devolución, ejecuta automáticamente la reversión del stock ingresado.
+* **Casos de uso ideales:**
+  - Compra de bebidas embotelladas, lácteos, potes térmicos, cucuruchos industriales, toppings empaquetados y materias primas a proveedores formales.
+
+#### Resumen comparativo rápido:
+
+| Criterio | ⚡ Reponer Stock (Alertas / Stock) | 📑 Compras a Proveedores (`/compras`) |
+| :--- | :--- | :--- |
+| **Naturaleza** | Ajuste operativo rápido de existencias. | Transacción comercial, formal y tributaria. |
+| **Comprobante** | Sin factura (interno). | Factura legal con timbrado y RUC. |
+| **Crédito Fiscal IVA** | No genera crédito fiscal. | Genera Crédito Fiscal (10%, 5% y Exentas). |
+| **Caja Registradora** | No mueve dinero de caja. | Genera egreso de caja si fue al contado. |
+| **Costo del Producto** | Mantiene el costo anterior. | Actualiza costo unitario y márgenes. |
+| **Uso Principal** | Elaboración interna de helado / Corrección física. | Compra de mercaderías e insumos a distribuidores. |
+
+---
+
 *Manual elaborado conforme a la versión vigente del Sistema Retail ERP Heladería & Minimarket.*  
 *Para asistencia técnica o consultas de soporte, contacte al área de sistemas autorizada.*
