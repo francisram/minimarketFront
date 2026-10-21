@@ -1875,22 +1875,12 @@ export interface ProductoMaestroFormModel {
                 </select>
               </div>
               <div class="form-group flex-1">
-                <label class="form-label text-xs">Costo Compra (Gs.)</label>
-                <input
-                  type="number"
-                  step="500"
-                  class="form-control form-control-sm"
-                  [(ngModel)]="nuevoVinculoCosto"
-                  placeholder="Ej. 12000"
-                />
-              </div>
-              <div class="form-group flex-1">
                 <label class="form-label text-xs">Cód. Referencia</label>
                 <input
                   type="text"
                   class="form-control form-control-sm"
                   [(ngModel)]="nuevoVinculoRef"
-                  placeholder="Ej. REF-01"
+                  placeholder="Ej. REF-01 (Opcional)"
                 />
               </div>
               <div class="form-group flex-auto d-flex align-end">
@@ -3293,18 +3283,16 @@ export class CatalogosComponent implements OnInit {
 
     if (esPrincipal) {
       this.productoMaestroForm.proveedoresList.forEach(p => p.esPrincipal = false);
-      if (this.nuevoVinculoCosto && (!this.productoMaestroForm.precioCosto || this.productoMaestroForm.precioCosto === 0)) {
-        this.productoMaestroForm.precioCosto = this.nuevoVinculoCosto;
-        this.onCostoOMargenChange();
-      }
     }
+
+    const costoBase = Number(this.productoMaestroForm.precioCosto) || 0;
 
     this.productoMaestroForm.proveedoresList.push({
       proveedorId: prov.id,
       razonSocial: prov.razonSocial,
       ruc: prov.ruc,
       codigoReferencia: this.nuevoVinculoRef?.trim() || null,
-      costoCompra: this.nuevoVinculoCosto || null,
+      costoCompra: costoBase > 0 ? costoBase : null,
       esPrincipal
     });
 
