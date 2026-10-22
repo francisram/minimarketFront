@@ -319,7 +319,7 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
     <!-- MODAL CONFIRMAR ANULACIÓN DESDE COMPROBANTE -->
     <app-modal
       [isOpen]="modalConfirmarAnular()"
-      title="Confirmar Anulación de Comprobante"
+      title="Autorizar Anulación de Comprobante"
       size="sm"
       (close)="cerrarConfirmarAnular()"
     >
@@ -330,9 +330,49 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         <p class="anular-text">
           ¿Está seguro de anular el comprobante <strong>{{ numeroComprobante() }}</strong> por valor de <strong>{{ total() | appCurrency }}</strong>?
         </p>
-        <div class="anular-info-box">
-          <app-icon name="info" [size]="16" />
-          <span>Esta acción reintegrará inmediatamente los productos, envases y sabores al stock, y restará el importe del arqueo de caja.</span>
+
+        @if (pedido()?.sesionCajaEstado === 'CERRADA') {
+          <div class="anular-caja-cerrada-box">
+            <app-icon name="alert-triangle" [size]="18" />
+            <span><strong>Caja Cerrada:</strong> La sesión de caja original está CERRADA. La anulación reintegrará el stock y kardex sin alterar el arqueo histórico. Si devuelve dinero en efectivo, regístrelo en la caja actual como Egreso.</span>
+          </div>
+        } @else {
+          <div class="anular-info-box">
+            <app-icon name="info" [size]="16" />
+            <span>Esta acción reintegrará inmediatamente los productos, envases y sabores al stock, y restará el importe del arqueo de caja abierta.</span>
+          </div>
+        }
+
+        <div class="anular-auth-form">
+          <div class="auth-field">
+            <label class="auth-label" for="anularAdminPassModal">
+              <app-icon name="lock" [size]="14" />
+              <span>Contraseña de Admin / Dueño <strong style="color: #ef4444;">*</strong></span>
+            </label>
+            <input
+              id="anularAdminPassModal"
+              type="password"
+              class="auth-input"
+              [(ngModel)]="adminPassword"
+              placeholder="Ingrese clave de admin para autorizar"
+              (keyup.enter)="adminPassword.trim() ? confirmarAnulacion() : null"
+              autocomplete="current-password"
+            />
+          </div>
+
+          <div class="auth-field">
+            <label class="auth-label" for="anularMotivoModal">
+              <app-icon name="file-text" [size]="14" />
+              <span>Motivo de la Anulación (opcional)</span>
+            </label>
+            <input
+              id="anularMotivoModal"
+              type="text"
+              class="auth-input"
+              [(ngModel)]="motivoAnulacion"
+              placeholder="Ej: Error en cobranza, cambio de producto"
+            />
+          </div>
         </div>
       </div>
 
@@ -344,7 +384,7 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
           type="button"
           class="btn btn-danger"
           (click)="confirmarAnulacion()"
-          [disabled]="anulando()"
+          [disabled]="anulando() || !adminPassword.trim()"
         >
           @if (anulando()) {
             <app-icon name="refresh" [size]="16" extraClass="spin-icon" />
@@ -775,6 +815,60 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
       text-align: left;
     }
 
+    .anular-caja-cerrada-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: #fef2f2;
+      border: 1px solid #fee2e2;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #991b1b;
+      font-size: 0.8125rem;
+      text-align: left;
+    }
+
+    .anular-auth-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      text-align: left;
+      margin-top: 0.25rem;
+    }
+
+    .auth-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .auth-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-main, #1e293b);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      border: 1px solid var(--border-color, #cbd5e1);
+      border-radius: 0.375rem;
+      outline: none;
+      background: var(--bg-surface, #ffffff);
+      color: var(--text-main, #0f172a);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .auth-input:focus {
+      border-color: var(--primary, #3b82f6);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    }
+
     .spin-icon {
       animation: spin 1s linear infinite;
     }
@@ -798,6 +892,8 @@ export class ComprobanteModalComponent implements OnInit {
 
   modalConfirmarAnular = signal<boolean>(false);
   anulando = signal<boolean>(false);
+  adminPassword = '';
+  motivoAnulacion = '';
 
   imprimiendoTicketera = signal<boolean>(false);
   impresoraSeleccionadaId: number | null = null;
@@ -1006,29 +1102,45 @@ export class ComprobanteModalComponent implements OnInit {
   }
 
   abrirConfirmarAnular(): void {
+    this.adminPassword = '';
+    this.motivoAnulacion = '';
     this.modalConfirmarAnular.set(true);
   }
 
   cerrarConfirmarAnular(): void {
     this.modalConfirmarAnular.set(false);
+    this.adminPassword = '';
+    this.motivoAnulacion = '';
   }
 
   confirmarAnulacion(): void {
     const p = this.pedido();
     if (!p || !p.id) return;
 
+    if (!this.adminPassword.trim()) {
+      this.toast.error('Debe ingresar la contraseña de administrador para autorizar la anulación.');
+      return;
+    }
+
     this.anulando.set(true);
-    this.pedidosService.cancelarPedido(p.id).subscribe({
+    this.pedidosService.cancelarPedido(p.id, {
+      adminPassword: this.adminPassword.trim(),
+      motivo: this.motivoAnulacion.trim() || undefined
+    }).subscribe({
       next: () => {
         this.anulando.set(false);
         this.modalConfirmarAnular.set(false);
+        this.adminPassword = '';
+        this.motivoAnulacion = '';
         this.pedidoAnulado.emit(p.id);
         this.close.emit();
       },
       error: (err) => {
         this.anulando.set(false);
-        const msg = err.error?.mensaje || 'No se pudo anular el comprobante.';
-        this.toast.error(msg);
+        const msg = (typeof err.error === 'string' && err.error.trim().length > 0)
+          ? err.error
+          : (err.error?.mensaje || 'No se pudo anular el comprobante. Verifique la contraseña de administrador.');
+        this.toast.error(msg, 'Autorización Requerida');
       }
     });
   }

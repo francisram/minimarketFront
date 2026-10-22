@@ -357,24 +357,81 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
       <!-- MODAL CONFIRMAR CANCELACIÓN -->
       <app-modal
         [isOpen]="modalCancelarAbierto()"
-        title="Confirmar Cancelación de Pedido"
+        title="Autorizar Cancelación de Pedido"
         size="sm"
-        (close)="modalCancelarAbierto.set(false)"
+        (close)="cerrarModalCancelar()"
       >
-        <div body>
+        <div body class="anular-modal-body">
           @if (pedidoACancelar()) {
-            <p>¿Estás seguro de cancelar el <strong>Pedido #{{ pedidoACancelar()?.id }}</strong>?</p>
-            <p class="text-muted mt-2" style="font-size: 0.85rem;">
-              Esta acción reintegrará el stock correspondiente a los productos simples involucrados.
+            <div class="anular-warning-icon">
+              <app-icon name="alert-triangle" [size]="44" />
+            </div>
+            <p class="anular-text">
+              ¿Estás seguro de cancelar el <strong>Pedido #{{ pedidoACancelar()?.id }}</strong> por valor de <strong>{{ pedidoACancelar()?.total | appCurrency }}</strong>?
             </p>
+
+            @if (pedidoACancelar()?.sesionCajaEstado === 'CERRADA') {
+              <div class="anular-caja-cerrada-box">
+                <app-icon name="alert-triangle" [size]="18" />
+                <span><strong>Caja Cerrada:</strong> La sesión de caja original está CERRADA. La cancelación reintegrará el stock y kardex sin alterar el arqueo histórico. Si devuelve dinero físico, regístrelo en la caja actual como Egreso.</span>
+              </div>
+            } @else {
+              <div class="anular-info-box">
+                <app-icon name="info" [size]="16" />
+                <span>Esta acción reintegrará inmediatamente los productos al stock e inventario y restará el importe del arqueo de caja abierta.</span>
+              </div>
+            }
+
+            <div class="anular-auth-form">
+              <div class="auth-field">
+                <label class="auth-label" for="cancelarAdminPassMonitor">
+                  <app-icon name="lock" [size]="14" />
+                  <span>Contraseña de Admin / Dueño <strong style="color: #ef4444;">*</strong></span>
+                </label>
+                <input
+                  id="cancelarAdminPassMonitor"
+                  type="password"
+                  class="auth-input"
+                  [(ngModel)]="adminPassword"
+                  placeholder="Ingrese clave de admin para autorizar"
+                  (keyup.enter)="adminPassword.trim() ? ejecutarCancelacion() : null"
+                  autocomplete="current-password"
+                />
+              </div>
+
+              <div class="auth-field">
+                <label class="auth-label" for="cancelarMotivoMonitor">
+                  <app-icon name="file-text" [size]="14" />
+                  <span>Motivo de Cancelación (opcional)</span>
+                </label>
+                <input
+                  id="cancelarMotivoMonitor"
+                  type="text"
+                  class="auth-input"
+                  [(ngModel)]="motivoCancelacion"
+                  placeholder="Ej: Pedido erróneo, cambio de orden"
+                />
+              </div>
+            </div>
           }
         </div>
         <div footer>
-          <button type="button" class="btn btn-secondary" (click)="modalCancelarAbierto.set(false)">
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalCancelar()" [disabled]="cancelando()">
             Volver
           </button>
-          <button type="button" class="btn btn-danger" (click)="ejecutarCancelacion()">
-            Confirmar Cancelación
+          <button
+            type="button"
+            class="btn btn-danger"
+            (click)="ejecutarCancelacion()"
+            [disabled]="cancelando() || !adminPassword.trim()"
+          >
+            @if (cancelando()) {
+              <app-icon name="refresh" [size]="16" extraClass="spin-icon" />
+              <span>Cancelando...</span>
+            } @else {
+              <app-icon name="trash" [size]="16" />
+              <span>Confirmar Cancelación</span>
+            }
           </button>
         </div>
       </app-modal>
@@ -610,10 +667,102 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
       border-radius: var(--radius-sm);
     }
 
-    .order-top-badges {
+    .anular-modal-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
+    }
+
+    .anular-warning-icon {
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .anular-text {
+      font-size: 0.9375rem;
+      color: var(--text-main, #0f172a);
+      margin: 0;
+    }
+
+    .anular-info-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: #fffbeb;
+      border: 1px solid #fef3c7;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #92400e;
+      font-size: 0.8125rem;
+      text-align: left;
+    }
+
+    .anular-caja-cerrada-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: #fef2f2;
+      border: 1px solid #fee2e2;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #991b1b;
+      font-size: 0.8125rem;
+      text-align: left;
+    }
+
+    .anular-auth-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      text-align: left;
+      margin-top: 0.25rem;
+    }
+
+    .auth-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .auth-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-main, #1e293b);
       display: flex;
       align-items: center;
       gap: 0.35rem;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      border: 1px solid var(--border-color, #cbd5e1);
+      border-radius: 0.375rem;
+      outline: none;
+      background: var(--bg-surface, #ffffff);
+      color: var(--text-main, #0f172a);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .auth-input:focus {
+      border-color: var(--primary, #3b82f6);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    }
+
+    .spin-icon {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
 
     @media (max-width: 1200px) {
@@ -635,6 +784,9 @@ export class PedidosComponent implements OnInit {
 
   public readonly modalCancelarAbierto = signal<boolean>(false);
   public readonly pedidoACancelar = signal<Pedido | null>(null);
+  public readonly cancelando = signal<boolean>(false);
+  public adminPassword = '';
+  public motivoCancelacion = '';
 
   public readonly modalComprobanteAbierto = signal<boolean>(false);
   public readonly pedidoSeleccionado = signal<Pedido | null>(null);
@@ -674,8 +826,17 @@ export class PedidosComponent implements OnInit {
   }
 
   confirmarCancelacion(pedido: Pedido): void {
+    this.adminPassword = '';
+    this.motivoCancelacion = '';
     this.pedidoACancelar.set(pedido);
     this.modalCancelarAbierto.set(true);
+  }
+
+  cerrarModalCancelar(): void {
+    this.modalCancelarAbierto.set(false);
+    this.pedidoACancelar.set(null);
+    this.adminPassword = '';
+    this.motivoCancelacion = '';
   }
 
   verComprobante(pedido: Pedido): void {
@@ -692,14 +853,29 @@ export class PedidosComponent implements OnInit {
     const pedido = this.pedidoACancelar();
     if (!pedido) return;
 
-    this.pedidosService.cancelarPedido(pedido.id).subscribe({
+    if (!this.adminPassword.trim()) {
+      this.toast.error('Debe ingresar la contraseña de administrador para autorizar la cancelación.');
+      return;
+    }
+
+    this.cancelando.set(true);
+    this.pedidosService.cancelarPedido(pedido.id, {
+      adminPassword: this.adminPassword.trim(),
+      motivo: this.motivoCancelacion.trim() || undefined
+    }).subscribe({
       next: () => {
+        this.cancelando.set(false);
         this.modalCancelarAbierto.set(false);
         this.pedidoACancelar.set(null);
+        this.adminPassword = '';
+        this.motivoCancelacion = '';
       },
       error: (err) => {
-        const msg = err.error?.mensaje || 'No se pudo cancelar el pedido.';
-        this.toast.error(msg);
+        this.cancelando.set(false);
+        const msg = (typeof err.error === 'string' && err.error.trim().length > 0)
+          ? err.error
+          : (err.error?.mensaje || 'No se pudo cancelar el pedido. Verifique la contraseña de administrador.');
+        this.toast.error(msg, 'Autorización Requerida');
       }
     });
   }

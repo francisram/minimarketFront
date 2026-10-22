@@ -71,12 +71,19 @@ export interface Pedido {
   clienteDireccion?: string;
   numeroFactura?: string;
   sesionCajaId?: number;
+  sesionCajaEstado?: string;
   totalExentas?: number;
   totalGravada5?: number;
   totalGravada10?: number;
   totalIva5?: number;
   totalIva10?: number;
   totalIva?: number;
+}
+
+export interface CancelarPedidoRequest {
+  adminPassword?: string;
+  adminUsername?: string;
+  motivo?: string;
 }
 
 export interface ItemTicketLocal {

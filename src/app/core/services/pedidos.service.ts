@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { EstadoPedido, Pedido } from '../models/pedido.model';
+import { EstadoPedido, Pedido, CancelarPedidoRequest } from '../models/pedido.model';
 import { ToastService } from './toast.service';
 
 @Injectable({
@@ -63,8 +63,8 @@ export class PedidosService {
     );
   }
 
-  cancelarPedido(pedidoId: number): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/api/pedidos/${pedidoId}/cancelar`, {}).pipe(
+  cancelarPedido(pedidoId: number, dto?: CancelarPedidoRequest): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/api/pedidos/${pedidoId}/cancelar`, dto || {}).pipe(
       tap(() => {
         this.toast.warning(`Pedido #${pedidoId} cancelado y stock reintegrado.`);
         this.cargarPedidos();
