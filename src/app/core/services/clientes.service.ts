@@ -83,4 +83,13 @@ export class ClientesService {
       })
     );
   }
+
+  eliminar(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/api/clientes/${id}`).pipe(
+      tap(() => {
+        this.toast.success('Cliente eliminado correctamente.');
+        this.cargarClientes();
+      })
+    );
+  }
 }

@@ -89,4 +89,13 @@ export class ProveedoresService {
       })
     );
   }
+
+  eliminar(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/api/proveedores/${id}`).pipe(
+      tap(() => {
+        this.toast.success('Proveedor eliminado correctamente.');
+        this.cargarProveedores();
+      })
+    );
+  }
 }

@@ -152,6 +152,14 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                       >
                         <app-icon [name]="p.activo ? 'minus' : 'check'" [size]="16" />
                       </button>
+                      <button
+                        type="button"
+                        class="btn-icon btn-icon-danger"
+                        title="Eliminar Proveedor"
+                        (click)="confirmarEliminar(p)"
+                      >
+                        <app-icon name="trash" [size]="16" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -408,6 +416,47 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           }
         </div>
       </app-modal>
+
+      <!-- MODAL CONFIRMAR ELIMINACIÓN -->
+      <app-modal
+        [isOpen]="modalEliminarAbierto()"
+        title="Confirmar Eliminación"
+        size="sm"
+        (close)="cerrarModalEliminar()"
+      >
+        <div body class="delete-modal-body">
+          <div class="delete-warning-icon">
+            <app-icon name="alert-triangle" [size]="48" />
+          </div>
+          <p class="delete-warning-text">
+            ¿Está seguro de que desea eliminar al proveedor <strong>{{ proveedorAEliminar()?.razonSocial }}</strong> (RUC: {{ proveedorAEliminar()?.ruc }})?
+          </p>
+          <div class="alert-box-warning">
+            <app-icon name="info" [size]="16" />
+            <span>Si este proveedor tiene compras registradas en el sistema, no podrá eliminarse para proteger la integridad contable. Puede desactivarlo en su lugar.</span>
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalEliminar()" [disabled]="eliminando()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            (click)="ejecutarEliminacion()"
+            [disabled]="eliminando()"
+          >
+            @if (eliminando()) {
+              <app-icon name="refresh" [size]="16" extraClass="spin-icon" />
+              <span>Eliminando...</span>
+            } @else {
+              <app-icon name="trash" [size]="16" />
+              <span>Eliminar</span>
+            }
+          </button>
+        </div>
+      </app-modal>
     </div>
   `,
   styles: [`
@@ -614,6 +663,12 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       border-color: var(--primary, #0284c7);
     }
 
+    .btn-icon-danger:hover {
+      background: #fee2e2 !important;
+      color: #ef4444 !important;
+      border-color: #fca5a5 !important;
+    }
+
     .text-right {
       text-align: right;
     }
@@ -639,6 +694,50 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 
     .btn-primary:hover:not(:disabled) {
       background: var(--primary-dark, #0369a1);
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+    }
+
+    .delete-modal-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
+    }
+
+    .delete-warning-icon {
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-warning-text {
+      font-size: 0.9375rem;
+      color: var(--text-main, #0f172a);
+      margin: 0;
+    }
+
+    .alert-box-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: #fffbeb;
+      border: 1px solid #fef3c7;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #92400e;
+      font-size: 0.8125rem;
+      text-align: left;
     }
 
     .btn-secondary {
@@ -888,6 +987,11 @@ export class ProveedoresComponent implements OnInit {
   proveedorEditando = signal<Proveedor | null>(null);
   guardando = signal<boolean>(false);
 
+  // Modal Confirmar Eliminación
+  modalEliminarAbierto = signal<boolean>(false);
+  proveedorAEliminar = signal<Proveedor | null>(null);
+  eliminando = signal<boolean>(false);
+
   // Modal Productos del Proveedor
   modalProductosAbierto = signal<boolean>(false);
   proveedorSeleccionado = signal<Proveedor | null>(null);
@@ -1080,6 +1184,33 @@ export class ProveedoresComponent implements OnInit {
     this.proveedoresService.cambiarEstado(proveedor.id, nuevoEstado).subscribe({
       error: () => {
         this.toast.error('No se pudo cambiar el estado del proveedor.');
+      }
+    });
+  }
+
+  confirmarEliminar(proveedor: Proveedor): void {
+    this.proveedorAEliminar.set(proveedor);
+    this.modalEliminarAbierto.set(true);
+  }
+
+  cerrarModalEliminar(): void {
+    this.modalEliminarAbierto.set(false);
+    this.proveedorAEliminar.set(null);
+  }
+
+  ejecutarEliminacion(): void {
+    const p = this.proveedorAEliminar();
+    if (!p) return;
+
+    this.eliminando.set(true);
+    this.proveedoresService.eliminar(p.id).subscribe({
+      next: () => {
+        this.eliminando.set(false);
+        this.cerrarModalEliminar();
+      },
+      error: (err) => {
+        this.eliminando.set(false);
+        this.toast.error(err.error?.mensaje || 'Error al eliminar el proveedor.');
       }
     });
   }

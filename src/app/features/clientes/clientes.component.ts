@@ -118,6 +118,14 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
                       >
                         <app-icon [name]="c.activo ? 'minus' : 'check'" [size]="16" />
                       </button>
+                      <button
+                        type="button"
+                        class="btn-icon btn-icon-danger"
+                        title="Eliminar Cliente"
+                        (click)="confirmarEliminar(c)"
+                      >
+                        <app-icon name="trash" [size]="16" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -231,6 +239,47 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
             } @else {
               <app-icon name="check" [size]="16" />
               <span>{{ clienteEditando() ? 'Guardar Cambios' : 'Registrar Cliente' }}</span>
+            }
+          </button>
+        </div>
+      </app-modal>
+
+      <!-- MODAL CONFIRMAR ELIMINACIÓN -->
+      <app-modal
+        [isOpen]="modalEliminarAbierto()"
+        title="Confirmar Eliminación"
+        size="sm"
+        (close)="cerrarModalEliminar()"
+      >
+        <div body class="delete-modal-body">
+          <div class="delete-warning-icon">
+            <app-icon name="alert-triangle" [size]="48" />
+          </div>
+          <p class="delete-warning-text">
+            ¿Está seguro de que desea eliminar al cliente <strong>{{ clienteAEliminar()?.razonSocial }}</strong> (RUC/C.I.: {{ clienteAEliminar()?.ruc }})?
+          </p>
+          <div class="alert-box-info">
+            <app-icon name="info" [size]="16" />
+            <span>El cliente se eliminará del directorio. Las facturas y comprobantes emitidos en el pasado conservarán sus datos intactos para respaldo fiscal.</span>
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalEliminar()" [disabled]="eliminando()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            (click)="ejecutarEliminacion()"
+            [disabled]="eliminando()"
+          >
+            @if (eliminando()) {
+              <app-icon name="refresh" [size]="16" extraClass="spin-icon" />
+              <span>Eliminando...</span>
+            } @else {
+              <app-icon name="trash" [size]="16" />
+              <span>Eliminar</span>
             }
           </button>
         </div>
@@ -441,6 +490,12 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
       border-color: var(--primary, #0284c7);
     }
 
+    .btn-icon-danger:hover {
+      background: #fee2e2 !important;
+      color: #ef4444 !important;
+      border-color: #fca5a5 !important;
+    }
+
     .text-right {
       text-align: right;
     }
@@ -466,6 +521,50 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
 
     .btn-primary:hover:not(:disabled) {
       background: var(--primary-dark, #0369a1);
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+    }
+
+    .delete-modal-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
+    }
+
+    .delete-warning-icon {
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-warning-text {
+      font-size: 0.9375rem;
+      color: var(--text-main, #0f172a);
+      margin: 0;
+    }
+
+    .alert-box-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: #f0f9ff;
+      border: 1px solid #e0f2fe;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #0369a1;
+      font-size: 0.8125rem;
+      text-align: left;
     }
 
     .btn-secondary {
@@ -603,6 +702,11 @@ export class ClientesComponent implements OnInit {
   clienteEditando = signal<Cliente | null>(null);
   guardando = signal<boolean>(false);
 
+  // Modal Confirmar Eliminación
+  modalEliminarAbierto = signal<boolean>(false);
+  clienteAEliminar = signal<Cliente | null>(null);
+  eliminando = signal<boolean>(false);
+
   clienteForm!: FormGroup;
 
   get f() {
@@ -713,6 +817,33 @@ export class ClientesComponent implements OnInit {
     this.clientesService.cambiarEstado(cliente.id, nuevoEstado).subscribe({
       error: () => {
         this.toast.error('No se pudo cambiar el estado del cliente.');
+      }
+    });
+  }
+
+  confirmarEliminar(cliente: Cliente): void {
+    this.clienteAEliminar.set(cliente);
+    this.modalEliminarAbierto.set(true);
+  }
+
+  cerrarModalEliminar(): void {
+    this.modalEliminarAbierto.set(false);
+    this.clienteAEliminar.set(null);
+  }
+
+  ejecutarEliminacion(): void {
+    const c = this.clienteAEliminar();
+    if (!c) return;
+
+    this.eliminando.set(true);
+    this.clientesService.eliminar(c.id).subscribe({
+      next: () => {
+        this.eliminando.set(false);
+        this.cerrarModalEliminar();
+      },
+      error: (err) => {
+        this.eliminando.set(false);
+        this.toast.error(err.error?.mensaje || 'Error al eliminar el cliente.');
       }
     });
   }
