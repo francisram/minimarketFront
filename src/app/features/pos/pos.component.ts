@@ -1025,6 +1025,7 @@ export interface ItemCatalogoPOS {
         [isOpen]="modalComprobanteAbierto()"
         [pedido]="ultimoPedidoEmitido()"
         (close)="cerrarModalComprobante()"
+        (pedidoAnulado)="onPedidoAnuladoDesdeModal($event)"
       />
     </div>
   `,
@@ -3190,6 +3191,12 @@ export class PosComponent implements OnInit {
 
   cerrarModalComprobante(): void {
     this.modalComprobanteAbierto.set(false);
+    this.posService.cargarCatalogos(true);
+  }
+
+  onPedidoAnuladoDesdeModal(pedidoId: number): void {
+    this.modalComprobanteAbierto.set(false);
+    this.ultimoPedidoEmitido.set(null);
     this.posService.cargarCatalogos(true);
   }
 

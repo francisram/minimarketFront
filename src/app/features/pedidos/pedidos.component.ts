@@ -281,6 +281,14 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
                       <span>Entregar</span>
                       <app-icon name="check" [size]="14" />
                     </button>
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-danger btn-icon-only" 
+                      (click)="confirmarCancelacion(p)"
+                      title="Cancelar pedido / Anular venta"
+                    >
+                      <app-icon name="trash" [size]="14" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -323,6 +331,14 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
                       title="Ver / Reimprimir Comprobante"
                     >
                       <app-icon name="file-text" [size]="14" />
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-danger btn-icon-only" 
+                      (click)="confirmarCancelacion(p)"
+                      title="Cancelar pedido / Anular venta"
+                    >
+                      <app-icon name="trash" [size]="14" />
                     </button>
                     <span class="order-method">
                       {{ p.metodoPago }}
@@ -368,6 +384,7 @@ import { ComprobanteModalComponent } from '../../shared/components/comprobante-m
         [isOpen]="modalComprobanteAbierto()"
         [pedido]="pedidoSeleccionado()"
         (close)="cerrarComprobante()"
+        (pedidoAnulado)="onPedidoAnuladoDesdeModal($event)"
       />
     </div>
   `,
@@ -685,5 +702,10 @@ export class PedidosComponent implements OnInit {
         this.toast.error(msg);
       }
     });
+  }
+
+  onPedidoAnuladoDesdeModal(pedidoId: number): void {
+    this.cerrarComprobante();
+    this.pedidosService.cargarPedidos();
   }
 }

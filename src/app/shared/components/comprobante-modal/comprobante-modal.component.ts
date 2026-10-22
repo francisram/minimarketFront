@@ -26,6 +26,11 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
           <div class="ticket-paper" id="comprobante-ticket-print">
             <!-- ENCABEZADO FISCAL DEL COMERCIO -->
             <div class="ticket-header">
+              @if (pedido()?.estado === 'CANCELADO') {
+                <div class="ticket-anulado-badge">
+                  ⚠️ COMPROBANTE ANULADO / CANCELADO
+                </div>
+              }
               @if (institucionService.institucion().logoBase64) {
                 <img 
                   [src]="'data:image/png;base64,' + institucionService.institucion().logoBase64" 
@@ -266,6 +271,19 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         </div>
 
         <div class="footer-actions">
+          @if (pedido()?.estado !== 'CANCELADO') {
+            <button
+              type="button"
+              class="btn btn-danger"
+              (click)="abrirConfirmarAnular()"
+              [disabled]="anulando()"
+              title="Anular comprobante y revertir stock a inventario"
+            >
+              <app-icon name="trash" [size]="16" />
+              <span>Anular Venta</span>
+            </button>
+          }
+
           <button
             type="button"
             class="btn btn-secondary"
@@ -295,6 +313,47 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
             <span>Imprimir / PDF</span>
           </button>
         </div>
+      </div>
+    </app-modal>
+
+    <!-- MODAL CONFIRMAR ANULACIÓN DESDE COMPROBANTE -->
+    <app-modal
+      [isOpen]="modalConfirmarAnular()"
+      title="Confirmar Anulación de Comprobante"
+      size="sm"
+      (close)="cerrarConfirmarAnular()"
+    >
+      <div body class="anular-modal-body">
+        <div class="anular-warning-icon">
+          <app-icon name="alert-triangle" [size]="44" />
+        </div>
+        <p class="anular-text">
+          ¿Está seguro de anular el comprobante <strong>{{ numeroComprobante() }}</strong> por valor de <strong>{{ total() | appCurrency }}</strong>?
+        </p>
+        <div class="anular-info-box">
+          <app-icon name="info" [size]="16" />
+          <span>Esta acción reintegrará inmediatamente los productos, envases y sabores al stock, y restará el importe del arqueo de caja.</span>
+        </div>
+      </div>
+
+      <div footer>
+        <button type="button" class="btn btn-secondary" (click)="cerrarConfirmarAnular()" [disabled]="anulando()">
+          Volver
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          (click)="confirmarAnulacion()"
+          [disabled]="anulando()"
+        >
+          @if (anulando()) {
+            <app-icon name="refresh" [size]="16" extraClass="spin-icon" />
+            <span>Anulando...</span>
+          } @else {
+            <app-icon name="trash" [size]="16" />
+            <span>Confirmar Anulación</span>
+          }
+        </button>
       </div>
     </app-modal>
   `,
@@ -666,6 +725,64 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         justify-content: space-between;
       }
     }
+
+    .ticket-anulado-badge {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px dashed #ef4444;
+      border-radius: 4px;
+      padding: 0.35rem 0.5rem;
+      font-weight: 800;
+      font-size: 11px;
+      text-align: center;
+      margin-bottom: 0.5rem;
+      width: 100%;
+      letter-spacing: 0.5px;
+    }
+
+    .anular-modal-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
+    }
+
+    .anular-warning-icon {
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .anular-text {
+      font-size: 0.9375rem;
+      color: var(--text-main, #0f172a);
+      margin: 0;
+    }
+
+    .anular-info-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      background: #fffbeb;
+      border: 1px solid #fef3c7;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #92400e;
+      font-size: 0.8125rem;
+      text-align: left;
+    }
+
+    .spin-icon {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   `]
 })
 export class ComprobanteModalComponent implements OnInit {
@@ -677,6 +794,10 @@ export class ComprobanteModalComponent implements OnInit {
   isOpen = input<boolean>(false);
   pedido = input<Pedido | null>(null);
   close = output<void>();
+  pedidoAnulado = output<number>();
+
+  modalConfirmarAnular = signal<boolean>(false);
+  anulando = signal<boolean>(false);
 
   imprimiendoTicketera = signal<boolean>(false);
   impresoraSeleccionadaId: number | null = null;
@@ -880,6 +1001,34 @@ export class ComprobanteModalComponent implements OnInit {
           ? err.error
           : (err.error?.mensaje || 'Error al comunicarse con la ticketera local.');
         this.toast.error(msg, 'Error Impresión Térmica');
+      }
+    });
+  }
+
+  abrirConfirmarAnular(): void {
+    this.modalConfirmarAnular.set(true);
+  }
+
+  cerrarConfirmarAnular(): void {
+    this.modalConfirmarAnular.set(false);
+  }
+
+  confirmarAnulacion(): void {
+    const p = this.pedido();
+    if (!p || !p.id) return;
+
+    this.anulando.set(true);
+    this.pedidosService.cancelarPedido(p.id).subscribe({
+      next: () => {
+        this.anulando.set(false);
+        this.modalConfirmarAnular.set(false);
+        this.pedidoAnulado.emit(p.id);
+        this.close.emit();
+      },
+      error: (err) => {
+        this.anulando.set(false);
+        const msg = err.error?.mensaje || 'No se pudo anular el comprobante.';
+        this.toast.error(msg);
       }
     });
   }
