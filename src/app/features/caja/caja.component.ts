@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { CajaService } from '../../core/services/caja.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AuthService } from '../../core/services/auth.service';
-import { SesionCaja } from '../../core/models/caja.model';
+import { SesionCaja, TipoMovimientoCaja, CategoriaMovimientoCaja, MovimientoCaja } from '../../core/models/caja.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
@@ -28,6 +28,10 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
             <span>Refrescar</span>
           </button>
           @if (cajaService.cajaAbierta()) {
+            <button type="button" class="btn btn-warning" (click)="abrirModalMovimiento()">
+              <app-icon name="plus" [size]="16" />
+              <span>Registrar Movimiento</span>
+            </button>
             @if (puedeCerrarCaja()) {
               <button type="button" class="btn btn-danger" (click)="abrirModalCierre()">
                 <app-icon name="lock" [size]="16" />
@@ -223,6 +227,28 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               </div>
             </div>
 
+            <div class="kpi-card">
+              <div class="kpi-icon-box bg-rose">
+                <app-icon name="arrow-down-left" [size]="22" />
+              </div>
+              <div class="kpi-details">
+                <span class="kpi-label">Egresos / Gastos</span>
+                <span class="kpi-value text-red">{{ (cajaService.resumenCaja()?.totalEgresosCaja ?? 0) | appCurrency }}</span>
+                <span class="kpi-sub">Salidas de caja y retiros</span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon-box bg-sky">
+                <app-icon name="arrow-up-right" [size]="22" />
+              </div>
+              <div class="kpi-details">
+                <span class="kpi-label">Ingresos Extras</span>
+                <span class="kpi-value text-blue">{{ (cajaService.resumenCaja()?.totalIngresosCaja ?? 0) | appCurrency }}</span>
+                <span class="kpi-sub">Aportes y reintegros</span>
+              </div>
+            </div>
+
             <div class="kpi-card highlight-expected">
               <div class="kpi-icon-box bg-emerald">
                 <app-icon name="banknote" [size]="22" />
@@ -230,9 +256,76 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <div class="kpi-details">
                 <span class="kpi-label">Efectivo Esperado en Mano</span>
                 <span class="kpi-value text-emerald font-bold">{{ (cajaService.resumenCaja()?.totalEsperadoEfectivo ?? 0) | appCurrency }}</span>
-                <span class="kpi-sub">Fondo Inicial + Efectivo cobrado</span>
+                <span class="kpi-sub">Fondo + Ventas + Ingresos - Egresos</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- TABLA DE MOVIMIENTOS DEL TURNO ACTIVO -->
+        <div class="card mb-4">
+          <div class="card-header space-between">
+            <div class="d-flex align-center gap-2">
+              <app-icon name="clipboard-list" [size]="18" />
+              <h3 class="card-title">Movimientos de Efectivo de la Sesión Activa</h3>
+            </div>
+            <div class="d-flex align-center gap-2">
+              <span class="badge" [ngClass]="cajaService.movimientosSesionActiva().length > 0 ? 'badge-info' : 'badge-cerrada'">
+                {{ cajaService.movimientosSesionActiva().length }} {{ cajaService.movimientosSesionActiva().length === 1 ? 'movimiento' : 'movimientos' }}
+              </span>
+              <button type="button" class="btn btn-sm btn-primary" (click)="abrirModalMovimiento()">
+                <app-icon name="plus" [size]="14" />
+                <span>Nuevo Movimiento</span>
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            @if (cajaService.movimientosSesionActiva().length === 0) {
+              <div class="text-center py-4 text-muted">
+                <p class="m-0">No se han registrado egresos ni ingresos en este turno de caja.</p>
+                <button type="button" class="btn btn-sm btn-secondary mt-2" (click)="abrirModalMovimiento()">
+                  <app-icon name="plus" [size]="14" />
+                  <span>Registrar primer movimiento</span>
+                </button>
+              </div>
+            } @else {
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Hora</th>
+                      <th>Tipo</th>
+                      <th>Categoría</th>
+                      <th>Concepto / Motivo</th>
+                      <th>Comprobante</th>
+                      <th>Cajero</th>
+                      <th class="text-right">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (mov of cajaService.movimientosSesionActiva(); track mov.id) {
+                      <tr>
+                        <td>{{ mov.fecha | date:'HH:mm' }}</td>
+                        <td>
+                          <span class="badge" [ngClass]="mov.tipo === 'EGRESO' ? 'badge-cerrada' : 'badge-en-curso'">
+                            {{ mov.tipo === 'EGRESO' ? '🔻 EGRESO' : '🔺 INGRESO' }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="categoria-pill">{{ getCategoriaLabel(mov.categoria) }}</span>
+                        </td>
+                        <td class="font-medium">{{ mov.concepto }}</td>
+                        <td>{{ mov.comprobante || '—' }}</td>
+                        <td class="small text-muted">{{ mov.usuario }}</td>
+                        <td class="text-right font-bold" [ngClass]="mov.tipo === 'EGRESO' ? 'text-red' : 'text-green'">
+                          {{ mov.tipo === 'EGRESO' ? '-' : '+' }}{{ mov.monto | appCurrency }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
           </div>
         </div>
       } @else {
@@ -469,6 +562,18 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <span>(+) Total Cobrado en Efectivo:</span>
                 <strong class="text-green">{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEfectivo ?? 0) | appCurrency }}</strong>
               </div>
+              @if ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalIngresosCaja) {
+                <div class="summary-row">
+                  <span>(+) Ingresos Extras de Caja:</span>
+                  <strong class="text-blue">+{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalIngresosCaja ?? 0) | appCurrency }}</strong>
+                </div>
+              }
+              @if ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEgresosCaja) {
+                <div class="summary-row">
+                  <span>(-) Egresos / Gastos de Caja:</span>
+                  <strong class="text-red">-{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEgresosCaja ?? 0) | appCurrency }}</strong>
+                </div>
+              }
               <div class="summary-row total-expected-row">
                 <span>(=) EFECTIVO ESPERADO EN GAVETA:</span>
                 <strong class="text-emerald">{{ ((resumenCierreTarget() ?? cajaService.resumenCaja())?.totalEsperadoEfectivo ?? 0) | appCurrency }}</strong>
@@ -718,12 +823,33 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <div class="ticket-section">
                 <div class="ticket-row"><span>Fondo Inicial:</span><strong>{{ sesionSeleccionada.montoInicial | appCurrency }}</strong></div>
                 <div class="ticket-row"><span>Ventas Efectivo:</span><span>{{ (sesionSeleccionada.totalVentasEfectivo ?? 0) | appCurrency }}</span></div>
+                @if (sesionSeleccionada.totalIngresosCaja) {
+                  <div class="ticket-row"><span>(+) Ingresos Extras:</span><strong class="text-blue">+{{ sesionSeleccionada.totalIngresosCaja | appCurrency }}</strong></div>
+                }
+                @if (sesionSeleccionada.totalEgresosCaja) {
+                  <div class="ticket-row"><span>(-) Egresos / Gastos:</span><strong class="text-red">-{{ sesionSeleccionada.totalEgresosCaja | appCurrency }}</strong></div>
+                }
                 <div class="ticket-row"><span>Ventas Débito:</span><span>{{ (sesionSeleccionada.totalVentasTarjetaDebito ?? 0) | appCurrency }}</span></div>
                 <div class="ticket-row"><span>Ventas Crédito:</span><span>{{ (sesionSeleccionada.totalVentasTarjetaCredito ?? 0) | appCurrency }}</span></div>
                 <div class="ticket-row"><span>Ventas QR:</span><span>{{ (sesionSeleccionada.totalVentasTransferenciaQr ?? 0) | appCurrency }}</span></div>
                 <div class="ticket-row highlight-row"><span>Total Ventas:</span><strong>{{ (sesionSeleccionada.totalVentasGeneral ?? 0) | appCurrency }}</strong></div>
                 <div class="ticket-row text-muted small"><span>Órdenes cobradas:</span><span>{{ sesionSeleccionada.cantidadPedidos ?? 0 }}</span></div>
               </div>
+
+              @if (movimientosSesionDetalle().length > 0) {
+                <div class="ticket-divider"></div>
+                <div class="ticket-section">
+                  <div class="ticket-section-title">--- MOVIMIENTOS DE CAJA ({{ movimientosSesionDetalle().length }}) ---</div>
+                  @for (m of movimientosSesionDetalle(); track m.id) {
+                    <div class="ticket-row small">
+                      <span>{{ m.fecha | date:'HH:mm' }} [{{ m.tipo === 'EGRESO' ? 'SALIDA' : 'INGRESO' }}] {{ m.concepto }}</span>
+                      <strong [ngClass]="m.tipo === 'EGRESO' ? 'text-red' : 'text-green'">
+                        {{ m.tipo === 'EGRESO' ? '-' : '+' }}{{ m.monto | appCurrency }}
+                      </strong>
+                    </div>
+                  }
+                </div>
+              }
 
               <div class="ticket-divider"></div>
 
@@ -793,6 +919,155 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
         <div footer>
           <button type="button" class="btn btn-secondary" (click)="cerrarModalDetalle()">
             Cerrar
+          </button>
+        </div>
+      </app-modal>
+
+      <!-- ==================== MODAL DE REGISTRO DE MOVIMIENTO ==================== -->
+      <app-modal
+        [isOpen]="modalMovimientoAbierto()"
+        [title]="movimientoData.tipo === 'EGRESO' ? 'Registrar Egreso / Salida de Caja' : 'Registrar Ingreso Extra de Caja'"
+        size="md"
+        (close)="cerrarModalMovimiento()"
+      >
+        <div body class="modal-caja-body">
+          <!-- TIPO DE MOVIMIENTO -->
+          <div class="tipo-movimiento-selector mb-3">
+            <button
+              type="button"
+              class="btn-tipo"
+              [class.active-egreso]="movimientoData.tipo === 'EGRESO'"
+              (click)="cambiarTipoMovimiento('EGRESO')"
+            >
+              <app-icon name="arrow-down-left" [size]="18" />
+              <span>Egreso / Gasto</span>
+            </button>
+            <button
+              type="button"
+              class="btn-tipo"
+              [class.active-ingreso]="movimientoData.tipo === 'INGRESO'"
+              (click)="cambiarTipoMovimiento('INGRESO')"
+            >
+              <app-icon name="arrow-up-right" [size]="18" />
+              <span>Ingreso Extra</span>
+            </button>
+          </div>
+
+          <!-- AVISO SEGÚN TIPO -->
+          <div class="info-alert mb-3" [class.alert-danger]="movimientoData.tipo === 'EGRESO'" [class.alert-info]="movimientoData.tipo === 'INGRESO'">
+            <app-icon [name]="movimientoData.tipo === 'EGRESO' ? 'alert-triangle' : 'info'" [size]="18" />
+            <span>
+              @if (movimientoData.tipo === 'EGRESO') {
+                El egreso <strong>descontará</strong> efectivo de la gaveta. Asegúrate de pedir y archivar el comprobante.
+              } @else {
+                El ingreso <strong>sumará</strong> efectivo a la gaveta para el cálculo del efectivo esperado en el arqueo final.
+              }
+            </span>
+          </div>
+
+          <!-- CATEGORÍA -->
+          <div class="form-group mb-3">
+            <label class="form-label" for="movCategoria">Categoría *</label>
+            <select
+              id="movCategoria"
+              class="form-control"
+              [(ngModel)]="movimientoData.categoria"
+            >
+              @if (movimientoData.tipo === 'EGRESO') {
+                @for (cat of categoriasEgreso; track cat.id) {
+                  <option [value]="cat.id">{{ cat.label }}</option>
+                }
+              } @else {
+                @for (cat of categoriasIngreso; track cat.id) {
+                  <option [value]="cat.id">{{ cat.label }}</option>
+                }
+              }
+            </select>
+          </div>
+
+          <!-- MONTO -->
+          <div class="form-group mb-3">
+            <label class="form-label" for="movMonto">Monto en Efectivo (Gs.) *</label>
+            <div class="input-currency-wrapper">
+              <span class="currency-prefix">Gs.</span>
+              <input
+                id="movMonto"
+                type="number"
+                min="1000"
+                step="1000"
+                class="form-control"
+                placeholder="Ej. 25000"
+                [(ngModel)]="movimientoData.monto"
+              />
+            </div>
+            <div class="quick-amounts">
+              <button type="button" class="btn-chip" (click)="setMontoMovimiento(10000)">10.000</button>
+              <button type="button" class="btn-chip" (click)="setMontoMovimiento(20000)">20.000</button>
+              <button type="button" class="btn-chip" (click)="setMontoMovimiento(50000)">50.000</button>
+              <button type="button" class="btn-chip" (click)="setMontoMovimiento(100000)">100.000</button>
+              <button type="button" class="btn-chip" (click)="setMontoMovimiento(200000)">200.000</button>
+            </div>
+          </div>
+
+          <!-- CONCEPTO / MOTIVO -->
+          <div class="form-group mb-3">
+            <label class="form-label" for="movConcepto">Concepto / Motivo Detallado *</label>
+            <input
+              id="movConcepto"
+              type="text"
+              class="form-control"
+              placeholder="Ej. Compra de 2 bolsas de hielo rolo, Pago flete delivery..."
+              [(ngModel)]="movimientoData.concepto"
+            />
+            <div class="chips-sugeridos mt-2">
+              <span class="chips-label">Sugerencias rápidas:</span>
+              <div class="chips-group">
+                @if (movimientoData.tipo === 'EGRESO') {
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Compra de hielo')">Compra de hielo</button>
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Pago flete delivery')">Pago flete delivery</button>
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Insumos de limpieza')">Insumos limpieza</button>
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Retiro parcial para caja fuerte')">Retiro caja fuerte</button>
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Cambio de sencillo con negocio vecino')">Cambio sencillo</button>
+                } @else {
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Fondo adicional de sencillo')">Fondo adicional sencillo</button>
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Reintegro sobrante de compras')">Reintegro sobrante compra</button>
+                  <button type="button" class="btn-chip-suggest" (click)="setConceptoMovimiento('Aporte de encargado/dueño')">Aporte encargado</button>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- COMPROBANTE -->
+          <div class="form-group mb-2">
+            <label class="form-label" for="movComprobante">Nº Comprobante / Factura / Ticket (opcional)</label>
+            <input
+              id="movComprobante"
+              type="text"
+              class="form-control"
+              placeholder="Ej. Fact. 001-002-0043120 o Recibo Nº 154"
+              [(ngModel)]="movimientoData.comprobante"
+            />
+          </div>
+        </div>
+
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="cerrarModalMovimiento()" [disabled]="cajaService.procesando()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn-danger]="movimientoData.tipo === 'EGRESO'"
+            [class.btn-primary]="movimientoData.tipo === 'INGRESO'"
+            (click)="confirmarMovimiento()"
+            [disabled]="cajaService.procesando() || !movimientoData.monto || movimientoData.monto <= 0 || !movimientoData.concepto.trim()"
+          >
+            @if (cajaService.procesando()) {
+              <span>Registrando...</span>
+            } @else {
+              <app-icon name="check" [size]="16" />
+              <span>Confirmar {{ movimientoData.tipo === 'EGRESO' ? 'Egreso' : 'Ingreso' }}</span>
+            }
           </button>
         </div>
       </app-modal>
@@ -1401,6 +1676,91 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       border-radius: 6px;
       font-size: 0.85rem;
     }
+
+    .bg-rose { background: #ffe4e6; color: #e11d48; }
+    .bg-sky { background: #e0f2fe; color: #0284c7; }
+    .text-blue { color: #0284c7; }
+
+    .categoria-pill {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+    .tipo-movimiento-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .btn-tipo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #64748b;
+    }
+    .btn-tipo.active-egreso {
+      border-color: #f43f5e;
+      background: #fff1f2;
+      color: #be123c;
+    }
+    .btn-tipo.active-ingreso {
+      border-color: #0ea5e9;
+      background: #f0f9ff;
+      color: #0369a1;
+    }
+    .info-alert.alert-danger {
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      color: #be123c;
+    }
+    .info-alert.alert-info {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      color: #0369a1;
+    }
+    .chips-sugeridos {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .chips-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .btn-chip-suggest {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.72rem;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-chip-suggest:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+      color: #1e293b;
+    }
   `]
 })
 export class CajaComponent implements OnInit {
@@ -1413,6 +1773,7 @@ export class CajaComponent implements OnInit {
   public readonly modalAperturaAbierto = signal<boolean>(false);
   public readonly modalCierreAbierto = signal<boolean>(false);
   public readonly modalDetalleAbierto = signal<boolean>(false);
+  public readonly modalMovimientoAbierto = signal<boolean>(false);
 
   // Formularios
   public aperturaData = {
@@ -1427,7 +1788,30 @@ export class CajaComponent implements OnInit {
     observaciones: ''
   };
 
+  public movimientoData = {
+    tipo: 'EGRESO' as TipoMovimientoCaja,
+    categoria: 'GASTO_MENOR' as CategoriaMovimientoCaja,
+    concepto: '',
+    comprobante: '',
+    monto: null as number | null
+  };
+
+  public readonly categoriasEgreso: { id: CategoriaMovimientoCaja; label: string }[] = [
+    { id: 'GASTO_MENOR', label: 'Gasto Menor Operativo (Hielo, Insumos, Limpieza)' },
+    { id: 'RETIRO_EFECTIVO', label: 'Retiro Parcial de Efectivo / Caja Fuerte' },
+    { id: 'PAGO_PROVEEDOR', label: 'Pago a Proveedor / Repartidor' },
+    { id: 'CAMBIO_SENCILLO', label: 'Cambio de Sencillo / Monedas' },
+    { id: 'OTRO_EGRESO', label: 'Otro Egreso Justificado' }
+  ];
+
+  public readonly categoriasIngreso: { id: CategoriaMovimientoCaja; label: string }[] = [
+    { id: 'INGRESO_EXTRA', label: 'Aporte de Fondo / Refuerzo de Caja' },
+    { id: 'DEVOLUCION_GASTO', label: 'Reintegro / Devolución de Gasto' },
+    { id: 'OTRO_INGRESO', label: 'Otro Ingreso Extra' }
+  ];
+
   public sesionSeleccionada: SesionCaja | null = null;
+  public readonly movimientosSesionDetalle = signal<MovimientoCaja[]>([]);
   public diferenciaCalculada = signal<number>(0);
   public diferenciaTarjetaCalculada = signal<number>(0);
   public diferenciaQrCalculada = signal<number>(0);
@@ -1679,8 +2063,90 @@ export class CajaComponent implements OnInit {
     });
   }
 
+  // --- MOVIMIENTOS DE CAJA (EGRESOS / INGRESOS) ---
+  abrirModalMovimiento(tipo: TipoMovimientoCaja = 'EGRESO'): void {
+    if (!this.cajaService.cajaAbierta()) {
+      this.toast.warning('Debes tener una sesión de caja abierta para registrar movimientos.');
+      return;
+    }
+    this.movimientoData = {
+      tipo,
+      categoria: tipo === 'EGRESO' ? 'GASTO_MENOR' : 'INGRESO_EXTRA',
+      concepto: '',
+      comprobante: '',
+      monto: null
+    };
+    this.modalMovimientoAbierto.set(true);
+  }
+
+  cerrarModalMovimiento(): void {
+    this.modalMovimientoAbierto.set(false);
+  }
+
+  cambiarTipoMovimiento(tipo: TipoMovimientoCaja): void {
+    this.movimientoData.tipo = tipo;
+    this.movimientoData.categoria = tipo === 'EGRESO' ? 'GASTO_MENOR' : 'INGRESO_EXTRA';
+  }
+
+  setMontoMovimiento(monto: number): void {
+    this.movimientoData.monto = monto;
+  }
+
+  setConceptoMovimiento(concepto: string): void {
+    this.movimientoData.concepto = concepto;
+  }
+
+  confirmarMovimiento(): void {
+    if (!this.cajaService.cajaAbierta()) {
+      this.toast.error('No hay una sesión de caja activa.');
+      return;
+    }
+
+    if (!this.movimientoData.monto || this.movimientoData.monto <= 0) {
+      this.toast.warning('El monto debe ser mayor a 0 Gs.');
+      return;
+    }
+
+    if (!this.movimientoData.concepto || !this.movimientoData.concepto.trim()) {
+      this.toast.warning('Debes ingresar un concepto o motivo del movimiento.');
+      return;
+    }
+
+    this.cajaService.registrarMovimiento({
+      tipo: this.movimientoData.tipo,
+      categoria: this.movimientoData.categoria,
+      concepto: this.movimientoData.concepto.trim(),
+      comprobante: this.movimientoData.comprobante?.trim() || undefined,
+      monto: this.movimientoData.monto
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (mov) => {
+        const tipoLabel = mov.tipo === 'EGRESO' ? 'Egreso' : 'Ingreso';
+        this.toast.success(`${tipoLabel} de ${mov.monto.toLocaleString('es-PY')} Gs. registrado exitosamente.`);
+        this.cerrarModalMovimiento();
+        this.refrescar();
+      },
+      error: (err) => {
+        const msg = err.error?.mensaje || err.error?.error || 'Error al registrar movimiento de caja.';
+        this.toast.error(msg, 'Error en Movimiento');
+      }
+    });
+  }
+
+  getCategoriaLabel(categoria?: CategoriaMovimientoCaja | string): string {
+    if (!categoria) return '—';
+    const todas = [...this.categoriasEgreso, ...this.categoriasIngreso];
+    const match = todas.find(c => c.id === categoria);
+    return match ? match.label.split('(')[0].trim() : categoria;
+  }
+
   // --- DETALLE ---
   verDetalleSesion(sesion: SesionCaja): void {
+    this.movimientosSesionDetalle.set([]);
+    this.cajaService.obtenerMovimientos(sesion.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (movs) => this.movimientosSesionDetalle.set(movs),
+      error: () => {}
+    });
+
     if (sesion.estado === 'ABIERTA') {
       this.cajaService.cargarResumen(sesion.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (resumen) => {
@@ -1692,6 +2158,8 @@ export class CajaComponent implements OnInit {
             totalVentasTarjetaCredito: resumen.totalTarjetaCredito,
             totalVentasTransferenciaQr: resumen.totalTransferenciaQr,
             montoEsperadoEfectivo: resumen.totalEsperadoEfectivo,
+            totalIngresosCaja: resumen.totalIngresosCaja,
+            totalEgresosCaja: resumen.totalEgresosCaja,
             cantidadPedidos: resumen.totalPedidos
           };
           this.modalDetalleAbierto.set(true);
@@ -1710,5 +2178,6 @@ export class CajaComponent implements OnInit {
   cerrarModalDetalle(): void {
     this.modalDetalleAbierto.set(false);
     this.sesionSeleccionada = null;
+    this.movimientosSesionDetalle.set([]);
   }
 }

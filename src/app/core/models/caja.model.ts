@@ -1,5 +1,38 @@
 export type EstadoSesionCaja = 'ABIERTA' | 'CERRADA';
 
+export type TipoMovimientoCaja = 'EGRESO' | 'INGRESO';
+
+export type CategoriaMovimientoCaja =
+  | 'GASTO_MENOR'
+  | 'RETIRO_EFECTIVO'
+  | 'PAGO_PROVEEDOR'
+  | 'CAMBIO_SENCILLO'
+  | 'OTRO_EGRESO'
+  | 'INGRESO_EXTRA'
+  | 'DEVOLUCION_GASTO'
+  | 'OTRO_INGRESO';
+
+export interface MovimientoCaja {
+  id: number;
+  sesionId: number;
+  tipo: TipoMovimientoCaja;
+  categoria: CategoriaMovimientoCaja;
+  concepto: string;
+  comprobante?: string | null;
+  monto: number;
+  usuario: string;
+  fecha: string;
+}
+
+export interface RegistrarMovimientoCajaRequest {
+  sesionId?: number;
+  tipo: TipoMovimientoCaja;
+  categoria: CategoriaMovimientoCaja;
+  concepto: string;
+  comprobante?: string;
+  monto: number;
+}
+
 export interface EstadoCaja {
   abierta: boolean;
   sesionId?: number | null;
@@ -19,6 +52,9 @@ export interface ResumenCaja {
   totalTarjetaCredito?: number;
   totalTransferenciaQr?: number;
   totalVentas?: number;
+  totalIngresosCaja?: number;
+  totalEgresosCaja?: number;
+  movimientos?: MovimientoCaja[];
   totalEsperadoEfectivo?: number;
   totalEsperadoTarjeta?: number;
   totalPedidos?: number;
@@ -46,6 +82,9 @@ export interface SesionCaja {
   totalVentasTarjetaCredito?: number;
   totalVentasTransferenciaQr?: number;
   totalVentasGeneral?: number;
+  totalIngresosCaja?: number;
+  totalEgresosCaja?: number;
+  movimientos?: MovimientoCaja[];
   cantidadPedidos?: number;
   observacionesApertura?: string | null;
   observacionesCierre?: string | null;
@@ -63,4 +102,3 @@ export interface CerrarCajaRequest {
   observaciones?: string;
   sesionId?: number;
 }
-

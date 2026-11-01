@@ -8,7 +8,9 @@ import {
   ResumenCaja,
   SesionCaja,
   AbrirCajaRequest,
-  CerrarCajaRequest
+  CerrarCajaRequest,
+  MovimientoCaja,
+  RegistrarMovimientoCajaRequest
 } from '../models/caja.model';
 
 @Injectable({
@@ -24,6 +26,9 @@ export class CajaService {
 
   private readonly _resumenCaja = signal<ResumenCaja | null>(null);
   public readonly resumenCaja = this._resumenCaja.asReadonly();
+
+  private readonly _movimientosSesionActiva = signal<MovimientoCaja[]>([]);
+  public readonly movimientosSesionActiva = this._movimientosSesionActiva.asReadonly();
 
   private readonly _historial = signal<SesionCaja[]>([]);
   public readonly historial = this._historial.asReadonly();
@@ -63,6 +68,7 @@ export class CajaService {
           this.cargarResumen().subscribe();
         } else {
           this._resumenCaja.set(null);
+          this._movimientosSesionActiva.set([]);
         }
         this.cargarCajasAbiertas().subscribe();
       }),
@@ -79,6 +85,9 @@ export class CajaService {
     return this.http.get<ResumenCaja>(url).pipe(
       tap(resumen => {
         this._resumenCaja.set(resumen);
+        if (resumen && resumen.movimientos) {
+          this._movimientosSesionActiva.set(resumen.movimientos);
+        }
       }),
       catchError(err => {
         console.warn('Error al cargar resumen de caja:', err);
@@ -113,6 +122,7 @@ export class CajaService {
           fechaApertura: sesion.fechaApertura,
           montoInicial: sesion.montoInicial
         });
+        this._movimientosSesionActiva.set([]);
         this.cargarResumen().subscribe();
         this.cargarCajasAbiertas().subscribe();
         this.cargarHistorial().subscribe();
@@ -139,6 +149,7 @@ export class CajaService {
             montoInicial: null
           });
           this._resumenCaja.set(null);
+          this._movimientosSesionActiva.set([]);
         }
         // Refrescar estado global del usuario, historial y lista de cajas abiertas
         this.cargarEstado().subscribe();
@@ -150,6 +161,26 @@ export class CajaService {
         return throwError(() => err);
       })
     );
+  }
+
+  registrarMovimiento(request: RegistrarMovimientoCajaRequest): Observable<MovimientoCaja> {
+    this.procesando.set(true);
+    return this.http.post<MovimientoCaja>(`${this.apiUrl}/api/caja/movimientos`, request).pipe(
+      tap(mov => {
+        this.procesando.set(false);
+        this._movimientosSesionActiva.update(list => [mov, ...list]);
+        this.cargarResumen().subscribe();
+        this.cargarCajasAbiertas().subscribe();
+      }),
+      catchError(err => {
+        this.procesando.set(false);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  obtenerMovimientos(sesionId: number): Observable<MovimientoCaja[]> {
+    return this.http.get<MovimientoCaja[]>(`${this.apiUrl}/api/caja/${sesionId}/movimientos`);
   }
 
   cargarHistorial(): Observable<SesionCaja[]> {
