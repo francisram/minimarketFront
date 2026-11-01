@@ -10,6 +10,7 @@ import { Producto, ProveedorVinculado, TipoArticulo } from '../../core/models/pr
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
+import { rucParaguayValidator, autocompletarRucDv } from '../../core/validators/ruc-modulo11.validator';
 
 @Component({
   selector: 'app-proveedores',
@@ -180,17 +181,37 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           <form [formGroup]="proveedorForm" (ngSubmit)="guardarProveedor()" id="proveedorForm">
             <div class="form-grid-2">
               <div class="form-group">
-                <label class="form-label" for="ruc">RUC o Cédula *</label>
-                <input
-                  id="ruc"
-                  type="text"
-                  class="form-control"
-                  placeholder="Ej. 80012345-6"
-                  formControlName="ruc"
-                  [class.is-invalid]="f['ruc'].touched && f['ruc'].invalid"
-                />
+                <label class="form-label" for="ruc">RUC del Proveedor *</label>
+                <div class="input-action-group">
+                  <input
+                    id="ruc"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ej. 80012345-6"
+                    formControlName="ruc"
+                    [class.is-invalid]="f['ruc'].touched && f['ruc'].invalid"
+                  />
+                  <button
+                    type="button"
+                    class="btn-calcular-dv"
+                    title="Calcular Dígito Verificador Módulo 11 oficial"
+                    (click)="aplicarAutocompletarRuc()"
+                  >
+                    <span>Calcular DV</span>
+                  </button>
+                </div>
                 @if (f['ruc'].touched && f['ruc'].errors?.['required']) {
-                  <span class="error-text">El RUC es obligatorio</span>
+                  <span class="error-text">El RUC del proveedor es obligatorio</span>
+                }
+                @if (f['ruc'].touched && f['ruc'].errors?.['rucDigitoInvalido']) {
+                  <span class="error-text">
+                    {{ f['ruc'].errors?.['rucDigitoInvalido']?.mensaje }}
+                  </span>
+                }
+                @if (f['ruc'].touched && f['ruc'].errors?.['rucFormatoInvalido']) {
+                  <span class="error-text">
+                    {{ f['ruc'].errors?.['rucFormatoInvalido']?.mensaje }}
+                  </span>
                 }
               </div>
 
@@ -832,6 +853,33 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
     .error-text {
       font-size: 0.75rem;
       color: #ef4444;
+      display: block;
+      margin-top: 0.25rem;
+    }
+
+    .input-action-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .btn-calcular-dv {
+      white-space: nowrap;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary, #d97706);
+      background-color: var(--primary-subtle, #fef3c7);
+      border: 1px solid var(--primary, #d97706);
+      border-radius: var(--radius-md, 0.5rem);
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      flex-shrink: 0;
+    }
+
+    .btn-calcular-dv:hover {
+      background-color: var(--primary, #d97706);
+      color: #ffffff;
     }
 
     .form-check {
@@ -1083,7 +1131,7 @@ export class ProveedoresComponent implements OnInit {
 
   private initForm(): void {
     this.proveedorForm = this.fb.group({
-      ruc: ['', [Validators.required, Validators.maxLength(30)]],
+      ruc: ['', [Validators.required, Validators.maxLength(30), rucParaguayValidator({ permitirCedulaSinDv: false })]],
       razonSocial: ['', [Validators.required, Validators.maxLength(120)]],
       contacto: ['', [Validators.maxLength(100)]],
       telefono: ['', [Validators.maxLength(30)]],
@@ -1091,6 +1139,17 @@ export class ProveedoresComponent implements OnInit {
       direccion: ['', [Validators.maxLength(150)]],
       activo: [true]
     });
+  }
+
+  aplicarAutocompletarRuc(): void {
+    const rucActual = this.proveedorForm.get('ruc')?.value;
+    if (rucActual && String(rucActual).trim()) {
+      const formateado = autocompletarRucDv(String(rucActual));
+      this.proveedorForm.patchValue({ ruc: formateado });
+      this.proveedorForm.get('ruc')?.markAsTouched();
+      this.proveedorForm.get('ruc')?.updateValueAndValidity();
+      this.toast.info(`RUC del proveedor actualizado con DV oficial: ${formateado}`, 'Módulo 11');
+    }
   }
 
   onBuscar(): void {

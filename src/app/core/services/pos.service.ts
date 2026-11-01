@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, Observable, tap, catchError, of, map } from 'rxjs';
+import { forkJoin, Observable, tap, catchError, of, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Sabor } from '../models/sabor.model';
 import { Presentacion } from '../models/presentacion.model';
@@ -380,9 +380,13 @@ export class PosService {
     clienteDireccion?: string;
     impresoraId?: number;
   }): Observable<Pedido> {
+    if (this.guardandoPedido()) {
+      return throwError(() => new Error('Ya se está procesando una venta. Por favor, aguarda.'));
+    }
+
     const items = this.ticketItems();
     if (items.length === 0) {
-      throw new Error('El ticket está vacío.');
+      return throwError(() => new Error('El ticket está vacío.'));
     }
 
     const payloadItems: ItemPedidoRequest[] = items.map(item => {
@@ -435,7 +439,7 @@ export class PosService {
       }),
       catchError(err => {
         this.guardandoPedido.set(false);
-        throw err;
+        return throwError(() => err);
       })
     );
   }

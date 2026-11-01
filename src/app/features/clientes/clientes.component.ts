@@ -6,6 +6,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { Cliente, ClienteRequest } from '../../core/models/cliente.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
+import { rucParaguayValidator, autocompletarRucDv } from '../../core/validators/ruc-modulo11.validator';
 
 @Component({
   selector: 'app-clientes',
@@ -147,16 +148,36 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
             <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label" for="ruc">RUC o Cédula *</label>
-                <input
-                  id="ruc"
-                  type="text"
-                  class="form-control"
-                  placeholder="Ej. 1234567-8 o 4567890"
-                  formControlName="ruc"
-                  [class.is-invalid]="f['ruc'].touched && f['ruc'].invalid"
-                />
+                <div class="input-action-group">
+                  <input
+                    id="ruc"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ej. 80012345-6 o 4567890"
+                    formControlName="ruc"
+                    [class.is-invalid]="f['ruc'].touched && f['ruc'].invalid"
+                  />
+                  <button
+                    type="button"
+                    class="btn-calcular-dv"
+                    title="Calcular Dígito Verificador Módulo 11 oficial"
+                    (click)="aplicarAutocompletarRuc()"
+                  >
+                    <span>Calcular DV</span>
+                  </button>
+                </div>
                 @if (f['ruc'].touched && f['ruc'].errors?.['required']) {
                   <span class="error-text">El RUC o Cédula es obligatorio</span>
+                }
+                @if (f['ruc'].touched && f['ruc'].errors?.['rucDigitoInvalido']) {
+                  <span class="error-text">
+                    {{ f['ruc'].errors?.['rucDigitoInvalido']?.mensaje }}
+                  </span>
+                }
+                @if (f['ruc'].touched && f['ruc'].errors?.['rucFormatoInvalido']) {
+                  <span class="error-text">
+                    {{ f['ruc'].errors?.['rucFormatoInvalido']?.mensaje }}
+                  </span>
                 }
               </div>
 
@@ -659,6 +680,33 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
     .error-text {
       font-size: 0.75rem;
       color: #ef4444;
+      display: block;
+      margin-top: 0.25rem;
+    }
+
+    .input-action-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .btn-calcular-dv {
+      white-space: nowrap;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary, #d97706);
+      background-color: var(--primary-subtle, #fef3c7);
+      border: 1px solid var(--primary, #d97706);
+      border-radius: var(--radius-md, 0.5rem);
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      flex-shrink: 0;
+    }
+
+    .btn-calcular-dv:hover {
+      background-color: var(--primary, #d97706);
+      color: #ffffff;
     }
 
     .form-check {
@@ -720,13 +768,24 @@ export class ClientesComponent implements OnInit {
 
   private initForm(): void {
     this.clienteForm = this.fb.group({
-      ruc: ['', [Validators.required, Validators.maxLength(30)]],
+      ruc: ['', [Validators.required, Validators.maxLength(30), rucParaguayValidator({ permitirCedulaSinDv: true })]],
       razonSocial: ['', [Validators.required, Validators.maxLength(120)]],
       telefono: ['', [Validators.maxLength(30)]],
       email: ['', [Validators.email, Validators.maxLength(80)]],
       direccion: ['', [Validators.maxLength(150)]],
       activo: [true]
     });
+  }
+
+  aplicarAutocompletarRuc(): void {
+    const rucActual = this.clienteForm.get('ruc')?.value;
+    if (rucActual && String(rucActual).trim()) {
+      const formateado = autocompletarRucDv(String(rucActual));
+      this.clienteForm.patchValue({ ruc: formateado });
+      this.clienteForm.get('ruc')?.markAsTouched();
+      this.clienteForm.get('ruc')?.updateValueAndValidity();
+      this.toast.info(`RUC actualizado con DV oficial: ${formateado}`, 'Módulo 11');
+    }
   }
 
   onBuscar(): void {

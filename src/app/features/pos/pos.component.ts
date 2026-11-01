@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -18,7 +19,8 @@ import { ImpresorasService } from '../../core/services/impresoras.service';
 import { ClientesService } from '../../core/services/clientes.service';
 import { Cliente } from '../../core/models/cliente.model';
 import { Subject, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize } from 'rxjs/operators';
+import { validarRucParaguay, autocompletarRucDv } from '../../core/validators/ruc-modulo11.validator';
 
 export interface ItemCatalogoPOS {
   idUnico: string;
@@ -675,22 +677,32 @@ export interface ItemCatalogoPOS {
                 <div class="form-group autocomplete-group">
                   <div class="field-header-row">
                     <label class="form-label" for="clienteRuc">R.U.C. o C.I. *</label>
-                    @if (buscandoCliente()) {
-                      <span class="searching-badge">
-                        <app-icon name="refresh" [size]="12" extraClass="spin-icon" />
-                        <span>Buscando...</span>
-                      </span>
-                    } @else if (clienteExistente()) {
-                      <span class="existing-badge" title="Cliente registrado en el sistema">
-                        <app-icon name="check" [size]="12" />
-                        <span>Registrado</span>
-                      </span>
-                    } @else if (checkoutData.clienteRuc && checkoutData.clienteRuc.trim().length >= 3) {
-                      <span class="new-client-badge" title="Se guardará automáticamente al emitir la factura">
-                        <app-icon name="plus" [size]="12" />
-                        <span>Nuevo</span>
-                      </span>
-                    }
+                    <div class="d-flex align-center gap-1">
+                      <button
+                        type="button"
+                        class="btn-calc-dv-mini"
+                        title="Calcular Dígito Verificador Módulo 11 oficial"
+                        (click)="aplicarAutocompletarRucCheckout()"
+                      >
+                        DV Módulo 11
+                      </button>
+                      @if (buscandoCliente()) {
+                        <span class="searching-badge">
+                          <app-icon name="refresh" [size]="12" extraClass="spin-icon" />
+                          <span>Buscando...</span>
+                        </span>
+                      } @else if (clienteExistente()) {
+                        <span class="existing-badge" title="Cliente registrado en el sistema">
+                          <app-icon name="check" [size]="12" />
+                          <span>Registrado</span>
+                        </span>
+                      } @else if (checkoutData.clienteRuc && checkoutData.clienteRuc.trim().length >= 3) {
+                        <span class="new-client-badge" title="Se guardará automáticamente al emitir la factura">
+                          <app-icon name="plus" [size]="12" />
+                          <span>Nuevo</span>
+                        </span>
+                      }
+                    </div>
                   </div>
                   <div class="input-with-icon">
                     <input
@@ -940,7 +952,7 @@ export interface ItemCatalogoPOS {
             type="button"
             class="btn btn-secondary"
             (click)="cerrarModalCheckout()"
-            [disabled]="posService.guardandoPedido()"
+            [disabled]="procesandoVenta() || posService.guardandoPedido()"
           >
             Volver
           </button>
@@ -948,9 +960,10 @@ export interface ItemCatalogoPOS {
             type="button"
             class="btn btn-success btn-lg"
             (click)="confirmarVenta()"
-            [disabled]="posService.guardandoPedido() || !cajaService.cajaAbierta()"
+            [disabled]="procesandoVenta() || posService.guardandoPedido() || !cajaService.cajaAbierta()"
           >
-            @if (posService.guardandoPedido()) {
+            @if (procesandoVenta() || posService.guardandoPedido()) {
+              <app-icon name="refresh" [size]="18" extraClass="spin-icon" />
               <span>Registrando venta...</span>
             } @else if (!cajaService.cajaAbierta()) {
               <app-icon name="lock" [size]="18" />
@@ -2517,6 +2530,26 @@ export interface ItemCatalogoPOS {
       font-weight: 600;
     }
 
+    .btn-calc-dv-mini {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--primary, #d97706);
+      background: var(--primary-subtle, #fef3c7);
+      border: 1px solid var(--primary, #d97706);
+      border-radius: var(--radius-sm, 0.375rem);
+      padding: 0.1rem 0.4rem;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .btn-calc-dv-mini:hover {
+      background: var(--primary, #d97706);
+      color: #ffffff;
+    }
+
     .autocomplete-dropdown {
       position: absolute;
       top: 100%;
@@ -2595,7 +2628,9 @@ export class PosComponent implements OnInit {
   public readonly clientesService = inject(ClientesService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
+  public readonly procesandoVenta = signal<boolean>(false);
   public readonly categoriaSeleccionada = signal<string>('TODOS');
   public readonly busquedaTermino = signal<string>('');
   public readonly cantidadAgregar = signal<number>(1);
@@ -2654,7 +2689,7 @@ export class PosComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.cajaService.cargarEstado().subscribe();
+    this.cajaService.cargarEstado().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
     this.posService.cargarCatalogos();
     this.impresorasService.cargarImpresoras();
 
@@ -2663,7 +2698,7 @@ export class PosComponent implements OnInit {
       this.checkoutData.impresoraId = Number(savedPrinter);
     }
 
-    // Suscripción reactiva para autocompletar clientes con debounce
+    // Suscripción reactiva para autocompletar clientes con debounce y desuscripción automática
     this.busquedaRucSubject.pipe(
       debounceTime(250),
       distinctUntilChanged(),
@@ -2679,7 +2714,8 @@ export class PosComponent implements OnInit {
         return this.clientesService.listar(termino.trim()).pipe(
           catchError(() => of([]))
         );
-      })
+      }),
+      takeUntilDestroyed(this.destroyRef)
     ).subscribe((resultados) => {
       this.buscandoCliente.set(false);
       this.clientesSugeridos.set(resultados || []);
@@ -3026,7 +3062,7 @@ export class PosComponent implements OnInit {
 
     // 3. Si no hay ningún resultado en el catálogo en pantalla (filtrados.length === 0),
     // consultar al backend por código de barra / código de producto
-    this.posService.agregarPorCodigoBarra(query, cantidad).subscribe({
+    this.posService.agregarPorCodigoBarra(query, cantidad).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (agregado) => {
         if (agregado) {
           this.resetCantidadAgregar();
@@ -3079,7 +3115,7 @@ export class PosComponent implements OnInit {
     this.cajaService.abrirCaja({
       montoInicial: this.aperturaRapidaMonto,
       observaciones: 'Apertura rápida desde POS'
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sesion) => {
         this.toast.success(`Caja abierta exitosamente (Sesión #${sesion.id}). Ya puedes facturar ventas.`);
         this.cerrarModalAperturaRapida();
@@ -3200,7 +3236,19 @@ export class PosComponent implements OnInit {
     this.posService.cargarCatalogos(true);
   }
 
+  aplicarAutocompletarRucCheckout(): void {
+    if (this.checkoutData.clienteRuc && this.checkoutData.clienteRuc.trim()) {
+      const formateado = autocompletarRucDv(this.checkoutData.clienteRuc);
+      this.checkoutData.clienteRuc = formateado;
+      this.toast.info(`RUC completado con DV oficial: ${formateado}`, 'Módulo 11');
+    }
+  }
+
   confirmarVenta(): void {
+    if (this.procesandoVenta() || this.posService.guardandoPedido()) {
+      return;
+    }
+
     if (!this.cajaService.cajaAbierta()) {
       this.toast.error('No se pueden registrar ventas: no existe una sesión de caja abierta.', 'Caja Cerrada');
       this.abrirModalAperturaRapida();
@@ -3219,10 +3267,27 @@ export class PosComponent implements OnInit {
     }
 
     if (this.checkoutData.tipoComprobante === 'FACTURA') {
-      if (!this.checkoutData.clienteRuc?.trim()) {
+      const rucLimpio = this.checkoutData.clienteRuc?.trim();
+      if (!rucLimpio) {
         this.toast.warning('Para emitir Factura Legal, el RUC o C.I. del cliente es obligatorio.', 'Datos Incompletos');
         return;
       }
+
+      // Validación estricta según algoritmo oficial Módulo 11 (SET / DNIT)
+      const validacionRuc = validarRucParaguay(rucLimpio, true);
+      if (!validacionRuc.valido) {
+        this.toast.error(
+          validacionRuc.motivo || 'El RUC ingresado no cumple con el algoritmo Módulo 11 oficial.',
+          'RUC Fiscal Inválido'
+        );
+        return;
+      }
+
+      // Si el cliente ingresó cédula sin guión, autocompletar el DV oficial para la factura legal
+      if (!rucLimpio.includes('-') && validacionRuc.dvCalculado !== undefined) {
+        this.checkoutData.clienteRuc = `${rucLimpio}-${validacionRuc.dvCalculado}`;
+      }
+
       if (!this.checkoutData.clienteNombre?.trim()) {
         this.toast.warning('Para emitir Factura Legal, la Razón Social o Nombre del cliente es obligatorio.', 'Datos Incompletos');
         return;
@@ -3235,6 +3300,8 @@ export class PosComponent implements OnInit {
     const impresoraIdSeleccionada = this.checkoutData.impresoraId 
       ? Number(this.checkoutData.impresoraId) 
       : undefined;
+
+    this.procesandoVenta.set(true);
 
     this.posService.registrarPedido({
       clienteNombre: clienteFinal,
@@ -3249,7 +3316,10 @@ export class PosComponent implements OnInit {
       clienteRuc: this.checkoutData.clienteRuc?.trim() || undefined,
       clienteDireccion: this.checkoutData.clienteDireccion?.trim() || undefined,
       impresoraId: impresoraIdSeleccionada
-    }).subscribe({
+    }).pipe(
+      finalize(() => this.procesandoVenta.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
       next: (pedidoCreado) => {
         let msg = pedidoCreado.tipoComprobante === 'FACTURA'
           ? `Factura ${pedidoCreado.numeroFactura || '#' + pedidoCreado.id} emitida.`
@@ -3262,7 +3332,7 @@ export class PosComponent implements OnInit {
 
         this.toast.success(msg);
 
-        this.cajaService.cargarResumen().subscribe();
+        this.cajaService.cargarResumen().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
         this.posService.cargarCatalogos(true);
         this.cerrarModalCheckout();
 
@@ -3290,7 +3360,7 @@ export class PosComponent implements OnInit {
         this.voucherTouched.set(false);
       },
       error: (err) => {
-        const mensaje = err.error?.mensaje || err.error?.error || 'Error al procesar el pedido.';
+        const mensaje = err?.error?.mensaje || err?.error?.error || err?.message || 'Error al procesar el pedido.';
         this.toast.error(mensaje, 'Validación de Venta', 8000);
       }
     });

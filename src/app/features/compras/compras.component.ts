@@ -225,8 +225,8 @@ interface ItemSeleccionMultiple {
         size="lg"
         (close)="modalDetalleAbierto.set(false)"
       >
-        @if (compraSeleccionada(); as c) {
-          <div body class="modal-body-content">
+        <div body class="modal-body-content">
+          @if (compraSeleccionada(); as c) {
             <!-- CABECERA DE FACTURA -->
             <div class="factura-header-box">
               <div class="factura-header-row">
@@ -317,9 +317,11 @@ interface ItemSeleccionMultiple {
                 </div>
               </div>
             </div>
-          </div>
+          }
+        </div>
 
-          <div footer class="modal-actions-footer">
+        <div footer class="modal-actions-footer">
+          @if (compraSeleccionada(); as c) {
             <button type="button" class="btn btn-secondary" (click)="modalDetalleAbierto.set(false)">
               Cerrar
             </button>
@@ -329,8 +331,8 @@ interface ItemSeleccionMultiple {
                 <span>Anular Factura</span>
               </button>
             }
-          </div>
-        }
+          }
+        </div>
       </app-modal>
     }
 

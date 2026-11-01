@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CajaService } from '../../core/services/caja.service';
@@ -1406,6 +1407,7 @@ export class CajaComponent implements OnInit {
   public readonly cajaService = inject(CajaService);
   private readonly toast = inject(ToastService);
   public readonly authService = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Modales
   public readonly modalAperturaAbierto = signal<boolean>(false);
@@ -1461,9 +1463,9 @@ export class CajaComponent implements OnInit {
   }
 
   refrescar(): void {
-    this.cajaService.cargarEstado().subscribe();
-    this.cajaService.cargarHistorial().subscribe();
-    this.cajaService.cargarCajasAbiertas().subscribe();
+    this.cajaService.cargarEstado().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.cajaService.cargarHistorial().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.cajaService.cargarCajasAbiertas().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
   }
 
   // --- APERTURA ---
@@ -1492,7 +1494,7 @@ export class CajaComponent implements OnInit {
     this.cajaService.abrirCaja({
       montoInicial: this.aperturaData.montoInicial,
       observaciones: this.aperturaData.observaciones
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sesion) => {
         this.toast.success(`Caja abierta exitosamente (Sesión #${sesion.id}).`);
         this.cerrarModalApertura();
@@ -1663,7 +1665,7 @@ export class CajaComponent implements OnInit {
       montoRealTransferenciaQr: this.cierreData.montoRealTransferenciaQr,
       observaciones: this.cierreData.observaciones,
       sesionId: targetId
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sesion) => {
         const usuarioMsg = target ? ` de ${target.usuarioApertura}` : '';
         this.toast.success(`Caja${usuarioMsg} cerrada exitosamente (Sesión #${sesion.id}). Arqueo completado.`);
@@ -1680,7 +1682,7 @@ export class CajaComponent implements OnInit {
   // --- DETALLE ---
   verDetalleSesion(sesion: SesionCaja): void {
     if (sesion.estado === 'ABIERTA') {
-      this.cajaService.cargarResumen(sesion.id).subscribe({
+      this.cajaService.cargarResumen(sesion.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (resumen) => {
           this.sesionSeleccionada = {
             ...sesion,

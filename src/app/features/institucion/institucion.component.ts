@@ -5,6 +5,7 @@ import { InstitucionService } from '../../core/services/institucion.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { Institucion } from '../../core/models/institucion.model';
+import { validarRucParaguay, autocompletarRucDv } from '../../core/validators/ruc-modulo11.validator';
 
 @Component({
   selector: 'app-institucion',
@@ -91,14 +92,24 @@ import { Institucion } from '../../core/models/institucion.model';
             <div class="form-grid">
               <div class="form-group">
                 <label class="form-label" for="rucNegocio">R.U.C. del Emisor *</label>
-                <input
-                  id="rucNegocio"
-                  type="text"
-                  class="form-control"
-                  placeholder="Ej. 80099887-1"
-                  [(ngModel)]="ruc"
-                  name="ruc"
-                />
+                <div class="input-action-group">
+                  <input
+                    id="rucNegocio"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ej. 80099887-1"
+                    [(ngModel)]="ruc"
+                    name="ruc"
+                  />
+                  <button
+                    type="button"
+                    class="btn-calcular-dv"
+                    title="Calcular Dígito Verificador Módulo 11 oficial"
+                    (click)="autocompletarRucInstitucion()"
+                  >
+                    <span>Calcular DV</span>
+                  </button>
+                </div>
               </div>
 
               <div class="form-group">
@@ -351,6 +362,31 @@ import { Institucion } from '../../core/models/institucion.model';
       display: block;
     }
 
+    .input-action-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .btn-calcular-dv {
+      white-space: nowrap;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary, #d97706);
+      background-color: var(--primary-subtle, #fef3c7);
+      border: 1px solid var(--primary, #d97706);
+      border-radius: var(--radius-md, 0.5rem);
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      flex-shrink: 0;
+    }
+
+    .btn-calcular-dv:hover {
+      background-color: var(--primary, #d97706);
+      color: #ffffff;
+    }
+
     .logo-preview-box {
       border: 2px dashed var(--border-color);
       border-radius: var(--radius-md);
@@ -490,8 +526,27 @@ export class InstitucionComponent implements OnInit {
     this.logoBase64.set('');
   }
 
+  autocompletarRucInstitucion(): void {
+    if (this.ruc && this.ruc.trim()) {
+      const formateado = autocompletarRucDv(this.ruc);
+      this.ruc = formateado;
+      this.toast.info(`RUC del emisor actualizado con DV oficial: ${formateado}`, 'Módulo 11');
+    }
+  }
+
   guardar(): void {
     if (!this.nombre.trim()) return;
+
+    if (this.ruc && this.ruc.trim()) {
+      const v = validarRucParaguay(this.ruc.trim(), false);
+      if (!v.valido) {
+        this.toast.error(
+          v.motivo || 'El RUC del emisor fiscal no es válido según el algoritmo Módulo 11 oficial.',
+          'RUC Inválido'
+        );
+        return;
+      }
+    }
 
     this.guardando.set(true);
     this.institucionService.actualizar({
