@@ -60,6 +60,10 @@ export class CajaService {
     return this._estadoCaja()?.montoInicial ?? 0;
   });
 
+  public readonly puntoExpedicionActivo = computed(() => {
+    return this._estadoCaja()?.puntoExpedicion ?? this._resumenCaja()?.puntoExpedicion ?? null;
+  });
+
   cargarEstado(): Observable<EstadoCaja> {
     return this.http.get<EstadoCaja>(`${this.apiUrl}/api/caja/estado`).pipe(
       tap(estado => {
@@ -120,7 +124,8 @@ export class CajaService {
           sesionId: sesion.id,
           cajeroApertura: sesion.usuarioApertura,
           fechaApertura: sesion.fechaApertura,
-          montoInicial: sesion.montoInicial
+          montoInicial: sesion.montoInicial,
+          puntoExpedicion: sesion.puntoExpedicion
         });
         this._movimientosSesionActiva.set([]);
         this.cargarResumen().subscribe();

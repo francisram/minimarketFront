@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { PosService } from '../../core/services/pos.service';
 import { CajaService } from '../../core/services/caja.service';
+import { PuntoExpedicionService } from '../../core/services/punto-expedicion.service';
+import { PuntoExpedicion } from '../../core/models/punto-expedicion.model';
 import { ToastService } from '../../core/services/toast.service';
 import { Sabor } from '../../core/models/sabor.model';
 import { Presentacion } from '../../core/models/presentacion.model';
@@ -74,6 +76,12 @@ export interface ItemCatalogoPOS {
               <span class="caja-activa-label">
                 <strong>Turno Activo:</strong> {{ cajaService.cajeroActivo() }} (Sesión #{{ cajaService.sesionActivaId() }})
               </span>
+              @if (cajaService.puntoExpedicionActivo(); as pto) {
+                <span class="badge-punto-pos">
+                  <app-icon name="printer" [size]="13" />
+                  <span>Punto: {{ pto.establecimiento }}-{{ pto.puntoEmision }} ({{ pto.nombre }})</span>
+                </span>
+              }
             </div>
             <div class="caja-activa-actions">
               <span class="text-muted small">Apertura: {{ cajaService.fechaAperturaActiva() | date:'HH:mm' }}</span>
@@ -986,7 +994,52 @@ export interface ItemCatalogoPOS {
         <div body class="modal-caja-body">
           <div class="info-alert mb-3">
             <app-icon name="banknote" [size]="20" />
-            <span>Ingresa el fondo inicial de cambio en efectivo para habilitar el cobro de ventas en este turno.</span>
+            <span>Ingresa el fondo inicial de cambio en efectivo y asigna tu punto de facturación para este turno.</span>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label" for="posPuntoExpedicionSelect">Punto de Expedición Fiscal *</label>
+            @if (cargandoPuntosPos()) {
+              <div class="text-muted small py-2">
+                <app-icon name="refresh" [size]="14" />
+                <span>Cargando puntos de facturación disponibles...</span>
+              </div>
+            } @else {
+              <select
+                id="posPuntoExpedicionSelect"
+                class="form-control"
+                [(ngModel)]="aperturaRapidaPuntoId"
+              >
+                @for (pto of puntosExpedicionPos(); track pto.id) {
+                  <option [value]="pto.id" [disabled]="!pto.activo || pto.enUso">
+                    {{ pto.establecimiento }}-{{ pto.puntoEmision }} - {{ pto.nombre }}
+                    {{ pto.enUso ? ' (EN USO: ' + (pto.usuarioActual || pto.cajeroActual || 'otro cajero') + ')' : (!pto.activo ? ' (INACTIVO)' : ' [DISPONIBLE]') }}
+                  </option>
+                }
+              </select>
+
+              @if (obtenerPuntoRapidoSeleccionado(); as sel) {
+                <div class="punto-preview-box-pos">
+                  <div class="d-flex justify-between">
+                    <span><strong>Timbrado:</strong> {{ sel.timbrado }}</span>
+                    <span><strong>Rango:</strong> {{ sel.numeroInicioFactura }} al {{ sel.numeroFinFactura }}</span>
+                  </div>
+                  <div>
+                    <span><strong>Próxima Factura:</strong> </span>
+                    <span class="font-mono text-blue font-bold">
+                      {{ sel.proximaFactura || sel.proximaFacturaFormateada || (sel.establecimiento + '-' + sel.puntoEmision + '-' + ('0000000' + ((sel.ultimoNumeroFactura || 0) + 1)).slice(-7)) }}
+                    </span>
+                  </div>
+                </div>
+              }
+
+              @if (sinPuntosRapidosDisponibles()) {
+                <div class="info-alert alert-danger mt-2">
+                  <app-icon name="alert-triangle" [size]="16" />
+                  <span>Todos los puntos fiscales están en uso o inactivos. Debes cerrar un turno o crear un punto nuevo en Configuración.</span>
+                </div>
+              }
+            }
           </div>
 
           <div class="form-group mb-3">
@@ -1021,7 +1074,7 @@ export interface ItemCatalogoPOS {
             type="button"
             class="btn btn-primary"
             (click)="confirmarAperturaRapida()"
-            [disabled]="cajaService.procesando() || aperturaRapidaMonto < 0"
+            [disabled]="cajaService.procesando() || aperturaRapidaMonto < 0 || sinPuntosRapidosDisponibles()"
           >
             @if (cajaService.procesando()) {
               <span>Abriendo caja...</span>
@@ -1079,6 +1132,29 @@ export interface ItemCatalogoPOS {
     }
     .caja-link-turnos:hover {
       color: #166534;
+    }
+    .badge-punto-pos {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.76rem;
+    }
+    .punto-preview-box-pos {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
     .caja-alerta-banner {
       display: flex;
@@ -2624,6 +2700,7 @@ export interface ItemCatalogoPOS {
 export class PosComponent implements OnInit {
   public readonly posService = inject(PosService);
   public readonly cajaService = inject(CajaService);
+  public readonly puntoExpedicionService = inject(PuntoExpedicionService);
   public readonly impresorasService = inject(ImpresorasService);
   public readonly clientesService = inject(ClientesService);
   private readonly toast = inject(ToastService);
@@ -2655,6 +2732,9 @@ export class PosComponent implements OnInit {
   public readonly modalComprobanteAbierto = signal<boolean>(false);
   public readonly ultimoPedidoEmitido = signal<Pedido | null>(null);
   public aperturaRapidaMonto: number = 100000;
+  public aperturaRapidaPuntoId: number | null = null;
+  public readonly puntosExpedicionPos = signal<PuntoExpedicion[]>([]);
+  public readonly cargandoPuntosPos = signal<boolean>(false);
 
   // Autocompletado reactivo de clientes
   public readonly clientesSugeridos = signal<Cliente[]>([]);
@@ -3097,8 +3177,36 @@ export class PosComponent implements OnInit {
     return toppings.map(t => t.nombre).join(', ');
   }
 
+  obtenerPuntoRapidoSeleccionado(): PuntoExpedicion | null {
+    if (!this.aperturaRapidaPuntoId) return null;
+    return this.puntosExpedicionPos().find(p => p.id === this.aperturaRapidaPuntoId) ?? null;
+  }
+
+  sinPuntosRapidosDisponibles(): boolean {
+    const puntos = this.puntosExpedicionPos();
+    if (puntos.length === 0) return false;
+    return !puntos.some(p => p.activo && !p.enUso);
+  }
+
   abrirModalAperturaRapida(): void {
     this.aperturaRapidaMonto = 100000;
+    this.aperturaRapidaPuntoId = null;
+    this.cargandoPuntosPos.set(true);
+    this.puntoExpedicionService.listarTodos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (puntos) => {
+        this.puntosExpedicionPos.set(puntos);
+        this.cargandoPuntosPos.set(false);
+        const disponible = puntos.find(p => p.activo && !p.enUso);
+        if (disponible) {
+          this.aperturaRapidaPuntoId = disponible.id;
+        } else if (puntos.length > 0) {
+          this.aperturaRapidaPuntoId = puntos[0].id;
+        }
+      },
+      error: () => {
+        this.cargandoPuntosPos.set(false);
+      }
+    });
     this.modalAperturaRapidaAbierto.set(true);
   }
 
@@ -3114,7 +3222,8 @@ export class PosComponent implements OnInit {
 
     this.cajaService.abrirCaja({
       montoInicial: this.aperturaRapidaMonto,
-      observaciones: 'Apertura rápida desde POS'
+      observaciones: 'Apertura rápida desde POS',
+      puntoExpedicionId: this.aperturaRapidaPuntoId ?? undefined
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sesion) => {
         this.toast.success(`Caja abierta exitosamente (Sesión #${sesion.id}). Ya puedes facturar ventas.`);

@@ -2,15 +2,18 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InstitucionService } from '../../core/services/institucion.service';
+import { PuntoExpedicionService } from '../../core/services/punto-expedicion.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
+import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { Institucion } from '../../core/models/institucion.model';
+import { PuntoExpedicion, PuntoExpedicionRequest } from '../../core/models/punto-expedicion.model';
 import { validarRucParaguay, autocompletarRucDv } from '../../core/validators/ruc-modulo11.validator';
 
 @Component({
   selector: 'app-institucion',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent],
+  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent],
   template: `
     <div class="institucion-page">
       <div class="page-header">
@@ -273,7 +276,220 @@ import { validarRucParaguay, autocompletarRucDv } from '../../core/validators/ru
           </div>
         </form>
       </div>
+
+      <!-- ==================== SECCIÓN 4: PUNTOS DE EXPEDICIÓN FISCALES (MULTI-CAJA) ==================== -->
+      <div class="institucion-card">
+        <div class="header-puntos mb-3">
+          <div>
+            <h3 class="section-heading">
+              <app-icon name="point_of_sale" [size]="20" />
+              <span>Puntos de Expedición y Cajas Registradoras (DNIT / SET)</span>
+            </h3>
+            <p class="section-desc">
+              Cada terminal o caja registradora habilitada emite facturas legales bajo su propio código (EEE-PPP) y secuencia independiente.
+            </p>
+          </div>
+          <button type="button" class="btn btn-primary" (click)="abrirModalPunto()">
+            <app-icon name="plus" [size]="16" />
+            <span>Nuevo Punto de Expedición</span>
+          </button>
+        </div>
+
+        @if (puntoExpedicionService.cargando()) {
+          <div class="text-center py-4 text-muted">Cargando puntos de expedición...</div>
+        } @else if (puntoExpedicionService.puntos().length === 0) {
+          <div class="text-center py-4 text-muted">
+            <p class="m-0">No hay puntos de expedición configurados todavía.</p>
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table-puntos">
+              <thead>
+                <tr>
+                  <th>Nombre de Terminal</th>
+                  <th>Prefijo Legal</th>
+                  <th>Timbrado Fiscal</th>
+                  <th>Talonario</th>
+                  <th>Próxima Factura</th>
+                  <th>Estado</th>
+                  <th class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of puntoExpedicionService.puntos(); track p.id) {
+                  <tr>
+                    <td>
+                      <div class="font-bold">{{ p.nombre }}</div>
+                    </td>
+                    <td>
+                      <span class="badge badge-code">{{ p.prefijoLegal }}</span>
+                    </td>
+                    <td>
+                      <div class="text-sm font-medium">{{ p.timbrado || timbrado || 'General' }}</div>
+                      @if (p.timbradoVencimiento) {
+                        <div class="text-xs text-muted">Vence: {{ p.timbradoVencimiento }}</div>
+                      }
+                    </td>
+                    <td>
+                      <span class="text-sm">{{ p.numeroInicioFactura }} - {{ p.numeroFinFactura }}</span>
+                    </td>
+                    <td>
+                      <strong class="text-blue">{{ p.proximaFactura }}</strong>
+                    </td>
+                    <td>
+                      <div class="d-flex flex-column gap-1">
+                        @if (p.activo) {
+                          <span class="badge badge-success">Activo</span>
+                        } @else {
+                          <span class="badge badge-secondary">Inactivo</span>
+                        }
+                        @if (p.enUso) {
+                          <span class="badge badge-warning" title="Turno abierto por {{ p.usuarioActual }}">
+                            En uso: {{ p.usuarioActual }}
+                          </span>
+                        } @else {
+                          <span class="badge badge-info">Libre</span>
+                        }
+                      </div>
+                    </td>
+                    <td class="text-right">
+                      <div class="d-flex align-center justify-end gap-1">
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          title="Editar configuración y talonario"
+                          (click)="editarPunto(p)"
+                        >
+                          <app-icon name="edit" [size]="15" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          [title]="p.activo ? 'Desactivar punto' : 'Activar punto'"
+                          [disabled]="p.enUso"
+                          (click)="toggleEstadoPunto(p)"
+                        >
+                          <app-icon [name]="p.activo ? 'eye-off' : 'eye'" [size]="15" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
     </div>
+
+    <!-- MODAL CREAR / EDITAR PUNTO DE EXPEDICIÓN -->
+    <app-modal
+      [isOpen]="modalPuntoAbierto()"
+      [title]="puntoEditandoId ? 'Editar Punto de Expedición' : 'Nuevo Punto de Expedición'"
+      size="md"
+      (close)="cerrarModalPunto()"
+    >
+      <div body class="modal-form-grid">
+        <div class="form-group full-width">
+          <label class="form-label" for="puntoNombre">Nombre de la Terminal / Caja *</label>
+          <input
+            id="puntoNombre"
+            type="text"
+            class="form-control"
+            placeholder="Ej. Caja 1 - Mostrador / Caja Take Away"
+            [(ngModel)]="formPunto.nombre"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="puntoEstab">Establecimiento (3 dígitos) *</label>
+          <input
+            id="puntoEstab"
+            type="text"
+            maxlength="3"
+            class="form-control"
+            placeholder="001"
+            [(ngModel)]="formPunto.establecimiento"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="puntoEmisionCod">Punto de Emisión (3 dígitos) *</label>
+          <input
+            id="puntoEmisionCod"
+            type="text"
+            maxlength="3"
+            class="form-control"
+            placeholder="001"
+            [(ngModel)]="formPunto.puntoEmision"
+            required
+          />
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label" for="puntoTimbrado">N° de Timbrado Específico (opcional)</label>
+          <input
+            id="puntoTimbrado"
+            type="text"
+            class="form-control"
+            placeholder="Dejar vacío para heredar el timbrado general"
+            [(ngModel)]="formPunto.timbrado"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="puntoInicio">Talonario - Desde</label>
+          <input
+            id="puntoInicio"
+            type="number"
+            min="1"
+            class="form-control"
+            [(ngModel)]="formPunto.numeroInicioFactura"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="puntoFin">Talonario - Hasta (Límite)</label>
+          <input
+            id="puntoFin"
+            type="number"
+            min="1"
+            class="form-control"
+            [(ngModel)]="formPunto.numeroFinFactura"
+          />
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label" for="puntoUltimo">Último Número Emitido</label>
+          <input
+            id="puntoUltimo"
+            type="number"
+            min="0"
+            class="form-control"
+            [(ngModel)]="formPunto.ultimoNumeroFactura"
+          />
+          <small class="field-hint">
+            Próxima factura generada: <strong>{{ formPunto.establecimiento || '001' }}-{{ formPunto.puntoEmision || '001' }}-{{ ((formPunto.ultimoNumeroFactura || 0) + 1).toString().padStart(7, '0') }}</strong>
+          </small>
+        </div>
+      </div>
+
+      <div footer class="d-flex justify-end gap-2">
+        <button type="button" class="btn btn-secondary" (click)="cerrarModalPunto()">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="guardarPunto()"
+          [disabled]="guardandoPunto() || !formPunto.nombre.trim()"
+        >
+          {{ guardandoPunto() ? 'Guardando...' : 'Guardar Punto' }}
+        </button>
+      </div>
+    </app-modal>
   `,
   styles: [`
     .institucion-page {
@@ -445,9 +661,147 @@ import { validarRucParaguay, autocompletarRucDv } from '../../core/validators/ru
 
     .mt-2 { margin-top: 0.5rem; }
     .mt-3 { margin-top: 0.75rem; }
+    .mt-4 { margin-top: 1.5rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+
+    .header-puntos {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    .table-puntos {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .table-puntos th {
+      text-align: left;
+      padding: 0.75rem 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table-puntos td {
+      padding: 0.85rem 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .table-puntos tr:hover td {
+      background: var(--bg-hover, rgba(0,0,0,0.02));
+    }
+
+    .badge-code {
+      font-family: monospace;
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      background: var(--primary-bg, #e0f2fe);
+      color: var(--primary, #0284c7);
+      border-radius: var(--radius-sm, 4px);
+    }
+
+    .badge-success {
+      background: #dcfce7;
+      color: #15803d;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .badge-secondary {
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .badge-warning {
+      background: #fef9c3;
+      color: #a16207;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .badge-info {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .text-blue {
+      color: var(--primary, #0284c7);
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .justify-end {
+      justify-content: flex-end;
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.4rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover:not(:disabled) {
+      color: var(--primary);
+      border-color: var(--primary);
+      background: var(--bg-hover, rgba(0,0,0,0.03));
+    }
+
+    .btn-icon:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .modal-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
 
     @media (max-width: 640px) {
-      .form-grid {
+      .form-grid,
+      .modal-form-grid {
         grid-template-columns: 1fr;
       }
       .full-width {
@@ -458,6 +812,7 @@ import { validarRucParaguay, autocompletarRucDv } from '../../core/validators/ru
 })
 export class InstitucionComponent implements OnInit {
   public readonly institucionService = inject(InstitucionService);
+  public readonly puntoExpedicionService = inject(PuntoExpedicionService);
   private readonly toast = inject(ToastService);
 
   public nombre: string = '';
@@ -477,6 +832,21 @@ export class InstitucionComponent implements OnInit {
   public readonly logoBase64 = signal<string>('');
   public readonly guardando = signal<boolean>(false);
 
+  public readonly modalPuntoAbierto = signal<boolean>(false);
+  public readonly guardandoPunto = signal<boolean>(false);
+  public puntoEditandoId: number | null = null;
+
+  public formPunto: PuntoExpedicionRequest = {
+    nombre: '',
+    establecimiento: '001',
+    puntoEmision: '001',
+    timbrado: '',
+    numeroInicioFactura: 1,
+    numeroFinFactura: 1000,
+    ultimoNumeroFactura: 0,
+    activo: true
+  };
+
   ngOnInit(): void {
     const inst = this.institucionService.institucion();
     this.cargarDatos(inst);
@@ -484,6 +854,8 @@ export class InstitucionComponent implements OnInit {
     this.institucionService.obtenerInstitucion().subscribe((datos: Institucion) => {
       this.cargarDatos(datos);
     });
+
+    this.puntoExpedicionService.listarTodos().subscribe();
   }
 
   private cargarDatos(inst: Institucion): void {
@@ -571,6 +943,86 @@ export class InstitucionComponent implements OnInit {
       error: (err) => {
         this.guardando.set(false);
         const msg = err.error?.mensaje || 'Error al actualizar datos institucionales.';
+        this.toast.error(msg);
+      }
+    });
+  }
+
+  abrirModalPunto(): void {
+    this.puntoEditandoId = null;
+    const count = this.puntoExpedicionService.puntos().length;
+    this.formPunto = {
+      nombre: '',
+      establecimiento: this.establecimiento || '001',
+      puntoEmision: String(count + 1).padStart(3, '0'),
+      timbrado: this.timbrado || '',
+      numeroInicioFactura: 1,
+      numeroFinFactura: 1000,
+      ultimoNumeroFactura: 0,
+      activo: true
+    };
+    this.modalPuntoAbierto.set(true);
+  }
+
+  editarPunto(p: PuntoExpedicion): void {
+    this.puntoEditandoId = p.id;
+    this.formPunto = {
+      nombre: p.nombre,
+      establecimiento: p.establecimiento,
+      puntoEmision: p.puntoEmision,
+      timbrado: p.timbrado || '',
+      numeroInicioFactura: p.numeroInicioFactura,
+      numeroFinFactura: p.numeroFinFactura,
+      ultimoNumeroFactura: p.ultimoNumeroFactura,
+      activo: p.activo
+    };
+    this.modalPuntoAbierto.set(true);
+  }
+
+  cerrarModalPunto(): void {
+    this.modalPuntoAbierto.set(false);
+  }
+
+  guardarPunto(): void {
+    if (!this.formPunto.nombre.trim()) return;
+
+    this.guardandoPunto.set(true);
+    const req: PuntoExpedicionRequest = {
+      nombre: this.formPunto.nombre.trim(),
+      establecimiento: this.formPunto.establecimiento.trim(),
+      puntoEmision: this.formPunto.puntoEmision.trim(),
+      timbrado: this.formPunto.timbrado?.trim() || undefined,
+      numeroInicioFactura: this.formPunto.numeroInicioFactura,
+      numeroFinFactura: this.formPunto.numeroFinFactura,
+      ultimoNumeroFactura: this.formPunto.ultimoNumeroFactura || 0,
+      activo: this.formPunto.activo ?? true
+    };
+
+    const op = this.puntoEditandoId
+      ? this.puntoExpedicionService.actualizar(this.puntoEditandoId, req)
+      : this.puntoExpedicionService.crear(req);
+
+    op.subscribe({
+      next: () => {
+        this.guardandoPunto.set(false);
+        this.cerrarModalPunto();
+      },
+      error: (err) => {
+        this.guardandoPunto.set(false);
+        const msg = err.error?.mensaje || 'Error al guardar punto de expedición.';
+        this.toast.error(msg);
+      }
+    });
+  }
+
+  toggleEstadoPunto(p: PuntoExpedicion): void {
+    if (p.enUso) {
+      this.toast.warning(`No puedes desactivar el punto ${p.prefijoLegal} porque está en uso por ${p.usuarioActual}.`);
+      return;
+    }
+    this.puntoExpedicionService.cambiarEstado(p.id, !p.activo).subscribe({
+      error: (err) => {
+        const msg = err.error?.mensaje || 'Error al cambiar estado del punto.';
         this.toast.error(msg);
       }
     });

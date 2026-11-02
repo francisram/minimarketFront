@@ -6,6 +6,8 @@ import { CajaService } from '../../core/services/caja.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SesionCaja, TipoMovimientoCaja, CategoriaMovimientoCaja, MovimientoCaja } from '../../core/models/caja.model';
+import { PuntoExpedicionService } from '../../core/services/punto-expedicion.service';
+import { PuntoExpedicion } from '../../core/models/punto-expedicion.model';
 import { AppIconComponent } from '../../shared/components/icon/icon.component';
 import { AppModalComponent } from '../../shared/components/modal/modal.component';
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
@@ -106,6 +108,12 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                         <span class="text-muted">Apertura:</span>
                         <span>{{ caja.fechaApertura | date:'dd/MM/yyyy HH:mm' }}</span>
                       </div>
+                      @if (caja.puntoExpedicion) {
+                        <div class="caja-live-row">
+                          <span class="text-muted">Punto Fiscal:</span>
+                          <span class="badge badge-punto-sm">{{ caja.puntoExpedicion.establecimiento }}-{{ caja.puntoExpedicion.puntoEmision }} ({{ caja.puntoExpedicion.nombre }})</span>
+                        </div>
+                      }
                       <div class="caja-live-row">
                         <span class="text-muted">Fondo Inicial:</span>
                         <span class="font-medium">{{ caja.montoInicial | appCurrency }}</span>
@@ -163,6 +171,13 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
               <span><strong>Cajero:</strong> {{ cajaService.estadoCaja()?.cajeroApertura }}</span>
               <span class="meta-divider">•</span>
               <span><strong>Apertura:</strong> {{ cajaService.estadoCaja()?.fechaApertura | date:'dd/MM/yyyy HH:mm' }}</span>
+              @if (cajaService.puntoExpedicionActivo(); as punto) {
+                <span class="meta-divider">•</span>
+                <span class="badge badge-punto">
+                  <app-icon name="printer" [size]="13" />
+                  <span>Punto: {{ punto.establecimiento }}-{{ punto.puntoEmision }} ({{ punto.nombre }})</span>
+                </span>
+              }
             </div>
           </div>
 
@@ -477,7 +492,52 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
         <div body class="modal-caja-body">
           <div class="info-alert">
             <app-icon name="banknote" [size]="20" />
-            <span>Ingresa el monto del fondo fijo o caja chica en efectivo disponible para dar cambio.</span>
+            <span>Ingresa el monto del fondo fijo o caja chica en efectivo disponible para dar cambio y selecciona tu punto de facturación.</span>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label" for="puntoExpedicionSelect">Punto de Expedición Fiscal *</label>
+            @if (cargandoPuntos()) {
+              <div class="text-muted small py-2">
+                <app-icon name="refresh" [size]="14" />
+                <span>Cargando puntos de expedición fiscales...</span>
+              </div>
+            } @else {
+              <select
+                id="puntoExpedicionSelect"
+                class="form-control"
+                [(ngModel)]="aperturaData.puntoExpedicionId"
+              >
+                @for (pto of puntosExpedicion(); track pto.id) {
+                  <option [value]="pto.id" [disabled]="!pto.activo || pto.enUso">
+                    {{ pto.establecimiento }}-{{ pto.puntoEmision }} - {{ pto.nombre }}
+                    {{ pto.enUso ? ' (EN USO: ' + (pto.usuarioActual || pto.cajeroActual || 'otro cajero') + ')' : (!pto.activo ? ' (INACTIVO)' : ' [DISPONIBLE]') }}
+                  </option>
+                }
+              </select>
+
+              @if (obtenerPuntoSeleccionado(); as sel) {
+                <div class="punto-preview-box">
+                  <div class="d-flex justify-between">
+                    <span><strong>Timbrado:</strong> {{ sel.timbrado }}</span>
+                    <span><strong>Rango Válido:</strong> {{ sel.numeroInicioFactura }} al {{ sel.numeroFinFactura }}</span>
+                  </div>
+                  <div>
+                    <span><strong>Próxima Factura a Emitir:</strong> </span>
+                    <span class="font-mono text-blue font-bold">
+                      {{ sel.proximaFactura || sel.proximaFacturaFormateada || (sel.establecimiento + '-' + sel.puntoEmision + '-' + ('0000000' + ((sel.ultimoNumeroFactura || 0) + 1)).slice(-7)) }}
+                    </span>
+                  </div>
+                </div>
+              }
+
+              @if (sinPuntosDisponibles()) {
+                <div class="info-alert alert-danger mt-2">
+                  <app-icon name="alert-triangle" [size]="16" />
+                  <span>Todos los puntos de expedición están en uso por otros cajeros o inactivos. Debes cerrar un turno previo o crear un nuevo punto en Configuración.</span>
+                </div>
+              }
+            }
           </div>
 
           <div class="form-group mb-3">
@@ -519,7 +579,12 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
           <button type="button" class="btn btn-secondary" (click)="cerrarModalApertura()" [disabled]="cajaService.procesando()">
             Cancelar
           </button>
-          <button type="button" class="btn btn-primary" (click)="confirmarApertura()" [disabled]="cajaService.procesando() || aperturaData.montoInicial < 0">
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="confirmarApertura()"
+            [disabled]="cajaService.procesando() || aperturaData.montoInicial < 0 || sinPuntosDisponibles()"
+          >
             @if (cajaService.procesando()) {
               <span>Abriendo caja...</span>
             } @else {
@@ -811,6 +876,16 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 
               <div class="ticket-section">
                 <div class="ticket-row"><span>Cajero Apertura:</span><strong>{{ sesionSeleccionada.usuarioApertura }}</strong></div>
+                @if (sesionSeleccionada.puntoExpedicion) {
+                  <div class="ticket-row">
+                    <span>Punto Fiscal:</span>
+                    <strong>{{ sesionSeleccionada.puntoExpedicion.establecimiento }}-{{ sesionSeleccionada.puntoExpedicion.puntoEmision }} ({{ sesionSeleccionada.puntoExpedicion.nombre }})</strong>
+                  </div>
+                  <div class="ticket-row">
+                    <span>Timbrado Legal:</span>
+                    <span>{{ sesionSeleccionada.puntoExpedicion.timbrado }}</span>
+                  </div>
+                }
                 <div class="ticket-row"><span>Fecha Apertura:</span><span>{{ sesionSeleccionada.fechaApertura | date:'dd/MM/yyyy HH:mm' }}</span></div>
                 @if (sesionSeleccionada.fechaCierre) {
                   <div class="ticket-row"><span>Cajero Cierre:</span><strong>{{ sesionSeleccionada.usuarioCierre || 'N/A' }}</strong></div>
@@ -1761,10 +1836,43 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
       border-color: #94a3b8;
       color: #1e293b;
     }
+    .badge-punto {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.76rem;
+    }
+    .badge-punto-sm {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .punto-preview-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
   `]
 })
 export class CajaComponent implements OnInit {
   public readonly cajaService = inject(CajaService);
+  public readonly puntoExpedicionService = inject(PuntoExpedicionService);
   private readonly toast = inject(ToastService);
   public readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
@@ -1775,10 +1883,15 @@ export class CajaComponent implements OnInit {
   public readonly modalDetalleAbierto = signal<boolean>(false);
   public readonly modalMovimientoAbierto = signal<boolean>(false);
 
+  // Puntos de Expedición
+  public readonly puntosExpedicion = signal<PuntoExpedicion[]>([]);
+  public readonly cargandoPuntos = signal<boolean>(false);
+
   // Formularios
   public aperturaData = {
     montoInicial: 100000,
-    observaciones: ''
+    observaciones: '',
+    puntoExpedicionId: null as number | null
   };
 
   public cierreData = {
@@ -1842,6 +1955,17 @@ export class CajaComponent implements OnInit {
     return !!cajeroApertura && cajeroApertura === usuarioActual;
   }
 
+  obtenerPuntoSeleccionado(): PuntoExpedicion | null {
+    if (!this.aperturaData.puntoExpedicionId) return null;
+    return this.puntosExpedicion().find(p => p.id === this.aperturaData.puntoExpedicionId) ?? null;
+  }
+
+  sinPuntosDisponibles(): boolean {
+    const puntos = this.puntosExpedicion();
+    if (puntos.length === 0) return false;
+    return !puntos.some(p => p.activo && !p.enUso);
+  }
+
   ngOnInit(): void {
     this.refrescar();
   }
@@ -1856,8 +1980,25 @@ export class CajaComponent implements OnInit {
   abrirModalApertura(): void {
     this.aperturaData = {
       montoInicial: 100000,
-      observaciones: ''
+      observaciones: '',
+      puntoExpedicionId: null
     };
+    this.cargandoPuntos.set(true);
+    this.puntoExpedicionService.listarTodos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (puntos) => {
+        this.puntosExpedicion.set(puntos);
+        this.cargandoPuntos.set(false);
+        const disponible = puntos.find(p => p.activo && !p.enUso);
+        if (disponible) {
+          this.aperturaData.puntoExpedicionId = disponible.id;
+        } else if (puntos.length > 0) {
+          this.aperturaData.puntoExpedicionId = puntos[0].id;
+        }
+      },
+      error: () => {
+        this.cargandoPuntos.set(false);
+      }
+    });
     this.modalAperturaAbierto.set(true);
   }
 
@@ -1877,7 +2018,8 @@ export class CajaComponent implements OnInit {
 
     this.cajaService.abrirCaja({
       montoInicial: this.aperturaData.montoInicial,
-      observaciones: this.aperturaData.observaciones
+      observaciones: this.aperturaData.observaciones,
+      puntoExpedicionId: this.aperturaData.puntoExpedicionId ?? undefined
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sesion) => {
         this.toast.success(`Caja abierta exitosamente (Sesión #${sesion.id}).`);

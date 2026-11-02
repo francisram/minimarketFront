@@ -1,3 +1,5 @@
+import { PuntoExpedicion } from './punto-expedicion.model';
+
 export type EstadoSesionCaja = 'ABIERTA' | 'CERRADA';
 
 export type TipoMovimientoCaja = 'EGRESO' | 'INGRESO';
@@ -39,6 +41,7 @@ export interface EstadoCaja {
   cajeroApertura?: string | null;
   fechaApertura?: string | null;
   montoInicial?: number | null;
+  puntoExpedicion?: PuntoExpedicion | null;
 }
 
 export interface ResumenCaja {
@@ -60,6 +63,7 @@ export interface ResumenCaja {
   totalPedidos?: number;
   cantidadVouchers?: number;
   cantidadTransferencias?: number;
+  puntoExpedicion?: PuntoExpedicion;
 }
 
 export interface SesionCaja {
@@ -85,6 +89,7 @@ export interface SesionCaja {
   totalIngresosCaja?: number;
   totalEgresosCaja?: number;
   movimientos?: MovimientoCaja[];
+  puntoExpedicion?: PuntoExpedicion;
   cantidadPedidos?: number;
   observacionesApertura?: string | null;
   observacionesCierre?: string | null;
@@ -93,6 +98,7 @@ export interface SesionCaja {
 export interface AbrirCajaRequest {
   montoInicial: number;
   observaciones?: string;
+  puntoExpedicionId?: number;
 }
 
 export interface CerrarCajaRequest {
