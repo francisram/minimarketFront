@@ -113,4 +113,12 @@ export class AdminService {
       error: () => {}
     });
   }
+
+  actualizarLicencia(dto: { planId: number; fechaVencimiento?: string | null }): Observable<Licencia> {
+    return this.http.put<Licencia>(`${this.apiUrl}/api/licencia`, dto).pipe(
+      tap((data) => {
+        this.licencia.set(data || null);
+      })
+    );
+  }
 }
