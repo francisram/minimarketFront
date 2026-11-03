@@ -9,11 +9,12 @@ import { Pedido, DetallePedido } from '../../../core/models/pedido.model';
 import { AppIconComponent } from '../icon/icon.component';
 import { AppModalComponent } from '../modal/modal.component';
 import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
+import { NotaCreditoModalComponent } from '../nota-credito-modal/nota-credito-modal.component';
 
 @Component({
   selector: 'app-comprobante-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe],
+  imports: [CommonModule, FormsModule, AppIconComponent, AppModalComponent, AppCurrencyPipe, NotaCreditoModalComponent],
   template: `
     <app-modal
       [isOpen]="isOpen()"
@@ -274,6 +275,17 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         </div>
 
         <div class="footer-actions">
+          @if (esFactura() && pedido()?.estado !== 'CANCELADO' && pedido()?.id) {
+            <button
+              type="button"
+              class="btn btn-outline"
+              (click)="modalNotaCredito.set(true)"
+              title="Anular total o parcialmente esta factura con una nota de crédito"
+            >
+              <span>Nota de crédito</span>
+            </button>
+          }
+
           @if (pedido()?.estado !== 'CANCELADO') {
             <button
               type="button"
@@ -399,6 +411,11 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
         </button>
       </div>
     </app-modal>
+    <app-nota-credito-modal
+      [isOpen]="modalNotaCredito()"
+      [pedidoId]="pedido()?.id ?? null"
+      (close)="modalNotaCredito.set(false)"
+    />
   `,
   styles: [`
     .comprobante-body {
@@ -888,6 +905,7 @@ export class ComprobanteModalComponent implements OnInit {
   private readonly pedidosService = inject(PedidosService);
   private readonly toast = inject(ToastService);
 
+  modalNotaCredito = signal(false);
   isOpen = input<boolean>(false);
   pedido = input<Pedido | null>(null);
   close = output<void>();

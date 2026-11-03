@@ -1006,11 +1006,11 @@ interface DonutSegment {
                       </tr>
                     </thead>
                     <tbody>
-                      @for (item of libroIvaData()!.items; track item.pedidoId; let idx = $index) {
+                      @for (item of libroIvaData()!.items; track item.tipoComprobante + item.numeroComprobante; let idx = $index) {
                         <tr [class.text-muted]="item.anulada" [style.text-decoration]="item.anulada ? 'line-through' : null">
                           <td>{{ idx + 1 }}</td>
                           <td>{{ item.fecha | date:'dd/MM/yyyy' }}</td>
-                          <td><span class="badge" [class.badge-primary]="item.tipoComprobante === 'FACTURA'">{{ item.tipoComprobante }}</span></td>
+                          <td><span class="badge" [class.badge-primary]="item.tipoComprobante === 'FACTURA'" [class.badge-warning]="item.tipoComprobante === 'NOTA_CREDITO'">{{ item.tipoComprobante === 'NOTA_CREDITO' ? 'NOTA CRÉD.' : item.tipoComprobante }}</span></td>
                           <td>
                             <strong>{{ item.numeroComprobante || ('#' + item.pedidoId) }}</strong>
                             @if (item.anulada) { <span class="badge badge-danger" style="text-decoration:none">ANULADA</span> }
