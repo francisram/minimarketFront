@@ -61,9 +61,12 @@ import { AppCurrencyPipe } from '../../pipes/currency-format.pipe';
               <!-- DATOS DE TIMBRADO PARA FACTURA -->
               @if (esFactura()) {
                 <div class="timbrado-box">
-                  <div><strong>TIMBRADO N°:</strong> {{ institucionService.institucion().timbrado || '17894561' }}</div>
-                  @if (institucionService.institucion().timbradoVencimiento) {
-                    <div><strong>Válido hasta:</strong> {{ institucionService.institucion().timbradoVencimiento }}</div>
+                  <!-- Datos de la emisión guardados en el pedido; solo los pedidos viejos caen a los actuales -->
+                  @if (timbradoComprobante(); as timbrado) {
+                    <div><strong>TIMBRADO N°:</strong> {{ timbrado }}</div>
+                  }
+                  @if (vigenciaTimbradoComprobante(); as vigencia) {
+                    <div><strong>Válido hasta:</strong> {{ vigencia }}</div>
                   }
                   <div class="timbrado-iva">IVA Incluido</div>
                 </div>
@@ -916,6 +919,12 @@ export class ComprobanteModalComponent implements OnInit {
     }
     return `#${p.id}`;
   });
+
+  timbradoComprobante = computed(() =>
+    this.pedido()?.timbrado || this.institucionService.institucion().timbrado || '');
+
+  vigenciaTimbradoComprobante = computed(() =>
+    this.pedido()?.timbradoVencimiento || this.institucionService.institucion().timbradoVencimiento || '');
 
   trxId = computed(() => {
     const p = this.pedido();

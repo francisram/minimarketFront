@@ -105,6 +105,7 @@ export interface ItemLibroIvaDTO {
   iva10: number;
   totalIva: number;
   total: number;
+  anulada?: boolean;
 }
 
 export interface LibroVentasIvaDTO {

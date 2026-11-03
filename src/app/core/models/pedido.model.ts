@@ -70,6 +70,9 @@ export interface Pedido {
   clienteRuc?: string;
   clienteDireccion?: string;
   numeroFactura?: string;
+  /** Timbrado y vigencia con los que se emitió la factura (la configuración actual puede haber cambiado). */
+  timbrado?: string;
+  timbradoVencimiento?: string;
   sesionCajaId?: number;
   sesionCajaEstado?: string;
   totalExentas?: number;
