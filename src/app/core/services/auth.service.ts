@@ -111,8 +111,21 @@ export class AuthService {
     return this._permisos().some(p => p === c);
   }
 
+  /** Usuario del último intento de login: si el servidor exige cambiar la contraseña, la pantalla de cambio lo reutiliza. */
+  public static readonly CLAVE_USUARIO_PENDIENTE = 'login_usuario_pendiente';
+
   login(credentials: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/api/auth/login`, credentials).pipe(
+    sessionStorage.setItem(AuthService.CLAVE_USUARIO_PENDIENTE, credentials.username);
+    return this.iniciarSesion(this.http.post<LoginResponse>(`${this.apiUrl}/api/auth/login`, credentials));
+  }
+
+  /** Cambia la contraseña (obligatoria o voluntaria) y, si el servidor lo acepta, deja la sesión iniciada. */
+  cambiarPassword(request: CambiarPasswordRequest): Observable<LoginResponse> {
+    return this.iniciarSesion(this.http.post<LoginResponse>(`${this.apiUrl}/api/auth/cambiar-password`, request));
+  }
+
+  private iniciarSesion(respuesta$: Observable<LoginResponse>): Observable<LoginResponse> {
+    return respuesta$.pipe(
       tap(res => {
         const session: UserSession = {
           token: res.token,
@@ -123,6 +136,7 @@ export class AuthService {
         localStorage.setItem('username', res.username);
         localStorage.setItem('rol', res.rol);
         this._session.set(session);
+        sessionStorage.removeItem(AuthService.CLAVE_USUARIO_PENDIENTE);
       }),
       switchMap(res => {
         if (this.isAdminOrOwner()) {
@@ -133,10 +147,6 @@ export class AuthService {
         );
       })
     );
-  }
-
-  cambiarPassword(request: CambiarPasswordRequest): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/api/auth/cambiar-password`, request);
   }
 
   logout(redirect: boolean = true): void {

@@ -26,6 +26,22 @@ import { ToastComponent } from '../../../shared/components/toast/toast.component
 
         <form [formGroup]="passwordForm" (ngSubmit)="onSubmit()">
           <div class="form-group">
+            <label class="form-label" for="username">Usuario</label>
+            <input
+              id="username"
+              type="text"
+              formControlName="username"
+              class="form-control"
+              autocomplete="username"
+              [readonly]="usuarioPrecargado"
+              [class.is-invalid]="esInvalido('username')"
+            />
+            @if (esInvalido('username')) {
+              <div class="form-error">El usuario es requerido.</div>
+            }
+          </div>
+
+          <div class="form-group">
             <label class="form-label" for="passwordActual">Contraseña Actual</label>
             <input
               id="passwordActual"
@@ -47,11 +63,11 @@ import { ToastComponent } from '../../../shared/components/toast/toast.component
               type="password"
               formControlName="nuevaPassword"
               class="form-control"
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               [class.is-invalid]="esInvalido('nuevaPassword')"
             />
             @if (esInvalido('nuevaPassword')) {
-              <div class="form-error">Debe tener al menos 6 caracteres.</div>
+              <div class="form-error">Debe tener al menos 8 caracteres y ser distinta de la actual.</div>
             }
           </div>
 
@@ -154,9 +170,15 @@ export class CambiarPasswordComponent {
 
   public readonly cargando = signal<boolean>(false);
 
+  // Usuario del login que exigió el cambio (o el de la sesión activa); si no se conoce, se pide en pantalla.
+  private readonly usuarioConocido: string =
+    sessionStorage.getItem(AuthService.CLAVE_USUARIO_PENDIENTE) || localStorage.getItem('username') || '';
+  public readonly usuarioPrecargado = this.usuarioConocido !== '';
+
   public readonly passwordForm = this.fb.group({
+    username: [this.usuarioConocido, [Validators.required]],
     passwordActual: ['', [Validators.required]],
-    nuevaPassword: ['', [Validators.required, Validators.minLength(6)]],
+    nuevaPassword: ['', [Validators.required, Validators.minLength(8)]],
     confirmarPassword: ['', [Validators.required]]
   });
 
@@ -182,20 +204,22 @@ export class CambiarPasswordComponent {
     }
 
     this.cargando.set(true);
-    const { passwordActual, nuevaPassword } = this.passwordForm.value;
+    const { username, passwordActual, nuevaPassword } = this.passwordForm.value;
 
     this.authService.cambiarPassword({
+      username: username!.trim(),
       passwordActual: passwordActual!,
-      nuevaPassword: nuevaPassword!
+      passwordNueva: nuevaPassword!
     }).subscribe({
-      next: () => {
+      next: (res) => {
         this.cargando.set(false);
         this.toast.success('Contraseña actualizada con éxito.');
-        this.router.navigate(['/pos']);
+        this.router.navigate([this.authService.hasPermission('pedidos') ? '/pos' : '/dashboard']);
       },
       error: (err) => {
         this.cargando.set(false);
-        const mensaje = err.error?.mensaje || err.error?.error || 'No se pudo cambiar la contraseña. Verifica la contraseña actual.';
+        const detalle = err.error?.campos ? Object.values(err.error.campos).join(' ') : '';
+        const mensaje = detalle || err.error?.mensaje || err.error?.error || 'No se pudo cambiar la contraseña. Verifica la contraseña actual.';
         this.toast.error(mensaje);
       }
     });

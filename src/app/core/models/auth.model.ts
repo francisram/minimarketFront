@@ -10,8 +10,9 @@ export interface LoginResponse {
 }
 
 export interface CambiarPasswordRequest {
+  username: string;
   passwordActual: string;
-  nuevaPassword: string;
+  passwordNueva: string;
 }
 
 export interface UserSession {
