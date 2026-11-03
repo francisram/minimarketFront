@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BackupService } from '../../../core/services/backup.service';
+import { BackupEstadoComponent } from '../../../shared/components/backup-estado/backup-estado.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { AppIconComponent } from '../../../shared/components/icon/icon.component';
 import { BackupInfo } from '../../../core/models/backup.model';
@@ -9,7 +10,7 @@ import { BackupInfo } from '../../../core/models/backup.model';
 @Component({
   selector: 'app-backup',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppIconComponent, DatePipe],
+  imports: [CommonModule, FormsModule, AppIconComponent, DatePipe, BackupEstadoComponent],
   template: `
     <div class="backup-page">
       <!-- HEADER PRINCIPAL -->
@@ -40,6 +41,9 @@ import { BackupInfo } from '../../../core/models/backup.model';
           </div>
         </div>
       </div>
+
+      <!-- SALUD DE LOS RESPALDOS AUTOMÁTICOS -->
+      <app-backup-estado modo="panel" [intervaloMs]="30000" />
 
       <!-- GRID DE ACCIONES PRINCIPALES (2 CARDS HERO) -->
       <div class="actions-grid">

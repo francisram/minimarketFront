@@ -1,8 +1,9 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, tap, finalize, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { BackupInfo, BackupResponse } from '../models/backup.model';
+import { BackupInfo, BackupResponse, EstadoRespaldo } from '../models/backup.model';
+import { SILENCIAR_ERRORES } from '../interceptors/error.interceptor';
 import { ToastService } from './toast.service';
 
 @Injectable({
@@ -17,6 +18,19 @@ export class BackupService {
   public readonly cargando = signal<boolean>(false);
   public readonly generandoBackup = signal<boolean>(false);
   public readonly restaurando = signal<boolean>(false);
+
+  /** Salud de los respaldos automáticos (último respaldo, verificación, copia externa y alertas). */
+  public readonly estado = signal<EstadoRespaldo | null>(null);
+
+  /** Sondeo de fondo: no genera toasts ni redirecciones si falla. */
+  actualizarEstado(): void {
+    this.http.get<EstadoRespaldo>(`${this.apiUrl}/api/backup/estado`, {
+      context: new HttpContext().set(SILENCIAR_ERRORES, true)
+    }).subscribe({
+      next: e => this.estado.set(e),
+      error: () => { /* se conserva el último estado conocido */ }
+    });
+  }
 
   listarRespaldos(): Observable<BackupInfo[]> {
     this.cargando.set(true);

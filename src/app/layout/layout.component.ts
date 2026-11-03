@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
+import { BackupEstadoComponent } from '../shared/components/backup-estado/backup-estado.component';
 import { MenuService } from '../core/services/menu.service';
 import { InstitucionService } from '../core/services/institucion.service';
 import { StockService } from '../core/services/stock.service';
@@ -12,7 +13,7 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, AppIconComponent, ToastComponent],
+  imports: [CommonModule, RouterModule, AppIconComponent, ToastComponent, BackupEstadoComponent],
   template: `
     <div class="app-layout">
       <!-- SIDEBAR -->
@@ -154,6 +155,9 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
         </header>
 
         <main class="content-area">
+          @if (authService.isAdminOrOwner()) {
+            <app-backup-estado modo="banner" [intervaloMs]="300000" />
+          }
           <router-outlet></router-outlet>
         </main>
       </div>
