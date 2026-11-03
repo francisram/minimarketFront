@@ -99,6 +99,18 @@ import { ToastComponent } from '../../../shared/components/toast/toast.component
           </button>
         </form>
 
+        <div class="olvido-password">
+          <button type="button" class="link-olvido" (click)="mostrarAyudaClave.set(!mostrarAyudaClave())">
+            ¿Olvidaste tu contraseña?
+          </button>
+          @if (mostrarAyudaClave()) {
+            <p class="olvido-ayuda">
+              Pide a un administrador que la restablezca desde <strong>Usuarios</strong>. Te dará una contraseña
+              temporal y deberás elegir una nueva al ingresar.
+            </p>
+          }
+        </div>
+
         <div class="login-footer">
           <span class="badge-version">v1.0 • Spring Boot 3 & Angular 20</span>
         </div>
@@ -106,6 +118,9 @@ import { ToastComponent } from '../../../shared/components/toast/toast.component
     </div>
   `,
   styles: [`
+    .olvido-password { text-align: center; margin-top: 14px; }
+    .link-olvido { background: none; border: none; color: var(--color-primary, #ea580c); cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
+    .olvido-ayuda { margin: 8px 0 0; font-size: 0.82rem; color: var(--text-muted, #64748b); }
     .login-page {
       min-height: 100vh;
       display: flex;
@@ -230,6 +245,7 @@ export class LoginComponent {
 
   public readonly cargando = signal<boolean>(false);
   public readonly mostrarPassword = signal<boolean>(false);
+  public readonly mostrarAyudaClave = signal<boolean>(false);
 
   public readonly loginForm = this.fb.group({
     username: ['', [Validators.required]],

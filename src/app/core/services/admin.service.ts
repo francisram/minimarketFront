@@ -52,6 +52,11 @@ export class AdminService {
     );
   }
 
+  /** Restablece la contraseña de un usuario: devuelve una clave temporal que se muestra una sola vez. */
+  restablecerPassword(id: number): Observable<{ passwordTemporal: string }> {
+    return this.http.post<{ passwordTemporal: string }>(`${this.apiUrl}/api/usuarios/${id}/restablecer-password`, {});
+  }
+
   eliminarUsuario(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/api/usuarios/${id}`).pipe(
       tap(() => {

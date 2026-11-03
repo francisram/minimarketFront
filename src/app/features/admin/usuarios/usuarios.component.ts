@@ -121,6 +121,17 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
                         </span>
                       }
 
+                      @if (puedeModificar(u) && u.username !== authService.username()) {
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          (click)="restablecerPassword(u)"
+                          title="Restablecer contraseña (olvidó su clave)"
+                        >
+                          <app-icon name="refresh" [size]="15" />
+                        </button>
+                      }
+
                       @if (!esUsuarioProtegido(u)) {
                         <button
                           type="button"
@@ -150,6 +161,27 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
           </table>
         </div>
       </div>
+
+      <!-- MODAL CLAVE TEMPORAL (se muestra una sola vez) -->
+      <app-modal
+        [isOpen]="!!claveTemporal()"
+        title="Contraseña restablecida"
+        size="sm"
+        (close)="claveTemporal.set(null)"
+      >
+        <div body>
+          <p>
+            Entrega esta contraseña temporal a <strong>{{ claveTemporal()?.usuario }}</strong>.
+            Deberá cambiarla al ingresar y sus sesiones abiertas se cerraron.
+          </p>
+          <div class="clave-temporal">{{ claveTemporal()?.clave }}</div>
+          <p class="text-muted text-sm">Se muestra una sola vez. Si la pierdes, restablece de nuevo.</p>
+        </div>
+        <div footer>
+          <button type="button" class="btn btn-secondary" (click)="copiarClaveTemporal()">Copiar</button>
+          <button type="button" class="btn btn-primary" (click)="claveTemporal.set(null)">Listo</button>
+        </div>
+      </app-modal>
 
       <!-- MODAL CREAR / EDITAR USUARIO -->
       <app-modal
@@ -236,6 +268,11 @@ import { AppModalComponent } from '../../../shared/components/modal/modal.compon
     </div>
   `,
   styles: [`
+    .clave-temporal {
+      font-family: monospace; font-size: 1.6rem; letter-spacing: 2px; text-align: center;
+      padding: 14px; margin: 12px 0; border-radius: 8px; user-select: all;
+      background: var(--bg-muted, #f1f5f9); border: 1px dashed var(--border-color, #94a3b8);
+    }
     .usuarios-page {
       display: flex;
       flex-direction: column;
@@ -441,6 +478,7 @@ export class UsuariosComponent implements OnInit {
 
   public readonly modalAbierto = signal<boolean>(false);
   public readonly guardando = signal<boolean>(false);
+  public readonly claveTemporal = signal<{ usuario: string; clave: string } | null>(null);
 
   public busqueda: string = '';
   public usuarioEditando: Usuario | null = null;
@@ -506,6 +544,23 @@ export class UsuariosComponent implements OnInit {
       passwordNuncaExpira: u.passwordNuncaExpira ?? true
     };
     this.modalAbierto.set(true);
+  }
+
+  restablecerPassword(u: Usuario): void {
+    if (!confirm(`¿Restablecer la contraseña de "${u.username}"? Se generará una clave temporal y se cerrarán sus sesiones abiertas.`)) {
+      return;
+    }
+    this.adminService.restablecerPassword(u.id!).subscribe({
+      next: res => this.claveTemporal.set({ usuario: u.username, clave: res.passwordTemporal }),
+      error: err => this.toast.error(err.error?.mensaje || err.error?.error || 'No se pudo restablecer la contraseña.')
+    });
+  }
+
+  copiarClaveTemporal(): void {
+    const clave = this.claveTemporal()?.clave;
+    if (clave && navigator.clipboard) {
+      navigator.clipboard.writeText(clave).then(() => this.toast.success('Contraseña copiada.'));
+    }
   }
 
   esUsuarioProtegido(u: Usuario): boolean {
