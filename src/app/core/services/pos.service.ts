@@ -24,6 +24,7 @@ export class PosService {
   public readonly productosSimples = signal<ProductoSimple[]>([]);
   public readonly cargandoCatalogos = signal<boolean>(false);
   public readonly guardandoPedido = signal<boolean>(false);
+  private trxIdPendiente: string | null = null;
 
   // Armado actual de helado
   public readonly selectedPresentacion = signal<Presentacion | null>(null);
@@ -364,6 +365,7 @@ export class PosService {
   }
 
   limpiarTicket(): void {
+    this.trxIdPendiente = null;
     this.ticketItems.set([]);
   }
 
@@ -427,13 +429,17 @@ export class PosService {
       condicionVenta: datosVenta.condicionVenta,
       clienteRuc: datosVenta.clienteRuc?.trim() || undefined,
       clienteDireccion: datosVenta.clienteDireccion?.trim() || undefined,
-      impresoraId: datosVenta.impresoraId
+      impresoraId: datosVenta.impresoraId,
+      // Mismo id en cada reintento de esta venta: el backend devuelve la ya registrada
+      // en vez de cobrarla dos veces si la respuesta se perdió.
+      trxId: this.trxIdPendiente ??= `TRX-${crypto.randomUUID()}`
     };
 
     this.guardandoPedido.set(true);
 
     return this.http.post<Pedido>(`${this.apiUrl}/api/pedidos`, request).pipe(
       tap(() => {
+        this.trxIdPendiente = null;
         this.limpiarTicket();
         this.guardandoPedido.set(false);
       }),
