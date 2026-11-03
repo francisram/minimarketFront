@@ -5,6 +5,7 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   token: string;
+  refreshToken?: string;
   username: string;
   rol: string;
 }
@@ -19,4 +20,5 @@ export interface UserSession {
   username: string;
   rol: string;
   token: string;
+  refreshToken?: string;
 }

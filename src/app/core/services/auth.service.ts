@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, switchMap, map, of, catchError } from 'rxjs';
+import { Observable, tap, switchMap, map, of, catchError, throwError, finalize, shareReplay } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CambiarPasswordRequest, LoginRequest, LoginResponse, UserSession } from '../models/auth.model';
 
@@ -36,9 +36,23 @@ export class AuthService {
     return r === 'CAJERO' || r === 'ROLE_CAJERO';
   });
 
+  /** Renovación en curso: las peticiones que fallan a la vez comparten una sola llamada. */
+  private renovacion$: Observable<string> | null = null;
+  private temporizadorRenovacion: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
     if (this.isAuthenticated()) {
       this.cargarPermisosDeRol().subscribe();
+      this.programarRenovacion();
+    }
+    // Otra pestaña renovó o cerró la sesión: esta se alinea en vez de usar un token de refresco ya rotado
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', e => {
+        if (e.key === 'token' || e.key === 'refreshToken') {
+          this._session.set(this.loadSessionFromStorage());
+          this.programarRenovacion();
+        }
+      });
     }
   }
 
@@ -48,7 +62,7 @@ export class AuthService {
       const username = localStorage.getItem('username');
       const rol = localStorage.getItem('rol');
       if (token && username && rol) {
-        return { token, username, rol };
+        return { token, username, rol, refreshToken: localStorage.getItem('refreshToken') ?? undefined };
       }
     } catch (e) {
       console.error('Error leyendo sesión del almacenamiento local', e);
@@ -127,15 +141,7 @@ export class AuthService {
   private iniciarSesion(respuesta$: Observable<LoginResponse>): Observable<LoginResponse> {
     return respuesta$.pipe(
       tap(res => {
-        const session: UserSession = {
-          token: res.token,
-          username: res.username,
-          rol: res.rol
-        };
-        localStorage.setItem('token', res.token);
-        localStorage.setItem('username', res.username);
-        localStorage.setItem('rol', res.rol);
-        this._session.set(session);
+        this.guardarSesion(res);
         sessionStorage.removeItem(AuthService.CLAVE_USUARIO_PENDIENTE);
       }),
       switchMap(res => {
@@ -149,7 +155,90 @@ export class AuthService {
     );
   }
 
+  private guardarSesion(res: LoginResponse): void {
+    localStorage.setItem('token', res.token);
+    localStorage.setItem('username', res.username);
+    localStorage.setItem('rol', res.rol);
+    if (res.refreshToken) {
+      localStorage.setItem('refreshToken', res.refreshToken);
+    }
+    this._session.set({
+      token: res.token,
+      username: res.username,
+      rol: res.rol,
+      refreshToken: res.refreshToken ?? this._session()?.refreshToken
+    });
+    this.programarRenovacion();
+  }
+
+  /** Vencimiento (ms epoch) del token de acceso, leído de su claim "exp"; null si no se puede leer. */
+  private vencimientoToken(token: string | null): number | null {
+    try {
+      const payload = JSON.parse(atob((token ?? '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Renueva el token un minuto antes de que venza para que el cajero nunca note el cambio. */
+  private programarRenovacion(): void {
+    if (this.temporizadorRenovacion) {
+      clearTimeout(this.temporizadorRenovacion);
+      this.temporizadorRenovacion = null;
+    }
+    const exp = this.vencimientoToken(this.token());
+    if (!exp || !this._session()?.refreshToken) {
+      return;
+    }
+    const espera = Math.max(exp - Date.now() - 60_000, 5_000);
+    this.temporizadorRenovacion = setTimeout(() => {
+      this.renovarToken().subscribe({ error: () => {} });
+    }, espera);
+  }
+
+  /**
+   * Pide un token de acceso nuevo con el de refresco. Si otra pestaña ya lo renovó, usa ese en vez de gastar
+   * el token de refresco (que se rota y solo sirve una vez). Emite el token de acceso nuevo.
+   */
+  renovarToken(): Observable<string> {
+    if (this.renovacion$) {
+      return this.renovacion$;
+    }
+    const enMemoria = this._session();
+    const enAlmacen = this.loadSessionFromStorage();
+    if (enAlmacen && enMemoria && enAlmacen.token !== enMemoria.token) {
+      const exp = this.vencimientoToken(enAlmacen.token);
+      if (exp && exp > Date.now() + 5_000) {
+        this._session.set(enAlmacen);
+        this.programarRenovacion();
+        return of(enAlmacen.token);
+      }
+    }
+    const refreshToken = (enAlmacen ?? enMemoria)?.refreshToken;
+    if (!refreshToken) {
+      return throwError(() => new Error('Sin token de renovación'));
+    }
+    this.renovacion$ = this.http.post<LoginResponse>(`${this.apiUrl}/api/auth/refresh`, { refreshToken }).pipe(
+      tap(res => this.guardarSesion(res)),
+      map(res => res.token),
+      finalize(() => { this.renovacion$ = null; }),
+      shareReplay(1)
+    );
+    return this.renovacion$;
+  }
+
   logout(redirect: boolean = true): void {
+    // Cierra la sesión también en el servidor: el token copiado deja de servir aunque no haya vencido
+    const refreshToken = this._session()?.refreshToken ?? localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      this.http.post(`${this.apiUrl}/api/auth/logout`, { refreshToken }).subscribe({ error: () => {} });
+    }
+    if (this.temporizadorRenovacion) {
+      clearTimeout(this.temporizadorRenovacion);
+      this.temporizadorRenovacion = null;
+    }
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('rol');
