@@ -44,7 +44,10 @@ export interface SaborRankingDTO {
 export interface DashboardReporteDTO {
   periodoInicio: string;
   periodoFin: string;
+  /** Ventas netas: ya descuentan las notas de crédito. */
   totalVentas: number;
+  totalNotasCredito?: number;
+  totalVentasCredito?: number;
   cantidadVentas: number;
   ticketPromedio: number;
   totalEfectivo: number;
@@ -85,6 +88,7 @@ export interface ReporteVentasDTO {
   periodoInicio: string;
   periodoFin: string;
   totalVentas: number;
+  totalNotasCredito?: number;
   cantidadVentas: number;
   resumenMetodosPago: Record<string, number>;
   pedidos: PedidoResumenReporteDTO[];

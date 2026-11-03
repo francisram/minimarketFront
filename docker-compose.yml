@@ -4,6 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: heladeria-front
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     ports:
       - "8086:80"
       - "8443:443"

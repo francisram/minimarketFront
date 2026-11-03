@@ -239,6 +239,9 @@ import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
                 <span class="kpi-label">Total Ventas Turno</span>
                 <span class="kpi-value font-bold">{{ (cajaService.resumenCaja()?.totalVentas ?? 0) | appCurrency }}</span>
                 <span class="kpi-sub">{{ cajaService.resumenCaja()?.totalPedidos ?? 0 }} pedidos registrados</span>
+                @if (cajaService.resumenCaja()?.totalVentasCredito) {
+                  <span class="kpi-sub">Incluye {{ cajaService.resumenCaja()?.totalVentasCredito | appCurrency }} a crédito (no cobrado)</span>
+                }
               </div>
             </div>
 

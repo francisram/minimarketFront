@@ -55,6 +55,8 @@ export interface ResumenCaja {
   totalTarjetaCredito?: number;
   totalTransferenciaQr?: number;
   totalVentas?: number;
+  /** Ventas a crédito del turno: no entraron dinero, no figuran en ningún método de pago. */
+  totalVentasCredito?: number;
   totalIngresosCaja?: number;
   totalEgresosCaja?: number;
   movimientos?: MovimientoCaja[];

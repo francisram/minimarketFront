@@ -304,6 +304,12 @@ interface DonutSegment {
                     <span class="kpi-label">Total Recaudado</span>
                     <strong class="kpi-val">{{ dashboardData()!.totalVentas | appCurrency }}</strong>
                     <span class="kpi-sub">{{ dashboardData()!.cantidadVentas }} ventas confirmadas</span>
+                    @if (dashboardData()!.totalNotasCredito) {
+                      <span class="kpi-sub">Neto de notas de crédito: −{{ dashboardData()!.totalNotasCredito | appCurrency }}</span>
+                    }
+                    @if (dashboardData()!.totalVentasCredito) {
+                      <span class="kpi-sub">Incluye {{ dashboardData()!.totalVentasCredito | appCurrency }} a crédito (por cobrar)</span>
+                    }
                   </div>
                 </div>
 
@@ -626,6 +632,12 @@ interface DonutSegment {
                     <span>Total Facturado:</span>
                     <strong>{{ ventasData()!.totalVentas | appCurrency }}</strong>
                   </div>
+                  @if (ventasData()!.totalNotasCredito) {
+                    <div class="resumen-pill">
+                      <span>Notas de crédito:</span>
+                      <strong>−{{ ventasData()!.totalNotasCredito | appCurrency }}</strong>
+                    </div>
+                  }
                   <div class="resumen-pill">
                     <span>Transacciones:</span>
                     <strong>{{ ventasData()!.cantidadVentas }}</strong>
