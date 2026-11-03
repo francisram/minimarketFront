@@ -1,11 +1,17 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { ToastService } from '../services/toast.service';
 
+/** Las peticiones marcadas con este token (p. ej. sondeos de fondo) no muestran toasts ni redirigen al fallar. */
+export const SILENCIAR_ERRORES = new HttpContextToken<boolean>(() => false);
+
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  if (req.context.get(SILENCIAR_ERRORES)) {
+    return next(req);
+  }
   const authService = inject(AuthService);
   const router = inject(Router);
   const toastService = inject(ToastService);

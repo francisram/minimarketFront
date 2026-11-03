@@ -18,6 +18,7 @@ import { AppModalComponent } from '../../shared/components/modal/modal.component
 import { AppCurrencyPipe } from '../../shared/pipes/currency-format.pipe';
 import { ComprobanteModalComponent } from '../../shared/components/comprobante-modal/comprobante-modal.component';
 import { ImpresorasService } from '../../core/services/impresoras.service';
+import { SpoolerAlertComponent } from '../../shared/components/spooler-alert/spooler-alert.component';
 import { ClientesService } from '../../core/services/clientes.service';
 import { Cliente } from '../../core/models/cliente.model';
 import { Subject, of } from 'rxjs';
@@ -43,11 +44,14 @@ export interface ItemCatalogoPOS {
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, AppIconComponent, AppModalComponent, AppCurrencyPipe, ComprobanteModalComponent],
+  imports: [CommonModule, FormsModule, RouterModule, AppIconComponent, AppModalComponent, AppCurrencyPipe, ComprobanteModalComponent, SpoolerAlertComponent],
   template: `
     <div class="pos-wrapper">
       <!-- PANEL IZQUIERDO: CATÁLOGO Y ARMADOR -->
       <div class="pos-main">
+        <!-- TICKETS QUE AGOTARON LOS REINTENTOS DEL SPOOLER DE IMPRESIÓN -->
+        <app-spooler-alert />
+
         <!-- ALERTA DE CAJA CERRADA / INDICADOR DE TURNO ACTIVO -->
         @if (!cajaService.cajaAbierta()) {
           <div class="caja-alerta-banner mb-3">
