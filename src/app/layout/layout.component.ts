@@ -1,6 +1,8 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
 import { AuthService } from '../core/services/auth.service';
 import { LicenciaEstadoComponent } from '../shared/components/licencia-estado/licencia-estado.component';
 import { BackupEstadoComponent } from '../shared/components/backup-estado/backup-estado.component';
@@ -158,7 +160,9 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
         <main class="content-area">
           @if (authService.isAdminOrOwner()) {
             <app-licencia-estado />
-            <app-backup-estado modo="banner" [intervaloMs]="300000" />
+            @if (!enPaginaBackup()) {
+              <app-backup-estado modo="banner" [intervaloMs]="300000" />
+            }
           }
           <router-outlet></router-outlet>
         </main>
@@ -582,6 +586,15 @@ export class AppLayoutComponent implements OnInit {
   public readonly stockService = inject(StockService);
   public readonly cajaService = inject(CajaService);
   private readonly router = inject(Router);
+
+  /** En /backup el panel ya muestra el estado completo: el banner global sería un duplicado. */
+  public readonly enPaginaBackup = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map(e => e.urlAfterRedirects.split('?')[0].startsWith('/backup'))
+    ),
+    { initialValue: this.router.url.split('?')[0].startsWith('/backup') }
+  );
 
   public readonly sidebarAbierto = signal<boolean>(false);
   public readonly esPantallaCompleta = signal<boolean>(false);
