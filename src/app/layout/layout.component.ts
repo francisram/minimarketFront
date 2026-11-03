@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -12,11 +12,13 @@ import { StockService } from '../core/services/stock.service';
 import { CajaService } from '../core/services/caja.service';
 import { AppIconComponent } from '../shared/components/icon/icon.component';
 import { ToastComponent } from '../shared/components/toast/toast.component';
+import { AvisoInactividadComponent } from '../shared/components/aviso-inactividad/aviso-inactividad.component';
+import { InactividadService } from '../core/services/inactividad.service';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, AppIconComponent, ToastComponent, BackupEstadoComponent, LicenciaEstadoComponent],
+  imports: [CommonModule, RouterModule, AppIconComponent, ToastComponent, BackupEstadoComponent, LicenciaEstadoComponent, AvisoInactividadComponent],
   template: `
     <div class="app-layout">
       <!-- SIDEBAR -->
@@ -170,6 +172,7 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
 
       <!-- TOAST NOTIFICACIONES -->
       <app-toast />
+      <app-aviso-inactividad />
     </div>
   `,
   styles: [`
@@ -579,7 +582,7 @@ import { ToastComponent } from '../shared/components/toast/toast.component';
     }
   `]
 })
-export class AppLayoutComponent implements OnInit {
+export class AppLayoutComponent implements OnInit, OnDestroy {
   public readonly authService = inject(AuthService);
   public readonly menuService = inject(MenuService);
   public readonly institucionService = inject(InstitucionService);
@@ -599,7 +602,10 @@ export class AppLayoutComponent implements OnInit {
   public readonly sidebarAbierto = signal<boolean>(false);
   public readonly esPantallaCompleta = signal<boolean>(false);
 
+  private readonly inactividad = inject(InactividadService);
+
   ngOnInit(): void {
+    this.inactividad.iniciar();
     this.menuService.cargarPaginasDisponibles();
     this.institucionService.cargarInstitucion();
     this.stockService.cargarAlertas();
@@ -610,6 +616,10 @@ export class AppLayoutComponent implements OnInit {
         this.esPantallaCompleta.set(!!document.fullscreenElement);
       });
     }
+  }
+
+  ngOnDestroy(): void {
+    this.inactividad.detener();
   }
 
   toggleFullscreen(): void {
