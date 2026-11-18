@@ -1,19 +1,10 @@
 const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
-    if (window.location?.protocol === 'https:') {
-      return '';
+    // Si se ejecuta con `ng serve` en desarrollo local (puerto 4200)
+    if (window.location?.port === '4200') {
+      return 'http://localhost:8085';
     }
-    if (
-      window.location?.port === '8086' ||
-      window.location?.port === '8443' ||
-      window.location?.port === '80' ||
-      window.location?.port === '443'
-    ) {
-      return '';
-    }
-    if (window.location?.hostname) {
-      return `http://${window.location.hostname}:8085`;
-    }
+    return '';
   }
   return 'http://localhost:8085';
 };
