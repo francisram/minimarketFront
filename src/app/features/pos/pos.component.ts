@@ -918,6 +918,89 @@ export interface ItemCatalogoPOS {
             </div>
           }
 
+          <!-- PAGO EN EFECTIVO Y CÁLCULO DE VUELTO -->
+          @if (checkoutData.metodoPago === 'EFECTIVO') {
+            <div class="efectivo-box mb-3">
+              <div class="efectivo-header">
+                <div class="d-flex align-center gap-2">
+                  <app-icon name="banknote" [size]="18" />
+                  <strong class="efectivo-title">Pago en Efectivo y Cálculo de Vuelto</strong>
+                </div>
+                <span class="badge-efectivo-tag">Efectivo</span>
+              </div>
+
+              <div class="form-group mb-2">
+                <label class="form-label text-muted m-0 mb-1" for="montoRecibidoInput" style="font-size: 0.8125rem; font-weight: 600;">
+                  Monto entregado por el cliente (Gs.)
+                </label>
+                <div class="input-currency-wrapper">
+                  <span class="currency-prefix">Gs.</span>
+                  <input
+                    id="montoRecibidoInput"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    class="form-control input-monto-recibido"
+                    [class.is-invalid]="faltanteCalculado() > 0"
+                    placeholder="0"
+                    [ngModel]="montoRecibido()"
+                    (ngModelChange)="montoRecibido.set($event ? +$event : null)"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="quick-amounts">
+                  <button
+                    type="button"
+                    class="btn-chip"
+                    [class.active-chip]="montoRecibido() === posService.totalTicket()"
+                    (click)="setMontoRecibido(posService.totalTicket())"
+                  >
+                    Exacto ({{ posService.totalTicket() | appCurrency }})
+                  </button>
+                  @for (b of billetesSugeridos(); track b) {
+                    <button
+                      type="button"
+                      class="btn-chip"
+                      [class.active-chip]="montoRecibido() === b"
+                      (click)="setMontoRecibido(b)"
+                    >
+                      {{ b | appCurrency }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- RESULTADO DEL VUELTO O FALTANTE -->
+              @if (montoRecibido() && montoRecibido()! > 0) {
+                @if (vueltoCalculado() > 0) {
+                  <div class="vuelto-card vuelto-positivo">
+                    <div class="vuelto-label-group">
+                      <span class="vuelto-badge-text">VUELTO A ENTREGAR:</span>
+                      <div class="vuelto-amount-text">{{ vueltoCalculado() | appCurrency }}</div>
+                    </div>
+                    <div class="vuelto-icon-circle">
+                      <app-icon name="check" [size]="20" />
+                    </div>
+                  </div>
+                } @else if (vueltoCalculado() === 0 && montoRecibido() === posService.totalTicket()) {
+                  <div class="vuelto-card vuelto-exacto">
+                    <app-icon name="check" [size]="16" />
+                    <span>Pago exacto. No requiere vuelto.</span>
+                  </div>
+                } @else if (faltanteCalculado() > 0) {
+                  <div class="vuelto-card vuelto-insuficiente">
+                    <app-icon name="alert-triangle" [size]="16" />
+                    <span>Monto insuficiente. Faltan: <strong>{{ faltanteCalculado() | appCurrency }}</strong></span>
+                  </div>
+                }
+              } @else {
+                <div class="vuelto-hint">
+                  💡 Ingrese cuánto pagó el cliente o presione un botón de billete para calcular el vuelto.
+                </div>
+              }
+            </div>
+          }
+
           <!-- IMPRESORA DE TICKET / FACTURA -->
           <div class="form-group">
             <label class="form-label" for="impresoraSelect">
@@ -2512,6 +2595,171 @@ export interface ItemCatalogoPOS {
       box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
     }
 
+    /* PAGO EN EFECTIVO & CÁLCULO DE VUELTO */
+    .efectivo-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .efectivo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #166534;
+      margin-bottom: 0.65rem;
+    }
+
+    .efectivo-title {
+      font-size: 0.95rem;
+      color: #166534;
+    }
+
+    .badge-efectivo-tag {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+
+    .input-currency-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .currency-prefix {
+      position: absolute;
+      left: 0.85rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .input-monto-recibido {
+      padding-left: 3rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      background: #ffffff;
+      color: var(--text-main);
+    }
+
+    .input-monto-recibido.is-invalid {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .quick-amounts {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-chip {
+      background: #ffffff;
+      border: 1px solid #86efac;
+      border-radius: 999px;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #166534;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-chip:hover {
+      background: #22c55e;
+      color: #ffffff;
+      border-color: #16a34a;
+    }
+
+    .btn-chip.active-chip {
+      background: #16a34a;
+      color: #ffffff;
+      border-color: #15803d;
+    }
+
+    .vuelto-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      margin-top: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .vuelto-positivo {
+      background: linear-gradient(135deg, #15803d, #16a34a);
+      color: #ffffff;
+      box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.25);
+    }
+
+    .vuelto-label-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .vuelto-badge-text {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      opacity: 0.9;
+    }
+
+    .vuelto-amount-text {
+      font-size: 1.45rem;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
+    }
+
+    .vuelto-icon-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .vuelto-exacto {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #166534;
+      font-size: 0.85rem;
+      font-weight: 600;
+      gap: 0.5rem;
+      justify-content: flex-start;
+    }
+
+    .vuelto-insuficiente {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+      font-size: 0.85rem;
+      gap: 0.5rem;
+      justify-content: flex-start;
+    }
+
+    .vuelto-hint {
+      font-size: 0.8rem;
+      color: #166534;
+      opacity: 0.85;
+      margin-top: 0.4rem;
+    }
+
     .comprobante-options {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -2747,6 +2995,63 @@ export class PosComponent implements OnInit {
   public readonly mostrarSugerenciasClientes = signal<boolean>(false);
   public readonly voucherTouched = signal<boolean>(false);
   private readonly busquedaRucSubject = new Subject<string>();
+
+  // Pago en Efectivo y Cálculo de Vuelto
+  public readonly montoRecibido = signal<number | null>(null);
+
+  public readonly vueltoCalculado = computed<number>(() => {
+    const recibido = this.montoRecibido();
+    const total = this.posService.totalTicket();
+    if (recibido === null || recibido === undefined || recibido <= 0) {
+      return 0;
+    }
+    return Math.max(0, recibido - total);
+  });
+
+  public readonly faltanteCalculado = computed<number>(() => {
+    const recibido = this.montoRecibido();
+    const total = this.posService.totalTicket();
+    if (recibido !== null && recibido !== undefined && recibido > 0 && recibido < total) {
+      return total - recibido;
+    }
+    return 0;
+  });
+
+  public readonly billetesSugeridos = computed<number[]>(() => {
+    const total = this.posService.totalTicket();
+    if (total <= 0) return [20000, 50000, 100000];
+
+    const billetesEstandar = [20000, 50000, 100000, 200000];
+    const sugerencias = new Set<number>();
+
+    const proxDiezMil = Math.ceil(total / 10000) * 10000;
+    if (proxDiezMil > total) {
+      sugerencias.add(proxDiezMil);
+    }
+
+    for (const b of billetesEstandar) {
+      if (b > total) {
+        sugerencias.add(b);
+      }
+    }
+
+    if (total > 100000) {
+      const proxCienMil = Math.ceil(total / 100000) * 100000;
+      if (proxCienMil > total) sugerencias.add(proxCienMil);
+      sugerencias.add(proxCienMil + 50000);
+      sugerencias.add(proxCienMil + 100000);
+    }
+
+    return Array.from(sugerencias).sort((a, b) => a - b).slice(0, 4);
+  });
+
+  setMontoRecibido(monto: number): void {
+    this.montoRecibido.set(monto);
+    const input = document.getElementById('montoRecibidoInput') as HTMLInputElement | null;
+    if (input) {
+      input.focus();
+    }
+  }
 
   public checkoutData: {
     clienteNombre: string;
@@ -3257,13 +3562,24 @@ export class PosComponent implements OnInit {
     this.clienteExistente.set(null);
     this.clientesSugeridos.set([]);
     this.mostrarSugerenciasClientes.set(false);
+    this.montoRecibido.set(null);
 
     this.modalCheckoutAbierto.set(true);
+
+    if (this.checkoutData.metodoPago === 'EFECTIVO') {
+      setTimeout(() => {
+        const input = document.getElementById('montoRecibidoInput') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+        }
+      }, 150);
+    }
   }
 
   cerrarModalCheckout(): void {
     this.modalCheckoutAbierto.set(false);
     this.mostrarSugerenciasClientes.set(false);
+    this.montoRecibido.set(null);
   }
 
   get esVoucherRequerido(): boolean {
@@ -3286,6 +3602,15 @@ export class PosComponent implements OnInit {
     } else {
       this.voucherTouched.set(false);
       this.checkoutData.numeroVoucher = '';
+    }
+
+    if (metodo === 'EFECTIVO') {
+      setTimeout(() => {
+        const input = document.getElementById('montoRecibidoInput') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+        }
+      }, 100);
     }
   }
 
@@ -3368,6 +3693,24 @@ export class PosComponent implements OnInit {
       return;
     }
 
+    if (this.checkoutData.metodoPago === 'EFECTIVO') {
+      const recibido = this.montoRecibido();
+      const total = this.posService.totalTicket();
+      if (recibido !== null && recibido !== undefined && recibido > 0 && recibido < total) {
+        const faltante = total - recibido;
+        const faltanteFmt = new AppCurrencyPipe().transform(faltante);
+        this.toast.warning(
+          `El monto entregado por el cliente es menor al total a cobrar. Faltan ${faltanteFmt}.`,
+          'Monto Insuficiente'
+        );
+        const input = document.getElementById('montoRecibidoInput') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+        }
+        return;
+      }
+    }
+
     if (this.esVoucherRequerido && this.esVoucherInvalido()) {
       this.voucherTouched.set(true);
       const metodoNombre = this.checkoutData.metodoPago === 'TARJETA_DEBITO' ? 'Débito' : 'Crédito';
@@ -3438,6 +3781,11 @@ export class PosComponent implements OnInit {
           ? `Factura ${pedidoCreado.numeroFactura || '#' + pedidoCreado.id} emitida.`
           : `Venta #${pedidoCreado.id} confirmada.`;
 
+        if (this.checkoutData.metodoPago === 'EFECTIVO' && this.vueltoCalculado() > 0) {
+          const vueltoFmt = new AppCurrencyPipe().transform(this.vueltoCalculado());
+          msg += ` • Vuelto: ${vueltoFmt}`;
+        }
+
         if (impresoraIdSeleccionada) {
           const impEncontrada = this.impresorasService.impresoras().find(i => i.id === impresoraIdSeleccionada);
           msg += impEncontrada ? ` Enviando ticket a ${impEncontrada.nombre}...` : ' Enviando ticket a la impresora...';
@@ -3471,6 +3819,7 @@ export class PosComponent implements OnInit {
         this.clientesSugeridos.set([]);
         this.mostrarSugerenciasClientes.set(false);
         this.voucherTouched.set(false);
+        this.montoRecibido.set(null);
       },
       error: (err) => {
         const mensaje = err?.error?.mensaje || err?.error?.error || err?.message || 'Error al procesar el pedido.';
