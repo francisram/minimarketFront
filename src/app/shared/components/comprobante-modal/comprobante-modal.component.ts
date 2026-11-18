@@ -192,6 +192,19 @@ import { NotaCreditoModalComponent } from '../nota-credito-modal/nota-credito-mo
                 <span class="total-val">{{ total() | appCurrency }}</span>
               </div>
 
+              @if (!esFactura() && pedido()?.metodoPago === 'EFECTIVO' && pedido()?.montoRecibido) {
+                <div class="ticket-pago-efectivo-box">
+                  <div class="pago-row">
+                    <span>PAGÓ CON:</span>
+                    <strong>{{ pedido()?.montoRecibido | appCurrency }}</strong>
+                  </div>
+                  <div class="pago-row vuelto-row">
+                    <span>SU VUELTO:</span>
+                    <strong>{{ (pedido()?.vuelto || 0) | appCurrency }}</strong>
+                  </div>
+                </div>
+              }
+
               <!-- LIQUIDACIÓN DEL IVA (PARAGUAY) -->
               @if (esFactura()) {
                 <div class="iva-box">
@@ -637,6 +650,27 @@ import { NotaCreditoModalComponent } from '../nota-credito-modal/nota-credito-mo
     .total-val {
       font-size: 11px;
       font-weight: 700;
+    }
+
+    .ticket-pago-efectivo-box {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      padding: 0.3rem 0;
+      border-bottom: 1px dashed #333;
+      font-size: 10.5px;
+    }
+
+    .pago-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #333;
+    }
+
+    .pago-row.vuelto-row {
+      font-weight: 700;
+      color: #0f172a;
     }
 
     .iva-box {

@@ -381,6 +381,8 @@ export class PosService {
     clienteRuc?: string;
     clienteDireccion?: string;
     impresoraId?: number;
+    montoRecibido?: number;
+    vuelto?: number;
   }): Observable<Pedido> {
     if (this.guardandoPedido()) {
       return throwError(() => new Error('Ya se está procesando una venta. Por favor, aguarda.'));
@@ -430,6 +432,8 @@ export class PosService {
       clienteRuc: datosVenta.clienteRuc?.trim() || undefined,
       clienteDireccion: datosVenta.clienteDireccion?.trim() || undefined,
       impresoraId: datosVenta.impresoraId,
+      montoRecibido: datosVenta.montoRecibido,
+      vuelto: datosVenta.vuelto,
       // Mismo id en cada reintento de esta venta: el backend devuelve la ya registrada
       // en vez de cobrarla dos veces si la respuesta se perdió.
       trxId: this.trxIdPendiente ??= `TRX-${crypto.randomUUID()}`

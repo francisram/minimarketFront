@@ -3771,7 +3771,9 @@ export class PosComponent implements OnInit {
       condicionVenta: this.checkoutData.condicionVenta,
       clienteRuc: this.checkoutData.clienteRuc?.trim() || undefined,
       clienteDireccion: this.checkoutData.clienteDireccion?.trim() || undefined,
-      impresoraId: impresoraIdSeleccionada
+      impresoraId: impresoraIdSeleccionada,
+      montoRecibido: this.checkoutData.metodoPago === 'EFECTIVO' ? (this.montoRecibido() ?? undefined) : undefined,
+      vuelto: this.checkoutData.metodoPago === 'EFECTIVO' ? this.vueltoCalculado() : undefined
     }).pipe(
       finalize(() => this.procesandoVenta.set(false)),
       takeUntilDestroyed(this.destroyRef)

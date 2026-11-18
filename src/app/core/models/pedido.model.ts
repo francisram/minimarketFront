@@ -34,6 +34,8 @@ export interface CrearPedidoRequest {
   clienteRuc?: string;
   clienteDireccion?: string;
   impresoraId?: number;
+  montoRecibido?: number;
+  vuelto?: number;
 }
 
 export interface DetallePedido {
@@ -57,6 +59,8 @@ export interface Pedido {
   metodoPago: MetodoPago;
   numeroVoucher?: string;
   trxId?: string;
+  montoRecibido?: number;
+  vuelto?: number;
   estado: EstadoPedido;
   notas?: string;
   total: number;
